@@ -205,8 +205,15 @@ impl Processor for MusetteProcessor {
                     return false;
                 }
             }
-            STATE_VERSION if state.len() == STATE_BYTES && word(8) as usize == PARAMETER_COUNT => {
-                for index in 0..PARAMETER_COUNT {
+            // Parameters are only ever added at the end, so a state saved by
+            // an older build carries a prefix: what it does not carry keeps
+            // its default.
+            STATE_VERSION
+                if state.len() >= 12
+                    && (1..=PARAMETER_COUNT).contains(&(word(8) as usize))
+                    && state.len() == 12 + 8 * word(8) as usize =>
+            {
+                for index in 0..word(8) as usize {
                     if !loaded.set(index, value(12 + 8 * index)) {
                         return false;
                     }

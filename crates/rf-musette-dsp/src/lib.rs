@@ -1,9 +1,11 @@
 //! The RF-Musette engine: a physically modelled accordion, treble side first.
 //!
-//! Milestone 1 is one reed: the accordion F4 tongue the IfM Zwota measured,
-//! blown by the bellows through its own inertance, on key 65. Every other
-//! key is tracked and silent. The model and its sources are in [`reed`];
-//! every mechanism and constant is entered in the ledger, `docs/MODEL.md`.
+//! One reed so far: the accordion F4 tongue the IfM Zwota measured, in its
+//! cell, on key 65, behind the pallet that key lifts. The bellows holds its
+//! pressure whether or not a key is down; the pallet is what lets air
+//! through. Every other key is tracked and silent. The model and its sources
+//! are in [`reed`] and [`pallet`]; every mechanism and constant is entered
+//! in the ledger, `docs/MODEL.md`.
 //!
 //! The crate is `no_std` and never allocates: it runs inside the plugin's
 //! WebAssembly component on every RackForge host, the Raspberry Pi included.
@@ -13,12 +15,14 @@
 mod bellows;
 mod decimator;
 pub mod math;
+pub mod pallet;
 pub mod parameters;
 pub mod reed;
 pub mod tongue;
 
 pub use bellows::{Bellows, BellowsSource};
 pub use decimator::Decimator;
+use pallet::{Pallet, PalletDesign};
 pub use parameters::{COUNT as PARAMETER_COUNT, Parameters, SPECS as PARAMETER_SPECS};
 use reed::{ReedModel, ReedState};
 use tongue::TongueMode;
@@ -55,6 +59,8 @@ pub struct Engine {
     mode: TongueMode,
     model: ReedModel,
     state: ReedState,
+    pallet: Pallet,
+    pallet_design: PalletDesign,
     supply: f64,
     decimator: Decimator,
     /// A reed parameter moved: rebuild before the next sample.
@@ -77,6 +83,8 @@ impl Engine {
             mode,
             model,
             state: ReedState::default(),
+            pallet: Pallet::default(),
+            pallet_design: parameters.pallet_design(),
             supply: 0.0,
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
@@ -114,16 +122,27 @@ impl Engine {
     /// only opens its pallet; velocity reaches the sound through the bellows
     /// alone, and only while no Expression controller owns it.
     pub fn note_on(&mut self, key: u8, velocity: f32) {
-        let Some(held) = self.held.get_mut(usize::from(key)) else {
+        if usize::from(key) >= KEYS {
             return;
-        };
-        *held = true;
+        }
+        self.press(key, 1.0);
         self.bellows.strike(velocity);
     }
 
     pub fn note_off(&mut self, key: u8) {
-        if let Some(held) = self.held.get_mut(usize::from(key)) {
-            *held = false;
+        self.press(key, 0.0);
+    }
+
+    /// Takes `key` to `depth`, from 0 (up) to 1 (fully down). A key held
+    /// partly down holds its pallet partly open -- how an accordionist
+    /// bends a note.
+    pub fn press(&mut self, key: u8, depth: f64) {
+        let Some(held) = self.held.get_mut(usize::from(key)) else {
+            return;
+        };
+        *held = depth > 0.0;
+        if key == REED_KEY {
+            self.pallet.press(depth);
         }
     }
 
@@ -158,6 +177,7 @@ impl Engine {
     pub fn reset(&mut self) {
         self.held = [false; KEYS];
         self.state = ReedState::default();
+        self.pallet = Pallet::default();
         self.supply = 0.0;
         self.decimator.reset();
     }
@@ -168,6 +188,7 @@ impl Engine {
             self.mode = TongueMode::with_ratio(design.mode_ratio);
         }
         self.model = ReedModel::with_mode(design, &self.mode);
+        self.pallet_design = self.parameters.pallet_design();
         if self.decimator.factor() != self.parameters.oversampling() {
             self.decimator = Decimator::new(self.parameters.oversampling());
         }
@@ -182,23 +203,25 @@ impl Engine {
         }
         let factor = self.decimator.factor();
         let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
-        let target = if self.is_held(REED_KEY) {
-            self.parameters.bellows_pressure(self.bellows.intent())
-        } else {
-            0.0
-        };
+        // The bellows holds its pressure with or without a key down.
+        let target = self.parameters.bellows_pressure(self.bellows.intent());
         let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
+        let hole_area = self.model.design.tone_hole_area;
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
-            if target == 0.0 && self.at_rest() {
-                // Nothing moves and nothing is left in the filter.
+            if self.pallet.is_closed() && self.at_rest() {
+                // The pallet is shut, nothing moves and nothing is left in
+                // the filter. The supply keeps tracking the bellows.
+                self.supply = target;
                 *sample = 0.0;
                 continue;
             }
             for slot in chunk.iter_mut().take(factor) {
                 self.supply += (target - self.supply) * smoothing;
-                let flow_rate = reed::step(&self.model, &mut self.state, self.supply, h);
+                self.pallet.advance(&self.pallet_design, h);
+                let area = self.pallet.area(&self.pallet_design, hole_area);
+                let flow_rate = reed::step(&self.model, &mut self.state, self.supply, area, h);
                 *slot = (RADIATION * flow_rate) as f32;
             }
             *sample = self.decimator.decimate(&chunk[..factor]) * gain;
@@ -213,10 +236,8 @@ impl Engine {
         }
         // A sounding F4 reed stores a few millijoules; 1e-12 J is about
         // 98 dB below it.
-        let energy = self.state.energy(&self.model);
-        if self.supply < 1.0e-6 && energy < 1.0e-12 {
+        if self.state.energy(&self.model) < 1.0e-12 {
             self.state = ReedState::default();
-            self.supply = 0.0;
         }
         false
     }

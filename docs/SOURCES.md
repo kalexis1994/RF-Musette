@@ -1,23 +1,58 @@
-# Sources
+# Sources and credits
 
-The primary sources the model is built from, what each is used for, and how
-much of it has been read. The full survey, with every source found and its
-evidence tag, is [RESEARCH.md](RESEARCH.md) and the notes under
+RF-Musette is built on other people's measurements and models. This is the
+ledger of every work it has read: what was taken from each, where in the
+code it lives, and how much of it was read -- **in full**, from an
+**abstract**, from **slides** or a **summary**, or read off a **figure**.
+Nothing here was copied as code or data; equations and numbers were
+re-derived or cited, and each is credited again beside the code that uses
+it. The survey behind the project, with every source found whether used or
+not, is [RESEARCH.md](RESEARCH.md) and the notes under
 [research/](research/).
 
-| Source | Used for | Read |
-| --- | --- | --- |
-| L. Millot, C. Baumann, "A proposal for a minimal model of free reeds", *Acta Acustica united with Acustica* 93 (2007) 122–144; arXiv 2401.01606 | The reed model's backbone: one-mode reed, useful section, upstream compliance and inertance, the (−,+) oscillation condition | Full text |
-| D. Ricot, R. Caussé, N. Misdariis, "Aerodynamic excitation and sound production of blown-closed free reeds without acoustic coupling: the example of the accordion reed", *JASA* 117 (2005) 2279–2290 | The excitation mechanism (inertia of the unsteady gap flow); dipole radiation | Abstract only (paywalled) |
-| N. Misdariis, D. Ricot, R. Caussé, "Modélisation physique de la vibration d'une anche d'accordéon", CFA 2000, 281–284 (hal-01161356) | Accordion reed pressures, thresholds, pitch against pressure, the two regimes, dynamic range | Full text |
-| J. P. St. Hilaire, T. A. Wilson, G. S. Beavers, "Aerodynamic excitation of the harmonium reed", *J. Fluid Mech.* 49 (1971) 803–816 | The excitation term and its growth rate | Abstract only |
-| A. Z. Tarnopolsky, N. H. Fletcher, J. C. S. Lai, "Oscillating reed valves — an experimental study", *JASA* 108 (2000) 400–406 | A validated lumped valve with every coefficient (contraction, pumped flow, damping) | Full text |
-| C. C. Darabundit, G. Scavone, "Discrete port-Hamiltonian system model of a single-reed woodwind instrument", *Frontiers in Signal Processing* (2025), doi 10.3389/frsip.2025.1519450 | The passive, non-iterative discretisation | Full text |
-| N. Puranik, G. Scavone: *PoMA* 49 (2022); DAFx-23; Forum Acusticum 2023 | A bellows-driven free-reed model and the instability that ended it | DAFx-23 and FA 2023 in full |
-| J. P. Cottingham: ICA 2016; ICA 2019 (Aachen, 5530–5535); CCRMA mini-course slides (2013) | Thresholds, choking by chamber resonance, accordion pitch against pressure, transients | Full text / slides |
-| R. Llanos-Vázquez, M. J. Elejalde-García, E. Macho-Stadler, A. Agos-Esparza, "Physical and psychoacoustic characterization of the different types of attacks on the accordion", *Acta Acustica united with Acustica* 100 (2014) 375–384 | Attack times, spectral centroid, cassotto effect | Full text |
-| M. J. Elejalde-García, E. Macho-Stadler, R. Llanos-Vázquez, "Accordion acoustics: a study on pitch bending", *Acoustics in Practice* AiP-2021-02 | Pallet bend, valves by register | Full text |
-| F. Hergert, Forum Acusticum 2023; *Acta Acustica* 8 (2024) 33 | Tremolo curves and the psychoacoustics of detuned unisons | FA 2023 in full; 2024 not yet |
-| R. Llanos-Vázquez, *Acústica del acordeón*, PhD thesis, UPV/EHU 2015, hdl 10810/16562 | The whole instrument on one concert accordion | **Outstanding** (behind a reCAPTCHA; download by hand) |
-| G. Richter, *Akkordeon. Handbuch für Musiker und Instrumentenbauer*, 4th ed., Noetzel 2008 | Cassotto, chambers, valves, bass ranks | **Outstanding** (book) |
-| J. Ramos et al., *Computer Music Journal* 46(1–2) (2022) 40–57 | Pressure-synchronised measurement of a bellows instrument | **Outstanding** (paywalled) |
+If you are one of these authors and something here misstates your work,
+please say so: the ledger is meant to be accurate.
+
+## The reed
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| L. Millot, C. Baumann, "A proposal for a minimal model of free reeds", *Acta Acustica united with Acustica* 93 (2007) 122-144; arXiv 2401.01606 | The model's backbone: the one-mode tongue (eq. 4), pumped and jet flow and the Bernoulli jet (eqs. 5-7), the useful section integrated along the edges with the tongue's thickness (eq. 9, appendix 5.1), μ = S_r/M and S_r = W∫ψ (appendix 5.2), the minimal configuration and its instability condition (§3.1, appendix 5.3); their report that the (−,+) reed's pitch barely moves with excitation | `reed.rs` | In full |
+| G. Ziegenhals, "Schallabstrahlung und Biegeschwingungen von Tonzungen und Stimmplatten", Institut für Musikinstrumentenbau Zwota (2009) | The accordion F4 reed itself: tongue 36 × 4 mm, set 0.5 mm, plate 3 mm, modes at 355 and 1645 Hz (1 : 4.6), a swing above 4 mm at mf; the three phases of the escape area and the slot's area as its ceiling; the sound as the derivative of the volume flow | `parameters.rs`, `reed.rs`, `tongue.rs` | In full |
+| A. Z. Tarnopolsky, N. H. Fletcher, J. C. S. Lai, "Oscillating reed valves -- an experimental study", *JASA* 108 (2000) 400-406 | The jet's contraction coefficient, 0.61 (range 0.5-1); the inertia of the air inside the gap (eq. 3), tried as the missing inertia and refuted | `parameters.rs`; `tests/diagnosis.rs` history | In full |
+| T. Tonon, "Reed cavity design and resonance", *Papers of the International Concertina Association* 2 (2005) | The cell as a Helmholtz resonator, the hole's end correction k = 0.43-0.80, and when a cavity chokes or helps a reed | `reed.rs`, `parameters.rs`, `milestone_2.rs` | In full (web edition) |
+| N. Misdariis, D. Ricot, R. Caussé, "Modélisation physique de la vibration d'une anche d'accordéon", 5e Congrès Français d'Acoustique (2000) 281-284 | Normal playing pressure 10-300 Pa for a mid-register reed; sinusoidal tongue motion; about 40 dB of dynamic range; the two regimes; excitation by the inertia of the upstream fluid | `milestone_1.rs` bounds; MODEL.md | In full (by the research survey) |
+| D. Ricot, R. Caussé, N. Misdariis, "Aerodynamic excitation and sound production of blown-closed free reeds without acoustic coupling: the example of the accordion reed", *JASA* 117 (2005) 2279-2290 | The excitation mechanism (inertia of the unsteady flow through the gaps) and dipole radiation of a bare reed | `reed.rs` docs; MODEL.md | Abstract |
+| A. O. St. Hilaire, T. A. Wilson, G. S. Beavers, "Aerodynamic excitation of the harmonium reed", *J. Fluid Mech.* 49 (1971) 803-816 | The excitation of a free reed by unsteady potential flow | `reed.rs` docs | Abstract |
+| A. O. St. Hilaire, R. Vaidya, *J. Fluid Mech.* 67 (1975) 377-396 | Nonlinear dissipation by the flow's higher harmonics as what limits the swing | MODEL.md, known defects | Abstract |
+| C. C. Darabundit, G. Scavone, "Discrete port-Hamiltonian system model of a single-reed woodwind instrument", *Frontiers in Signal Processing* (2025) | The idea of a Bernoulli port kept dissipative by construction and solved without iteration; RF-Musette's scheme is derived separately for its own equations | `reed.rs` | In full (by the research survey) |
+| J. Woodhouse, "11.6 Free reeds", *Euphonics* (online book) | A free reed's measured Q ≈ 250, used as the assumed Q | `parameters.rs` | Summary |
+| J. P. Cottingham, C. H. Reed, M. Busha, "Variation of frequency with blowing pressure for an air-driven free reed", Forum Acusticum / 137th ASA, Berlin (1999) | Growth and damping rates against pressure (Fig. 4: at most 11.3 /s near 1 kPa on a reed-organ C3), against which the model's growth per cycle was compared | MODEL.md, VALIDATION.md | In full |
+| J. P. Cottingham, C. J. Lilly, C. H. Reed, "The motion of air-driven free reeds", Forum Acusticum / 137th ASA, Berlin (1999) | Sinusoidal tongue motion; the swing jumping to several millimetres at onset and then saturating; the equilibrium's shift under oscillation | MODEL.md, known defects | In full |
+| J. P. Cottingham, "A survey of recent studies on initial transients in free reed oscillation", 23rd ICA, Aachen (2019) 5530-5535 | Attacks beginning with the tongue displaced into its frame; the second transverse and first torsional modes in the first cycles; choking by a chamber tuned near the reed (344 against 268 Hz on a 327 Hz chamber) | `milestone_2.rs`; MODEL.md | In full |
+| J. P. Cottingham, "Reed chamber resonances and attack transients in free reed instruments", 22nd ICA, Buenos Aires (2016) | Onset and offset thresholds, 60-110 Pa for a 622 Hz accordion reed; onset always above offset | `milestone_1.rs` bounds | In full (by the research survey) |
+| J. P. Cottingham, "Reed vibration and pitch bending in Western free reed instruments", CCRMA Music 318 slides (2013), summarising W. L. Coyle, S. L. Behrens, J. P. Cottingham, *JASA* 126 (2009) 2216 | Accordion pitch against pressure (about −9 cents over 0.1-0.9 kPa, fig-read); laboratory chamber volumes of 8-18 cm³ | `parameters.rs`, `milestone_1.rs` | Slides |
+| S. Behrens, W. Coyle, N. Goodweiler, J. P. Cottingham, "Vibrational modes of accordion reeds", *JASA* 126 (2009) 2216 | Accordion tongues carry transverse modes to the fourth and a torsional mode | MODEL.md | Abstract |
+| N. Puranik, G. Scavone: "Physical modelling synthesis of a harmonium", *PoMA* 49 (2022); DAFx-23; "Clamped bar model for free reeds", Forum Acusticum 2023 | The only published bellows-driven free-reed synthesis, and the instability that ended it | RESEARCH.md; the reason the scheme is passive | DAFx-23 and FA 2023 in full |
+| N. H. Fletcher, "Autonomous vibration of simple pressure-controlled valves in gas flows", *JASA* 93 (1993) 2172-2180 | The (−,+) / (+,−) classification of reed valves | `reed.rs` docs | In full (by the research survey) |
+| J. W. S. Rayleigh, *The Theory of Sound* | The flanged end correction, 8/(3π)·√(S/π), behind the near-field inertance | `reed.rs` | Standard result |
+
+## The instrument
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| R. Llanos-Vázquez, M. J. Elejalde-García, E. Macho-Stadler, A. Agos-Esparza, "Physical and psychoacoustic characterization of the different types of attacks on the accordion", *Acta Acustica united with Acustica* 100 (2014) 375-384 | Finger and bellows attack times, note by note (Table I), and how they were measured; p ≈ 55 and mf ≈ 70 dBA at 50 cm | `milestone_2.rs`; MODEL.md | In full |
+| M. J. Elejalde-García, E. Macho-Stadler, R. Llanos-Vázquez, "Accordion acoustics: a study on pitch bending", *Acoustics in Practice* AiP-2021-02 (2021) | Players' pitch bend, 15-35 cents; valves leather to G4, plastic to C6, none above | `milestone_2.rs`; ROADMAP | In full (by the research survey) |
+| R. Llanos-Vázquez et al., 2002 (as summarised in the research notes) | Steel tongues on duralumin plates; 40-50 dB of dynamic range at 1 m | `parameters.rs` | By the research survey |
+| R. Llanos-Vázquez, *Acústica del acordeón*, PhD thesis, Universidad del País Vasco UPV/EHU (2015), hdl 10810/16562 | Being read (milestone 2b) | -- | In progress |
+| Harmonikas.cz, reed plate specifications (maker's web page) | Machined clearances: 0.03 mm at the rivet, 0.04 mm at the tip | `parameters.rs` | Web page |
+
+## Not yet used in code
+
+Read for the milestones ahead and credited in [RESEARCH.md](RESEARCH.md):
+F. Hergert on detuned unisons (Forum Acusticum 2023; *Acta Acustica* 8, 2024);
+V. G. Porvenkov on optimum beat rates (1979); G. Richter on cassotto and
+grille resonances (IfM Zwota, 1989); J. Ramos, E. Calcagno, P. Riera et al.
+on the Bandoneon 2.0 measurements (NIME 2022, 2023; *Computer Music Journal*
+46, 2022); J. Braasch and J. P. Cottingham (*Acoustics Today* 19, 2023); and
+the reference-recording survey (TinySOL, IRCAM).

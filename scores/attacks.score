@@ -1,0 +1,4 @@
+# Finger attacks on a pressed bellows: p, mf, ff (velocity 40, 80, 120).
+0     1500  65  40
+2500  1500  65  80
+5000  1500  65  120

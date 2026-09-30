@@ -317,17 +317,23 @@ impl ReedState {
 }
 
 /// One step of `h` seconds under supply pressure `supply` (Pa, the mean over
-/// the step). Returns the rate of change of the flow through the tone hole
-/// over the step, m³/s² -- what radiates.
+/// the step), with the pallet's curtain open by `pallet` m² (zero: closed;
+/// infinity: no restriction at all). Returns the rate of change of the flow
+/// through the tone hole over the step, m³/s² -- what radiates.
 ///
 /// Implicit midpoint on every linear part, with the jet's Bernoulli loss
 /// linearised about the flow at the start of the step: Δp = R ũ with
-/// R = ρ |ũ₀| / (2 α² S_u²) ≥ 0, ũ the jet flow. Whatever R is, the step
-/// satisfies exactly
+/// R = ρ |ũ₀| / (2 α² S_u²) ≥ 0, ũ the jet flow, and the pallet's curtain
+/// likewise with R_p. Whatever R and R_p are, the step satisfies exactly
 ///
 /// ```text
-/// H₁ - H₀ = h [ P u_h,m - M_r (ω0/Q) ζ'_m² - R ũ_m² ]
+/// H₁ - H₀ = h [ P u_h,m - M_r (ω0/Q) ζ'_m² - R ũ_m² - R_p u_h,m² ]
 /// ```
+///
+/// When a resistance grows much larger than 2M/h the midpoint values stay
+/// right but the end values alternate at the internal Nyquist frequency; the
+/// oversampling decimator removes that band, and a pallet that has closed
+/// zeroes its flow outright.
 ///
 /// so with the supply off the stored energy can only fall: the scheme is
 /// passive for every parameter set, with no iteration. The idea -- a
@@ -337,7 +343,7 @@ impl ReedState {
 /// unknowns reduce by substitution to a 2x2 system whose determinant is
 /// always positive.
 #[inline]
-pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, h: f64) -> f64 {
+pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, pallet: f64, h: f64) -> f64 {
     let d = &model.design;
     let omega2 = model.omega * model.omega;
     let damping = model.omega / d.q;
@@ -351,11 +357,24 @@ pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, h: f64) -> f6
     // a, cell pressure p. Rows: tongue, near field, hole, cell.
     //   (2 + hγ + h²ω²/2 + hμRS_r) w - hμR u            = 2w₀ - hω²ζ₀
     //   -hRS_r w + (2M_n + hR) u - h p                   = 2M_n u₀
-    //   2M_h a + h p                                     = 2M_h a₀ + hP
+    //   (2M_h + hR_p) a + h p                            = 2M_h a₀ + hP
     //   h u - h a + 2C p                                 = 2C p₀
-    let b3 = 2.0 * m_h * state.hole_flow + h * supply;
-    let b4 = 2.0 * c * state.cell_pressure + h * b3 / (2.0 * m_h);
-    let dc = 2.0 * c + h * h / (2.0 * m_h);
+    // R_p is the pallet's curtain, an orifice linearised like the reed's own
+    // jet: R_p = ρ |a₀| / (2 α² A_p²) ≥ 0. A closed pallet is a seal: the
+    // hole passes nothing, and its row becomes a = 0.
+    let (b3, dh) = if pallet > 0.0 {
+        let alpha_pallet = d.contraction * pallet;
+        let r_p = AIR_DENSITY * state.hole_flow.abs() / (2.0 * alpha_pallet * alpha_pallet);
+        (
+            2.0 * m_h * state.hole_flow + h * supply,
+            2.0 * m_h + h * r_p,
+        )
+    } else {
+        state.hole_flow = 0.0;
+        (0.0, f64::INFINITY)
+    };
+    let b4 = 2.0 * c * state.cell_pressure + h * b3 / dh;
+    let dc = 2.0 * c + h * h / dh;
     // p = (b4 - h u) / dc, then the near-field row in w and u alone.
     let a11 = 2.0 + h * damping + 0.5 * h * h * omega2 + h * model.mu * r * s_r;
     let a12 = -h * model.mu * r;
@@ -367,7 +386,7 @@ pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, h: f64) -> f6
     let w = (b1 * a22 - a12 * b2) / det;
     let u = (a11 * b2 - a21 * b1) / det;
     let p = (b4 - h * u) / dc;
-    let a = (b3 - h * p) / (2.0 * m_h);
+    let a = (b3 - h * p) / dh;
     let previous_hole_flow = state.hole_flow;
     state.zeta += h * w;
     state.velocity = 2.0 * w - state.velocity;
@@ -448,7 +467,7 @@ mod tests {
         // At Q 95 and 355 Hz the tongue's energy falls with a 42 ms time
         // constant: 0.625 s is fifteen of them.
         for _ in 0..60_000 {
-            step(&model, &mut state, 0.0, h);
+            step(&model, &mut state, 0.0, f64::INFINITY, h);
             let next = state.energy(&model);
             assert!(next <= energy * (1.0 + 1e-12), "{next} > {energy}");
             energy = next;

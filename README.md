@@ -3,8 +3,10 @@
 A physically modelled accordion for [RackForge](https://github.com/kalexis1994/rackforge):
 free reeds driven by a bellows, computed rather than recorded.
 
-> **Status: research skeleton.** The package installs, validates and plays
-> nothing yet. The first reed is milestone 1 in [the roadmap](docs/ROADMAP.md).
+> **Status: one reed (0.3.0).** Key 65 plays the accordion F4 reed the IfM
+> Zwota measured, in its cell, behind its pallet; every other key is
+> silent. What it does and does not yet do against measurements:
+> [docs/MODEL.md](docs/MODEL.md).
 
 ## What it is meant to be
 
@@ -37,6 +39,17 @@ behind it is [docs/RESEARCH.md](docs/RESEARCH.md).
 | [docs/VALIDATION.md](docs/VALIDATION.md) | Dated validation receipts |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Toolchain, commands, layout |
 | [docs/AUDITION.md](docs/AUDITION.md) | Build, install and launch in RackForge Desktop |
+
+## Credits
+
+The model stands on published work, above all L. Millot and C. Baumann's
+minimal model of the free reed, G. Ziegenhals's measurements of an accordion
+reed at the IfM Zwota, T. Tonon's reed cavities, J. P. Cottingham's decades
+of free-reed measurements, D. Ricot, R. Caussé and N. Misdariis's study of
+the accordion reed, A. Z. Tarnopolsky, N. H. Fletcher and J. C. S. Lai's reed
+valves, and R. Llanos-Vázquez, M. J. Elejalde-García and E. Macho-Stadler's
+accordion acoustics. Every work read, what was taken from it and where it is
+used: [docs/SOURCES.md](docs/SOURCES.md).
 
 ## License
 

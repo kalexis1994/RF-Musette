@@ -3,6 +3,7 @@
 //! Everything here drives the engine's own reed step, so what is measured is
 //! the model that ships, not a copy of it.
 
+use rf_musette_dsp::pallet::{Pallet, PalletDesign};
 use rf_musette_dsp::reed::{self, ReedDesign, ReedModel, ReedState};
 
 /// One simulated reed, sampled at the rate it was computed at.
@@ -29,11 +30,89 @@ pub fn simulate(design: ReedDesign, rate: f64, seconds: f64, supply: impl Fn(f64
     };
     for n in 0..frames {
         let t = (n as f64 + 0.5) * h;
-        let rate_of_flow = reed::step(&model, &mut state, supply(t), h);
+        let rate_of_flow = reed::step(&model, &mut state, supply(t), f64::INFINITY, h);
         trace.zeta.push(state.zeta);
         trace.flow_rate.push(rate_of_flow);
     }
     trace
+}
+
+/// Blows `design` at a steady supply `pressure` (Pa) -- the bellows already
+/// pressed -- while the key is taken to `depth(t)` (0 up, 1 fully down) and
+/// the pallet follows it as `pallet` says. From rest.
+pub fn simulate_keyed(
+    design: ReedDesign,
+    pallet: PalletDesign,
+    rate: f64,
+    seconds: f64,
+    pressure: f64,
+    depth: impl Fn(f64) -> f64,
+) -> Trace {
+    let model = ReedModel::new(design);
+    let mut state = ReedState::default();
+    let mut valve = Pallet::default();
+    let frames = (seconds * rate) as usize;
+    let h = 1.0 / rate;
+    let mut trace = Trace {
+        rate,
+        zeta: Vec::with_capacity(frames),
+        flow_rate: Vec::with_capacity(frames),
+    };
+    for n in 0..frames {
+        valve.press(depth(n as f64 * h));
+        valve.advance(&pallet, h);
+        let area = valve.area(&pallet, design.tone_hole_area);
+        let rate_of_flow = reed::step(&model, &mut state, pressure, area, h);
+        trace.zeta.push(state.zeta);
+        trace.flow_rate.push(rate_of_flow);
+    }
+    trace
+}
+
+/// The level of one component of `signal` over time, dB: a Hann-windowed
+/// DFT at `frequency` over `periods` periods, every `hop` seconds. Returns
+/// (time at the window's centre, level) pairs.
+pub fn component_envelope(
+    signal: &[f64],
+    rate: f64,
+    frequency: f64,
+    periods: f64,
+    hop: f64,
+) -> Vec<(f64, f64)> {
+    let length = (periods * rate / frequency) as usize;
+    let step = ((hop * rate) as usize).max(1);
+    let omega = 2.0 * std::f64::consts::PI * frequency / rate;
+    let mut envelope = Vec::new();
+    let mut start = 0;
+    while start + length <= signal.len() {
+        let (mut re, mut im) = (0.0, 0.0);
+        for i in 0..length {
+            let w = 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / length as f64).cos();
+            let x = w * signal[start + i];
+            let phase = omega * (start + i) as f64;
+            re += x * phase.cos();
+            im -= x * phase.sin();
+        }
+        let level = 20.0 * ((re * re + im * im).sqrt() + 1e-300).log10();
+        envelope.push(((start + length / 2) as f64 / rate, level));
+        start += step;
+    }
+    envelope
+}
+
+/// Llanos-Vázquez et al.'s attack time (Acta Acustica 100, 2014): from the
+/// first harmonic's first reaching -50 dB to its first reaching -5 dB, both
+/// relative to its steady level, here the mean over the envelope's last
+/// fifth. `None` if either level is never reached.
+pub fn attack_time(envelope: &[(f64, f64)]) -> Option<f64> {
+    let tail = &envelope[envelope.len() * 4 / 5..];
+    let steady = tail.iter().map(|(_, level)| level).sum::<f64>() / tail.len() as f64;
+    let start = envelope
+        .iter()
+        .find(|(_, level)| *level >= steady - 50.0)?
+        .0;
+    let end = envelope.iter().find(|(_, level)| *level >= steady - 5.0)?.0;
+    Some(end - start)
 }
 
 /// What a steady tone looks like, measured over a window.
@@ -144,7 +223,7 @@ pub fn growth_rate(design: ReedDesign, rate: f64, pressure: f64) -> f64 {
     let envelope = |state: &mut ReedState, periods: usize| {
         let mut peak = 0.0f64;
         for _ in 0..periods * period {
-            reed::step(&model, state, pressure, h);
+            reed::step(&model, state, pressure, f64::INFINITY, h);
             peak = peak.max((state.zeta - zeta).abs());
         }
         peak

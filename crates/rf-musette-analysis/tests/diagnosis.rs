@@ -20,6 +20,169 @@ fn row(label: &str, p: Parameters) {
     );
 }
 
+/// The finger attack against the pressure, next to the equilibrium's linear
+/// growth rate there: an attack of ~5 e-folds (from -50 to -5 dB) at a rate
+/// σ lasts about 5.2/σ.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn finger_attack_against_pressure() {
+    use rf_musette_analysis::{attack_time, component_envelope, growth_rate, simulate_keyed};
+    let p = Parameters::default();
+    let (design, pallet) = (p.reed_design(), p.pallet_design());
+    for pressure in [60.0, 100.0, 200.0, 400.0, 800.0] {
+        let trace = simulate_keyed(design, pallet, RATE, 2.0, pressure, |t| {
+            if t >= 0.05 { 1.0 } else { 0.0 }
+        });
+        let Some(tone) = trace.tone(1.5, 2.0) else {
+            println!("{pressure:>5} Pa: silent");
+            continue;
+        };
+        let envelope = component_envelope(&trace.flow_rate, RATE, tone.frequency, 4.0, 0.001);
+        let attack = attack_time(&envelope);
+        let sigma = growth_rate(design, RATE, pressure);
+        println!(
+            "{pressure:>5} Pa: attack {:>6.1?} ms | linear growth {sigma:>6.1} /s -> 5.2/σ = {:>6.0} ms",
+            attack.map(|a| a * 1e3),
+            5.2 / sigma * 1e3
+        );
+    }
+}
+
+/// The finger attack measured as Llanos-Vázquez et al. measured it: their
+/// table's frequencies step by 12.5 Hz, so their spectra came from ~80 ms
+/// windows every 10 ms; the attack runs from the first harmonic's -50 dB to
+/// its -5 dB of the maximum. Beside it, the step response the pallet gives
+/// the tongue: the static deflection μP/ω0², against the steady swing.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn finger_attack_measured_as_llanos() {
+    use rf_musette_analysis::{attack_time, component_envelope, simulate_keyed};
+    let p = Parameters::default();
+    let (design, pallet) = (p.reed_design(), p.pallet_design());
+    let model = ReedModel::new(design);
+    println!("tip stiffness {:.0} N/m", model.tip_stiffness());
+    for pressure in [100.0, 400.0] {
+        let trace = simulate_keyed(design, pallet, RATE, 2.0, pressure, |t| {
+            if t >= 0.1 { 1.0 } else { 0.0 }
+        });
+        let tone = trace.tone(1.5, 2.0).expect("no tone");
+        let fine = attack_time(&component_envelope(
+            &trace.flow_rate,
+            RATE,
+            tone.frequency,
+            4.0,
+            0.001,
+        ));
+        // Their window: 80 ms, rectangular as an FFT frame is, every 10 ms.
+        let periods = 0.080 * tone.frequency;
+        let coarse = attack_time(&component_envelope(
+            &trace.flow_rate,
+            RATE,
+            tone.frequency,
+            periods,
+            0.010,
+        ));
+        let kick = model.mu * pressure / (model.omega * model.omega);
+        println!(
+            "{pressure:>4} Pa: attack {:>5.0?} ms fine, {:>5.0?} ms through an 80 ms window | kick {:.3} mm against a {:.2} mm swing ({:.0} dB)",
+            fine.map(|a| a * 1e3),
+            coarse.map(|a| a * 1e3),
+            kick * 1e3,
+            tone.amplitude * 1e3,
+            20.0 * (kick / tone.amplitude).log10()
+        );
+    }
+    // An instantaneous onset through the same window: what the method
+    // itself reads as an attack.
+    let rate = RATE;
+    let f = 353.7;
+    let step: Vec<f64> = (0..(2.0 * rate) as usize)
+        .map(|n| {
+            let t = n as f64 / rate;
+            if t < 0.5 {
+                0.0
+            } else {
+                (2.0 * std::f64::consts::PI * f * t).sin()
+            }
+        })
+        .collect();
+    let floor = attack_time(&component_envelope(&step, rate, f, 0.080 * f, 0.010));
+    println!(
+        "an instantaneous onset reads as {:.0?} ms through the 80 ms window",
+        floor.map(|a| a * 1e3)
+    );
+}
+
+/// What the reed's adjustment does to its attack: the growth rate at 100 and
+/// 400 Pa, and the attack it implies (~33 dB from the pallet's kick at
+/// -38 dB to -5 dB, 3.8 e-folds), against the set and the clearances --
+/// what a reed maker adjusts, and what practitioners say makes "a mano"
+/// reeds respond faster.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn attack_against_the_reeds_adjustment() {
+    use rf_musette_analysis::growth_rate;
+    use rf_musette_dsp::parameters::{REED_Q, REED_SET, SIDE_CLEARANCE, TIP_CLEARANCE};
+    let sweeps = [
+        (REED_SET, "set mm", [0.15, 0.25, 0.5, 0.8]),
+        (
+            SIDE_CLEARANCE,
+            "side clearance mm",
+            [0.015, 0.025, 0.035, 0.06],
+        ),
+        (TIP_CLEARANCE, "tip clearance mm", [0.015, 0.04, 0.1, 0.2]),
+        (REED_Q, "Q", [95.0, 250.0, 600.0, 1000.0]),
+    ];
+    for (index, name, values) in sweeps {
+        for value in values {
+            let mut p = Parameters::default();
+            assert!(p.set(index, value));
+            let design = p.reed_design();
+            let onset = linear_threshold(design, RATE, 1.0, 6000.0);
+            let rates: Vec<f64> = [100.0, 400.0]
+                .iter()
+                .map(|pr| growth_rate(design, RATE, *pr))
+                .collect();
+            println!(
+                "{name:>18} {value:<6} onset {:>6.1?} Pa | σ {:>5.1} / {:>5.1} /s -> ~{:>4.0} / {:>4.0} ms",
+                onset,
+                rates[0],
+                rates[1],
+                3.8 / rates[0] * 1e3,
+                3.8 / rates[1] * 1e3
+            );
+        }
+    }
+}
+
+/// Onset and the attack's growth rate together, against Q and the air's
+/// inertia (raised through the hole's area): which unmeasured constants
+/// could meet both measured facts -- onset ~30 Pa, attack 50-140 ms.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn onset_and_attack_against_q_and_inertia() {
+    use rf_musette_analysis::growth_rate;
+    use rf_musette_dsp::parameters::{REED_Q, TONE_HOLE_AREA};
+    println!("    Q | hole mm² | M_h+M_n | onset Pa | attack ~5.2/σ at 100 / 400 Pa");
+    for q in [95.0, 150.0, 250.0] {
+        for area in [150.0, 75.0, 40.0, 25.0] {
+            let mut p = Parameters::default();
+            assert!(p.set(REED_Q, q) && p.set(TONE_HOLE_AREA, area));
+            let design = p.reed_design();
+            let model = ReedModel::new(design);
+            let onset = linear_threshold(design, RATE, 1.0, 6000.0);
+            let attack = |pressure: f64| 5.2 / growth_rate(design, RATE, pressure) * 1e3;
+            println!(
+                "{q:>5} | {area:>8} | {:>7.0} | {:>8.1?} | {:>6.0} / {:>4.0} ms",
+                model.hole_inertance + model.inertance,
+                onset,
+                attack(100.0),
+                attack(400.0)
+            );
+        }
+    }
+}
+
 /// How much air the reed spends: the mean flow through the tone hole.
 #[test]
 #[ignore = "diagnosis: prints, asserts nothing"]
@@ -32,7 +195,7 @@ fn air_consumption_against_pressure() {
         let mut state = ReedState::default();
         let (mut sum, mut peak, mut count) = (0.0, 0.0f64, 0);
         for n in 0..(2.0 * RATE) as usize {
-            reed::step(&model, &mut state, pressure, h);
+            reed::step(&model, &mut state, pressure, f64::INFINITY, h);
             if n > (1.5 * RATE) as usize {
                 sum += state.hole_flow;
                 peak = peak.max(state.hole_flow);

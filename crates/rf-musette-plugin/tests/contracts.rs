@@ -155,6 +155,36 @@ fn the_state_round_trips_and_a_bad_one_is_refused_whole() {
 }
 
 #[test]
+fn a_state_from_a_build_with_fewer_parameters_still_loads() {
+    // 0.2.0 saved 19 values; later builds append.
+    let mut old = Vec::new();
+    old.extend_from_slice(b"RFMU");
+    old.extend_from_slice(&2u32.to_le_bytes());
+    old.extend_from_slice(&19u32.to_le_bytes());
+    for (index, spec) in parameters::SPECS.iter().take(19).enumerate() {
+        let value = if index == parameters::REED_Q {
+            180.0
+        } else {
+            spec.default
+        };
+        old.extend_from_slice(&value.to_le_bytes());
+    }
+    let mut plugin = prepared();
+    assert!(plugin.set_parameter(parameters::PALLET_LIFT as u32, 5.0));
+    assert!(plugin.load_state(&old));
+    assert_eq!(plugin.get_parameter(parameters::REED_Q as u32), Some(180.0));
+    assert_eq!(
+        plugin.get_parameter(parameters::PALLET_LIFT as u32),
+        Some(parameters::SPECS[parameters::PALLET_LIFT].default),
+        "what the old state did not carry is the default"
+    );
+    // A count that does not match the length, or exceeds this build's, is refused.
+    let mut wrong = old.clone();
+    wrong[8..12].copy_from_slice(&20u32.to_le_bytes());
+    assert!(!plugin.load_state(&wrong));
+}
+
+#[test]
 fn a_first_version_state_still_loads() {
     let mut v1 = Vec::new();
     v1.extend_from_slice(b"RFMU");

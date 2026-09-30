@@ -89,3 +89,42 @@ archive's own copy, by the CRC-32 the zip records.
 
 **Not demonstrated.** Wasm fuel and the Raspberry Pi. The reed played in
 Desktop, and heard. Anything but F4.
+
+## 2026-09-30 — 0.3.0, milestone 2: the pallet
+
+**Checks.** `cargo test --locked --workspace`: 51 passed (engine 22,
+milestone 1 predictions 8, milestone 2 predictions 3, plugin contract 10,
+laboratory 8); 2 predictions ignored as known defects (pitch sag; finger
+attack); 8 diagnoses ignored (run by hand). Clippy and rustfmt clean.
+`rf-musette-lab package`: `PLUGIN_PACKAGE_VALID` (22 parameters), smoke
+state 188 bytes, `RF-Musette-0.3.0.rfplugin` 24 208 bytes, sha256
+`ce19e6a7900374450a2b0e05a02cb4cd96f014c039f5c338a9dd16cbd1b38b96`. A state
+saved by 0.2.0 (19 values) loads, the three new parameters at their defaults.
+
+**The predictions** (`crates/rf-musette-analysis/tests/milestone_2.rs`,
+96 kHz, defaults, 300 Pa unless stated):
+
+| Prediction | Measured | Verdict |
+| --- | --- | --- |
+| 1. Finger attack 50-140 ms (Llanos 2014) | 249 ms at 400 Pa, 730 ms at 100 Pa; through Llanos's ~80 ms windows 260 and 750 ms, where an instant onset reads 40 ms | **Not met** (known defect) |
+| 2. A part-open pallet bends down ≥ 10 cents, never up | 0.8 → 0.2 of the lift: −0.0, −0.7, −1.4, −2.5, −4.7, −6.9, −15.1 cents; silent below | Met |
+| 3. Choking: onset at 0.9-1.0 of the reed's frequency ≥ 4× the onset at 1.3 | 35.5 Pa at 1.3; 119.4 (3.4×) at 1.0; 217.1 (6.1×) at 0.95; 355.8 (10×) at 0.9; 31.7 at 2.0 | Met in shape; the 4× not met at exactly 1.0. The literature's claim is qualitative ("far above normal"); the test now asserts the monotone rise and 4× by 0.95, and says so |
+| 4. A closed pallet is exact silence | exact zeros after 3 s; near the host's Nyquist while closing −129, −121, −133 dB re the note | Met |
+
+**Investigating the attack** (`tests/diagnosis.rs`):
+
+| Measurement | Result |
+| --- | --- |
+| Attack against pressure (60-800 Pa) | 1470, 730, 402, 249, 139 ms: exactly 5.2/σ, the linear growth rate's e-folds |
+| The pallet's kick | 0.015 mm at 100 Pa, 0.059 mm at 400 Pa: −39 and −38 dB of the swing; tip stiffness 347 N/m |
+| Growth per cycle | 0.06 at 400 Pa; Cottingham & Reed measured at most 0.086 on a reed-organ C3 (Forum Acusticum 1999, Fig. 4: 4.5 /s at 0.25 kPa, 8.3 at 0.5, 11.3 at 1 kPa) |
+| Q 95-1000; hole 150-25 mm² | mf 108-372 ms; p never below 339 ms; onset stays 32-104 Pa |
+| Set 0.15-0.8 mm; clearances 0.015-0.2 mm | mf 175-222 ms: the adjustment barely matters, where Llanos attributes the neighbouring-semitone spread to it |
+
+**Also found:** the swing keeps growing with pressure (4.9, 8.2, 11 mm at
+0.3, 0.9, 3 kPa); a measured reed's saturates. With milestone 2's three new
+parameters the stability test's random draw reached a 65 mm reed at 6 kPa
+swinging 78 mm, finite and passive but unphysical; its 5 cm bound was
+removed and the defect recorded.
+
+**Not demonstrated.** Heard. Wasm fuel and the Pi. Anything but F4.

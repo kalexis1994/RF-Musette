@@ -6,8 +6,10 @@ stated rather than hidden; each constant says where its value came from. The
 tests hold the model to what this document claims -- it is allowed to be
 approximate, not to drift from what is written here.
 
-**Status (0.2.0): one reed.** The accordion F4 tongue the IfM Zwota measured,
-in its cell, blown by the bellows, on key 65. Every other key is silent.
+**Status (0.3.0, in progress): one reed behind its pallet.** The accordion
+F4 tongue the IfM Zwota measured, in its cell, on key 65, behind the pallet
+the key lifts, blown by a bellows that holds its pressure. Every other key is
+silent.
 
 ## How a value earns its place
 
@@ -113,6 +115,28 @@ insensitive to what is assumed about the cell (31-41 Pa across 2-18 cm³,
 cell chokes it, as Cottingham (ICA 2019) and Tonon measured; that matters in
 the top octaves and is milestone 2's to demonstrate.
 
+### The pallet (tested)
+
+The key lifts a pallet off the tone hole. The air passes through the
+curtain between them -- the rim's perimeter times the lift, never more than
+the hole -- as an orifice with a Bernoulli jet, a resistance
+R_p = ρ|u_h|/(2α²A_p²) in series with the hole's inertance, kept passive the
+same way as the reed's jet. A closed pallet is a seal: the hole passes
+nothing. The bellows holds its pressure whether or not a key is down; the
+pallet is what lets air through, so a finger attack is the pallet opening on
+a pressed bellows, as Llanos-Vázquez et al. describe it.
+
+How far the pallet lifts (3 mm), how fast it opens and closes (10 ms) and
+the hole's shape (four times as long as wide) are assumed: nothing is
+published. A key held part-way holds the pallet part-way open
+(`Engine::press`); no MIDI control is mapped to it yet.
+
+**The bend emerges.** Nothing about pitch is written into the pallet. Held
+part-way open at 300 Pa, it lowers the pitch monotonically -- −0.7 cents at
+60 % of the lift, −4.7 at 30 %, −15.1 at 20 % -- and below that the reed
+stops. Players bend 15-35 cents (Elejalde-García et al. 2021); the model's
+−15 cents before silence is at the low end, and it never bends upward.
+
 ### Radiation
 
 Outside, the reed is heard through the air the tone hole passes: a monopole
@@ -175,6 +199,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Tone hole area, depth | 150 mm², 5 mm | Assumed | Not published |
 | End correction k | 0.6 | Measured range | Tonon 2005: 0.43-0.80 |
 | Bellows ceiling, curve | 1 kPa, 2 | Assumed | Technician's ~1 kPa, unverified |
+| Pallet lift | 3 mm | Assumed | Not published |
+| Pallet opening, closing | 10, 10 ms | Assumed | Not published; bounded by the finger attack |
+| Tone hole shape | 4 : 1 rectangle | Assumed | Not published; sets the pallet's rim |
 
 ## What it does (0.2.0, measured; `milestone_1.rs` and `diagnosis.rs`)
 
@@ -187,6 +214,11 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Sound | Pulse train, harmonics within a few dB to the 7th | Pulse-like "Summton" (Ziegenhals) | Met |
 | Level, 60 → 3000 Pa | 40.9 dB | ~40 dB (Misdariis) | Met |
 | Pitch vs pressure, 100 → 900 Pa | −0.4 cents | about −9 cents (Cottingham) | **Not met** |
+| Bend, pallet part-way open (300 Pa) | down to −15.1 cents before silence, never up | 15-35 cents (Elejalde-García 2021) | Met |
+| Choking: cell resonance at 1.3, 1.0, 0.95, 0.9 of the reed | onset 35, 119, 217, 356 Pa | "far above normal" at or just below (Tonon; Cottingham ICA 2019) | Met in shape (see VALIDATION) |
+| Closing the pallet | exact silence; −121 dB near the host's Nyquist | -- | Met |
+| Finger attack, −50 → −5 dB | 249 ms (400 Pa), 730 ms (100 Pa) | 50-110 ms mf, 60-140 ms p (Llanos 2014) | **Not met** |
+| Swing against pressure | keeps growing: 4.9 mm at 300 Pa, 8.2 at 900, 11 at 3 kPa | jumps to several mm at onset, then nearly constant, falling at high pressure (Cottingham 1999) | **Not met** |
 
 ## Known defects
 
@@ -209,14 +241,53 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   known and the weighting differs, so this is a lead, not yet a measurement.
   Related: the reed spends 390 mL/s at 300 Pa and 1.3 L/s at 900 Pa, and
   nothing published says what an accordion reed spends.
+* **The finger attack is three to five times too slow**, and what sets it
+  is not what sets a real reed's. Measured on the model: the attack is
+  exactly the equilibrium's exponential growth, 5.2/σ, from the kick the
+  opening pallet gives the tongue -- its static deflection μP/ω0², 0.06 mm at
+  400 Pa, −38 dB of the final swing. The growth rate itself is realistic:
+  0.06 per cycle at 400 Pa against 0.086 per cycle, the maximum Cottingham
+  & Reed measured on a reed-organ reed (Forum Acusticum 1999, Fig. 4), and
+  organ reeds are the slow ones. But Llanos-Vázquez et al. measured finger
+  attacks of 50-140 ms on notes from A2 to B6 with no trend in frequency --
+  on A2 that would need 0.47 per cycle -- so a real finger attack cannot be
+  growth from near zero: the tongue must start with a large excursion.
+  Cottingham (ICA 2019): "the motion of this type of reed begins with an
+  initial displacement of the reed tongue into the reed frame"; the second
+  transverse and first torsional modes appear in the first 10-20 cycles and
+  "may be significant in initiating reed oscillation". And in the model the
+  reed's adjustment barely moves the attack (set 0.15-0.8 mm: 179-222 ms at
+  400 Pa; clearances 0.015-0.06 mm: 175-186 ms), where Llanos attributes
+  the 60-against-140 ms spread between neighbouring semitones to exactly
+  that adjustment. Their numbers were read through ~80 ms analysis windows
+  (their frequencies step by 12.5 Hz): through such a window an instant
+  onset already reads 40 ms, so their finger attacks are near-instant; the
+  model's, read the same way, are 260 and 750 ms. Tried and not the answer:
+  more air inertia (a smaller tone hole) brings mf to ~110 ms but leaves p
+  above 340 ms; Q from 95 to 1000 moves mf between 272 and 155 ms.
+* **The swing does not saturate.** Past the onset a measured reed's swing
+  jumps to several millimetres and then stays nearly constant, falling at
+  high pressure (Koopman & Cottingham 1997, via Cottingham et al. 1999); the
+  model's keeps growing, and at an extreme corner of the parameters -- a
+  65 mm reed at 6 kPa -- reaches 78 mm. St. Hilaire & Vaidya (J. Fluid Mech.
+  67, 1975) attribute the limit to nonlinear dissipation by the flow's
+  higher harmonics, which the minimal model does not have. The tongue has
+  no mechanical stops either.
 * **One mode.** Accordion tongues carry their 2nd-4th bending modes and a
   torsional mode, most visibly in the attack (Behrens et al. 2009; Cottingham
   ICA 2019).
 
+All three -- the pitch that does not sag, the slow attack indifferent to
+adjustment, the swing that does not saturate -- point at the same place:
+the aerodynamics of the minimal model. The one paper that models the
+accordion reed's flow in detail, Ricot, Caussé & Misdariis (JASA 117, 2005),
+is paywalled, as is the growth-rate study of Biernat & Cottingham (PoMA 20,
+2014); Llanos-Vázquez's thesis (UPV/EHU 2015) is open behind a reCAPTCHA.
+
 ## What is deliberately not modelled yet
 
-The pallet (the tone hole opening with the key), the choking of high reeds by
-their cells, the reed plate's second reed and its valve, the bellows
+A MIDI control for a part-pressed key, the reed plate's second reed and its
+valve, the bellows
 direction, ranks and tremolo, the bellows reservoir, the cassotto, the body,
 the rest of the compass and the Stradella bass. In order, with their
 predictions: [ROADMAP.md](ROADMAP.md).

@@ -12,7 +12,7 @@
     },
     {
       "id": "model_cell",
-      "name": "Model · Cell",
+      "name": "Model · Cell & Pallet",
       "order": 2
     },
     {
@@ -460,6 +460,75 @@
       },
       "name": "End Correction",
       "order": 3,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "pallet_lift",
+      "index": 19,
+      "kind": {
+        "default": 3.0,
+        "maximum": 8.0,
+        "minimum": 0.5,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Pallet Lift",
+      "order": 4,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "pallet_opening",
+      "index": 20,
+      "kind": {
+        "default": 10.0,
+        "maximum": 100.0,
+        "minimum": 1.0,
+        "step": 0.1,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "ms"
+      },
+      "name": "Pallet Opening Time",
+      "order": 5,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "pallet_closing",
+      "index": 21,
+      "kind": {
+        "default": 10.0,
+        "maximum": 100.0,
+        "minimum": 1.0,
+        "step": 0.1,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "ms"
+      },
+      "name": "Pallet Closing Time",
+      "order": 6,
       "page": "model_cell",
       "suggested_control": "knob"
     }

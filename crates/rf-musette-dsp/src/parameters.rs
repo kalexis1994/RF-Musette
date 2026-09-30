@@ -45,7 +45,7 @@ pub const PAGE_AIR: &str = "model_air";
 pub const PAGES: [(&str, &str); 4] = [
     (PAGE_OUTPUT, "Output"),
     (PAGE_REED, "Model · Reed"),
-    (PAGE_CELL, "Model · Cell"),
+    (PAGE_CELL, "Model · Cell & Pallet"),
     (PAGE_AIR, "Model · Air & Bellows"),
 ];
 
@@ -68,8 +68,11 @@ pub const CELL_VOLUME: usize = 15;
 pub const TONE_HOLE_AREA: usize = 16;
 pub const TONE_HOLE_DEPTH: usize = 17;
 pub const END_CORRECTION: usize = 18;
+pub const PALLET_LIFT: usize = 19;
+pub const PALLET_OPENING: usize = 20;
+pub const PALLET_CLOSING: usize = 21;
 
-pub const COUNT: usize = 19;
+pub const COUNT: usize = 22;
 
 /// Steel, kg/m³. Tongues are tempered spring steel (Llanos-Vázquez et al.
 /// 2002; the maker Harmonikas.cz); the density of steel is not in doubt.
@@ -297,6 +300,33 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Linear,
         "Measured range: Tonon's k, 0.43-0.80 times the hole's diameter, higher when the pallet sits close (Tonon, PICA 2, 2005); the middle of it.",
     ),
+    spec(
+        "pallet_lift",
+        "Pallet Lift",
+        PAGE_CELL,
+        "mm",
+        (0.5, 8.0, 3.0, 0.1),
+        Taper::Linear,
+        "Assumed: how far the pallet lifts with the key fully down. Not published; at 3 mm the curtain passes the whole hole from about 80 % of the travel.",
+    ),
+    spec(
+        "pallet_opening",
+        "Pallet Opening Time",
+        PAGE_CELL,
+        "ms",
+        (1.0, 100.0, 10.0, 0.1),
+        Taper::Logarithmic,
+        "Assumed: closed to fully open under a finger. Not published; bounded by the finger attack, 50-140 ms from pallet to note (Llanos-Vázquez et al. 2014).",
+    ),
+    spec(
+        "pallet_closing",
+        "Pallet Closing Time",
+        PAGE_CELL,
+        "ms",
+        (1.0, 100.0, 10.0, 0.1),
+        Taper::Logarithmic,
+        "Assumed: fully open to closed when the key is let go, under the pallet's spring. Not published.",
+    ),
 ];
 
 /// One engine's parameter values, in the units of [`SPECS`].
@@ -372,6 +402,14 @@ impl Parameters {
 
     pub fn oversampling(&self) -> usize {
         self.values[OVERSAMPLING] as usize
+    }
+
+    pub fn pallet_design(&self) -> crate::pallet::PalletDesign {
+        crate::pallet::PalletDesign {
+            lift: self.values[PALLET_LIFT] * 1.0e-3,
+            opening_time: self.values[PALLET_OPENING] * 1.0e-3,
+            closing_time: self.values[PALLET_CLOSING] * 1.0e-3,
+        }
     }
 }
 

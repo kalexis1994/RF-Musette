@@ -496,8 +496,8 @@
       "id": "pallet_opening",
       "index": 20,
       "kind": {
-        "default": 10.0,
-        "maximum": 100.0,
+        "default": 50.0,
+        "maximum": 500.0,
         "minimum": 1.0,
         "step": 0.1,
         "taper": "logarithmic",

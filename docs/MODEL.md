@@ -93,9 +93,14 @@ assumed: RK4 at 32× the rate agrees with the shipping scheme to 0.08 cents,
 so it was the model and not the numerics; a sweep of every other constant
 (Q, set, clearances, contraction) left it above 1.6 kPa; the linear stability
 of the equilibrium gives the onset as ∝ 1/(Q·M)², M the inertance -- the
-missing mass of air. *Also tried and refuted:* the inertia of the air inside
-the gap (Tarnopolsky, Fletcher & Lai, *JASA* 108, 2000, eq. 3, d the plate
-thickness) as the missing term; alone it left the onset near 600 Pa.
+missing mass of air. *Also tried, and wrongly counted as refuted:* the
+inertia of the air inside the gap (Tarnopolsky, Fletcher & Lai, *JASA* 108,
+2000, eq. 3, d the plate thickness); it left the onset near 600 Pa -- but that
+onset was read by ramping the supply up from perfect rest, a method found
+ill-posed later the same day (it measures how long nothing takes to grow).
+The refutation does not stand. Ricot, Caussé & Misdariis place the accordion
+reed's excitation in exactly that channel (as summarised in Llanos-Vázquez's
+thesis, Appendix 1), and milestone 2b takes it up again.
 
 The mass of air is the cell's. On the bellows' opening stroke the sounding
 reed is the one inside its cell in the reed block: air comes from outside
@@ -126,14 +131,16 @@ nothing. The bellows holds its pressure whether or not a key is down; the
 pallet is what lets air through, so a finger attack is the pallet opening on
 a pressed bellows, as Llanos-Vázquez et al. describe it.
 
-How far the pallet lifts (3 mm), how fast it opens and closes (10 ms) and
-the hole's shape (four times as long as wide) are assumed: nothing is
-published. A key held part-way holds the pallet part-way open
+How far the pallet lifts (3 mm), how fast it closes (10 ms) and the hole's
+shape (four times as long as wide) are assumed: nothing is published. It
+opens in 50 ms, the time Llanos-Vázquez's thesis gives for a normal finger
+attack (p164). A key held part-way holds the pallet part-way open
 (`Engine::press`); no MIDI control is mapped to it yet.
 
 **The bend emerges.** Nothing about pitch is written into the pallet. Held
 part-way open at 300 Pa, it lowers the pitch monotonically -- −0.7 cents at
-60 % of the lift, −4.7 at 30 %, −15.1 at 20 % -- and below that the reed
+60 % of the lift, −4.7 at 30 %, −15.1 at 20 % (with a 10 ms opening;
+−16.5 at 20 % with the 50 ms the thesis gives) -- and below that the reed
 stops. Players bend 15-35 cents (Elejalde-García et al. 2021); the model's
 −15 cents before silence is at the low end, and it never bends upward.
 
@@ -200,7 +207,8 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | End correction k | 0.6 | Measured range | Tonon 2005: 0.43-0.80 |
 | Bellows ceiling, curve | 1 kPa, 2 | Assumed | Technician's ~1 kPa, unverified |
 | Pallet lift | 3 mm | Assumed | Not published |
-| Pallet opening, closing | 10, 10 ms | Assumed | Not published; bounded by the finger attack |
+| Pallet opening | 50 ms | Reported | "Los ataques usuales de dedo son realizados en unos 0.05 s" (Llanos-Vázquez, thesis 2015, p164) |
+| Pallet closing | 10 ms | Assumed | Not published |
 | Tone hole shape | 4 : 1 rectangle | Assumed | Not published; sets the pallet's rim |
 
 ## What it does (0.2.0, measured; `milestone_1.rs` and `diagnosis.rs`)
@@ -214,7 +222,7 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Sound | Pulse train, harmonics within a few dB to the 7th | Pulse-like "Summton" (Ziegenhals) | Met |
 | Level, 60 → 3000 Pa | 40.9 dB | ~40 dB (Misdariis) | Met |
 | Pitch vs pressure, 100 → 900 Pa | −0.4 cents | about −9 cents (Cottingham) | **Not met** |
-| Bend, pallet part-way open (300 Pa) | down to −15.1 cents before silence, never up | 15-35 cents (Elejalde-García 2021) | Met |
+| Bend, pallet part-way open (300 Pa) | down to −16.5 cents before silence, never up | 15-35 cents (Elejalde-García 2021) | Met |
 | Choking: cell resonance at 1.3, 1.0, 0.95, 0.9 of the reed | onset 35, 119, 217, 356 Pa | "far above normal" at or just below (Tonon; Cottingham ICA 2019) | Met in shape (see VALIDATION) |
 | Closing the pallet | exact silence; −121 dB near the host's Nyquist | -- | Met |
 | Finger attack, −50 → −5 dB | 249 ms (400 Pa), 730 ms (100 Pa) | 50-110 ms mf, 60-140 ms p (Llanos 2014) | **Not met** |
@@ -264,7 +272,14 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   onset already reads 40 ms, so their finger attacks are near-instant; the
   model's, read the same way, are 260 and 750 ms. Tried and not the answer:
   more air inertia (a smaller tone hole) brings mf to ~110 ms but leaves p
-  above 340 ms; Q from 95 to 1000 moves mf between 272 and 155 ms.
+  above 340 ms; Q from 95 to 1000 moves mf between 272 and 155 ms; the
+  inertia of the air in the passages themselves, entered through its
+  kinetic energy as Ricot's mechanism suggests, moves nothing (ROADMAP 2b),
+  because growth from rest happens with the tongue above the plate. The
+  real reed grows ~4× faster at small amplitude (τ ≈ 11 ms against 48:
+  Llanos-Vázquez, thesis, Fig. 4.11), and what supplies that is the force
+  on the tongue's face about its rest position, whose coefficients only
+  Ricot et al. 2005 gives.
 * **The swing does not saturate.** Past the onset a measured reed's swing
   jumps to several millimetres and then stays nearly constant, falling at
   high pressure (Koopman & Cottingham 1997, via Cottingham et al. 1999); the

@@ -314,9 +314,9 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "Pallet Opening Time",
         PAGE_CELL,
         "ms",
-        (1.0, 100.0, 10.0, 0.1),
+        (1.0, 500.0, 50.0, 0.1),
         Taper::Logarithmic,
-        "Assumed: closed to fully open under a finger. Not published; bounded by the finger attack, 50-140 ms from pallet to note (Llanos-Vázquez et al. 2014).",
+        "Reported: \"los ataques usuales de dedo son realizados en unos 0.05 s\" -- a normal finger attack takes about 0.05 s; a slow keystroke about 0.5 s (Llanos-Vázquez, thesis 2015, p164).",
     ),
     spec(
         "pallet_closing",

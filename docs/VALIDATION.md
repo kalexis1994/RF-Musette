@@ -128,3 +128,31 @@ swinging 78 mm, finite and passive but unphysical; its 5 cm bound was
 removed and the defect recorded.
 
 **Not demonstrated.** Heard. Wasm fuel and the Pi. Anything but F4.
+
+## 2026-09-30 — milestone 2b begun: Llanos-Vázquez's thesis, and one hypothesis refuted
+
+**Read.** R. Llanos-Vázquez, *Acústica del acordeón* (UPV/EHU 2015), in full
+from the user's copy; notes in `docs/research/LLANOS-2015.md`, credited in
+SOURCES.md. It gives no blowing pressures or reed dimensions; it gives the
+attack's growth (Fig. 4.11: ~0.7-0.8 dB/ms, τ ≈ 11 ms for A4 mf), a normal
+finger attack of ~0.05 s (p164, now the pallet's opening time) and a summary
+of Ricot's model (Appendix 1).
+
+**Corrected.** The gap-inertia hypothesis had been "refuted" with an onset
+read by ramping up from perfect rest, a method found ill-posed the same day;
+MODEL.md now says the refutation did not stand.
+
+**Refuted properly.** The passage inertia (Tarnopolsky's ρd/(CF) element
+by element, entered through its kinetic energy, κ 0.5-2), RK4 at 1.536 MHz:
+
+| | σ at 100 / 400 Pa | Step attack at 100 / 400 Pa | Swing at 300 Pa |
+| --- | --- | --- | --- |
+| Without | 7.0 / 21.2 /s | 553 / 193 ms | 4.92 mm |
+| κ 1 | 6.8 / 21.1 /s | 558 / 193 ms | 4.74 mm |
+
+Clearance 0.015-0.06 mm: σ 21.6-20.3 /s with it, 21.7-20.4 without. Set 0.5,
+0.2, 0.1 mm: σ 21.1, 19.3, 10.6 /s. Predictions 1 and 2 of 2b not met; the
+mechanism is not built into the shipping step.
+
+**Checks.** 51 passed, 11 ignored (2 known defects, 8 diagnoses, 1 experiment).
+The part-open pallet's deepest bend is −16.5 cents with the 50 ms opening.

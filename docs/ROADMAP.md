@@ -127,12 +127,58 @@ what could be read, does not quantify them:
 * the second transverse and first torsional modes in the first cycles --
   Cottingham (ICA 2019), Behrens et al. (JASA 126, 2009).
 
-**Before building:** the sources that would decide it. Ricot 2005 and
-Biernat & Cottingham (PoMA 20, 2014: growth rates with a pallet valve) are
-paywalled; Llanos-Vázquez's thesis (UPV/EHU 2015, hdl 10810/16562) is open
-behind a reCAPTCHA. **Predictions** for whatever is built: the three
-behaviours above, asserted as milestones 1 and 2 already state them, without
-losing what is met.
+**What the thesis settled (2026-09-30).** Llanos-Vázquez's thesis, read in
+full, gives no pressures or dimensions but three things: the real attack's
+growth, ~0.7-0.8 dB/ms on the first harmonic of A4 mf (Fig. 4.11, p150; an
+e-folding time near 11 ms, where the model's is 48 ms); a normal finger
+attack executed in ~0.05 s (p164); and its Appendix 1 summary of Ricot,
+Caussé & Misdariis -- the excitation is the inertia of the flow through the
+slot of the plate itself, an end-correction mass M(t) that depends on the
+aperture (eq. A1.8, p247), and energy enters with a pressure peak as the
+tongue enters the slot, nearly in phase with its velocity (pp251-252). The
+builders it interviews say a smaller clearance makes a faster response (p46).
+
+**The mechanism to build.** An inertance that depends on where the tongue
+is: the air in the narrow channel between each element of the tongue's edge
+and the slot's wall, ρ ℓ/(α g) per unit of edge (Tarnopolsky's ρ d/(C F),
+element by element), ℓ the length of that channel -- how much of the
+tongue's thickness is inside the plate -- and g the local gap. Written
+through its kinetic energy ½ M(ζ) u², it adds −½ M′(ζ) ζ′ u to the flow's
+equation and a force ½ M′(ζ) u² on the tongue: as the tongue enters the
+slot and the channel lengthens, the air's inertia pulls it on, in phase with
+its velocity -- Ricot's peak. Nothing in it is a new constant; it is the
+geometry the model already has.
+
+**Predictions** (written before building it):
+
+1. The first harmonic's growth in a finger attack at 400 Pa is at least
+   twice as fast as now (e-folding ≤ 24 ms, from 48), toward the measured
+   ~11 ms.
+2. The attack becomes sensitive to the clearance, faster as it narrows (the
+   builders' rule, p46): at least 1.5× between 0.06 and 0.015 mm, where now
+   it moves 6 %.
+3. Milestones 1 and 2 stay met: onset 10-110 Pa, offset below it, swing
+   > 3.1 mm at 300 Pa, the bend, choking, passivity, the scheme computing
+   the model.
+4. Watched, not asserted: whether the pitch now sags with pressure and the
+   swing saturates.
+
+**Result (2026-09-30): refuted as formulated, and what that leaves.** Built
+as an experiment -- RK4 on the exact Lagrangian equations, κ 0.5-2
+(`tests/passage_inertia.rs`) -- the passage inertia moves nothing:
+σ 21.2 → 21.1 /s at 400 Pa, the attack 193 ms either way, the clearance's
+effect unchanged. The reason is in its own numbers: the passage inertia
+rises from 26 to 124 kg/m⁴ only once the tongue enters the slot, and growth
+from rest happens with the tongue oscillating above the plate, where it is
+constant. Resting the tongue nearer the plate makes growth slower (σ 19.3 at
+0.2 mm, 10.6 at 0.1 mm), not faster. So the real reed's ~4× faster
+small-amplitude growth (τ ≈ 11 ms, Llanos Fig. 4.11) needs a larger
+negative damping *about the rest position*: what Ricot's force on the
+tongue's upstream face (eq. A1.7, as the thesis transcribes it) carries in
+its coefficients A₁, A₂, A₃ and K₀ -- which only Ricot et al. 2005 gives.
+The tongue is not the culprit: the thesis's reed 2 (Table 3.1, 0.29 g,
+37 mm, 226 Hz) scaled to 355 Hz has the tip stiffness the model derives,
+~348 N/m against 347.
 
 **Open from milestone 1.** The absolute level and the air the reed spends
 (MODEL.md, known defects) want a measurement before anything moves them; the

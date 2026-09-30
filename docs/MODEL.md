@@ -239,9 +239,12 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   analysis says why: in this class of model the aerodynamic stiffness is
   independent of the supply pressure unless the tongue's mean position
   moves, and it moves 0.07 mm at 900 Pa. A softer tongue does not fix it
-  (8× softer gives −2.8 cents and swings of 10 mm). The mechanism is not in
-  the model; Ricot et al. 2005 (paywalled) and Misdariis's unsteady potential
-  flow are where to look. It is not scripted in the meantime. The failing
+  (8× softer gives −2.8 cents and swings of 10 mm). A candidate mechanism
+  was found (ROADMAP 2b, second attempt). It is the steady suction of the
+  upstream sink flow Misdariis et al. (CFA 2000) describe, on the face next
+  to each gap. It adds no constant, and it gives −7.0 cents from 100 to
+  900 Pa in small oscillations. It vanishes in the model's full ±5 mm
+  swing, so it waits on the swing saturating and is not built yet. The failing
   prediction is kept, ignored, in `milestone_1.rs`.
 * **The absolute level may be ~20 dB high.** At 50 cm the render measures
   75 dB (pp, ~100 Pa) and 91 dB (mf, ~400 Pa) unweighted, against
@@ -275,7 +278,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   above 340 ms; Q from 95 to 1000 moves mf between 272 and 155 ms; the
   inertia of the air in the passages themselves, entered through its
   kinetic energy as Ricot's mechanism suggests, moves nothing (ROADMAP 2b),
-  because growth from rest happens with the tongue above the plate. The
+  because growth from rest happens with the tongue above the plate; nor
+  does the inertia of the upstream sink flow Misdariis et al. describe,
+  whose logarithmic dependence on the gap does act there (σ 21.2 → 21.4 /s). The
   real reed grows ~4× faster at small amplitude (τ ≈ 11 ms against 48:
   Llanos-Vázquez, thesis, Fig. 4.11), and what supplies that is the force
   on the tongue's face about its rest position, whose coefficients only

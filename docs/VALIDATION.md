@@ -156,3 +156,24 @@ mechanism is not built into the shipping step.
 
 **Checks.** 51 passed, 11 ignored (2 known defects, 8 diagnoses, 1 experiment).
 The part-open pallet's deepest bend is −16.5 cents with the 50 ms opening.
+
+## 2026-09-30 -- Milestone 2b, second attempt: the sink flow
+
+**Read.** Misdariis, Ricot & Caussé, CFA 2000 (hal-01161356), in full, text
+and figures; notes in `docs/research/MISDARIIS-2000.md`. No equations or K₀.
+Fig. 3 digitised: regime 1 falls linearly at −13.6 cents/kPa to 3.4 kPa.
+
+**Experiment** (`tests/sink_flow.rs`, RK4 at 1.536 MHz, F4 defaults). (A) is
+the sink's steady suction on the upstream face; (B) is its inertance,
+ρ ln(w/g)/(π dx):
+
+| | σ(400) | Step attack 100 / 400 Pa | Small-oscillation pitch 100 / 300 / 900 Pa | Its sag | Full-swing sag | Swing(300) |
+| --- | --- | --- | --- | --- | --- | --- |
+| None | 21.2 /s | 553 / 193 ms | −7.02 / −7.15 / −7.01 cents | +0.01 | −0.5 | 4.92 mm |
+| A | 20.4 /s | 585 / 204 ms | −7.59 / −9.40 / −14.57 cents | −6.98 | −0.0 | 4.83 mm |
+| B | 21.4 /s | 545 / 190 ms | −6.55 / −6.20 / −3.81 cents | +2.74 | +0.1 | 5.01 mm |
+| A+B | 20.6 /s | 578 / 201 ms | −7.18 / −8.54 / −11.28 cents | −4.10 | +0.5 | 4.92 mm |
+
+(B) refuted (prediction 2). (A) meets prediction 1 about the equilibrium,
+−8.7 cents/kPa, and not in the model's ±5 mm swing. Nothing is built into
+the shipping step; the shipping tests are untouched.

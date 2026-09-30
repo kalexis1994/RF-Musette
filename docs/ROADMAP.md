@@ -180,6 +180,66 @@ The tongue is not the culprit: the thesis's reed 2 (Table 3.1, 0.29 g,
 37 mm, 226 Hz) scaled to 355 Hz has the tip stiffness the model derives,
 ~348 N/m against 347.
 
+**Second attempt: the sink flow of Misdariis, Ricot & Caussé (CFA 2000).**
+Read in full (2026-09-30), the paper publishes no equation and no value of
+K₀, but it describes the flow precisely enough to derive from: upstream, a
+laminar two-dimensional *sink* into the gap, in planes across the tongue;
+pressure acts on the upstream face only, the downstream side is "dead"
+fluid; the excitation is the inertia of the upstream fluid. A half-plane
+sink of strength q per unit edge length, φ = (q/π) ln r, puts on the face
+next to each gap g, out to the tongue's half-width w/2:
+
+* a steady Bernoulli deficit ½ρ|∇φ|², which integrates to
+  (2/π²) Δp g (1 − g/w) per unit edge length (Δp the jet's ½ρv²): it grows
+  with the gap, so it is a negative stiffness proportional to pressure --
+  a pitch that falls linearly with pressure, which is what their Fig. 3
+  shows (−13.6 cents/kPa, linear to 3.4 kPa, as digitised here). Estimated
+  for the F4 reed with the tongue above the plate: about −9 cents/kPa.
+  Call it (A).
+* an unsteady term ρ ∂φ/∂t: the sink's inertance, ρ ln(w/g)/(π dx) per
+  edge element, between the gap and the half-width where the near-field
+  inertance M_n takes over. Unlike the refuted passage inertia, whose end
+  correction κg made it constant above the plate, it depends on the gap
+  there, logarithmically. Call it (B).
+
+Neither adds a constant: both are the geometry the model has. They are our
+derivation from the paper's description, not their model, which is
+unpublished (Ricot 1999, a thesis of the École Centrale de Lyon; Ricot et
+al. 2005).
+
+**Predictions** (written before building it, 2026-09-30):
+
+1. (A) makes the pitch fall with pressure, by −2 to −40 cents from 100 to
+   900 Pa -- milestone 1's prediction 3, unmet since (now −0.4).
+2. (B) makes the growth at 400 Pa at least twice as fast (e-folding
+   ≤ 24 ms, from 48).
+3. Milestones 1 and 2 stay met, as in the first attempt.
+
+**Result (2026-09-30): (B) refuted; (A) right in the small, masked in the
+large.** Built as an experiment (`tests/sink_flow.rs`, RK4 on the exact
+equations, as the first):
+
+* **(B)** is 15-24 kg/m⁴ across the swing above the plate, beside
+  M_n = 47.6, and moves nothing: σ(400) 21.2 → 21.4 /s, attacks 553/193 →
+  545/190 ms. Prediction 2 fails.
+* **(A)** is what the paper's Fig. 3 asks for, where it can act.
+  * About the equilibrium, in small oscillations, it takes the pitch from
+    flat (+0.01 cents from 100 to 900 Pa) to **−7.0 cents** (−7.6, −9.4,
+    −14.6 cents from the mode at 100, 300, 900 Pa). That is −8.7 cents/kPa,
+    the order of Cottingham's (≈ −11) and Misdariis's (−13.6), with no
+    constant added.
+  * In the full oscillation the effect vanishes (sag −0.5 → 0.0 cents),
+    because the model's tongue swings ±5 mm and spends half of every cycle
+    inside the slot, where the gap is the clearance and (A) is constant.
+  * Prediction 1 is met in the regime a real reed plays in -- the swing
+    saturates past onset (Koopman & Cottingham), keeping the tongue near the
+    plate -- and not met in the model's own large swing.
+
+So the pitch sag is not missing physics any more: it waits on the swing
+saturating, the third defect. **Next:** the swing's limit (St. Hilaire &
+Vaidya 1975, nonlinear dissipation by the flow's higher harmonics), then
+(A) again on top of it. The attack remains Ricot et al. 2005's question.
+
 **Open from milestone 1.** The absolute level and the air the reed spends
 (MODEL.md, known defects) want a measurement before anything moves them; the
 pitch-pressure mechanism wants Ricot et al. 2005 or Misdariis's potential-flow

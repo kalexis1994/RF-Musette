@@ -1,0 +1,6 @@
+/target/
+/dist/
+/renders/
+/package/component.wasm
+/package/LICENSE
+/package/NOTICE.md

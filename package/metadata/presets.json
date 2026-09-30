@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "banks": [{ "id": "research", "name": "Research", "order": 0 }],
+  "presets": [{
+    "id": "research", "name": "Research", "bank": "research",
+    "category": "Accordion", "order": 0, "tags": ["default"],
+    "description": "The model as it stands. Silent until the first reed exists."
+  }]
+}

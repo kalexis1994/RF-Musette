@@ -292,7 +292,14 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   65 mm reed at 6 kPa -- reaches 78 mm. St. Hilaire & Vaidya (J. Fluid Mech.
   67, 1975) attribute the limit to nonlinear dissipation by the flow's
   higher harmonics, which the minimal model does not have. The tongue has
-  no mechanical stops either.
+  no mechanical stops either. Measured (`tests/saturation.rs`, the tongue
+  swung by hand and the air's work per cycle against the tongue's own
+  damping): the balance falls at 1.7, 5, 8.2 and 11 mm at 100, 300, 900 Pa
+  and 3 kPa, the free reed's swings. Almost all the energy enters while the
+  tip is above the plate, roughly in proportion to the pressure, and the
+  only thing that takes it back is the tip emerging beyond the plate, past
+  ~3.5 mm of travel. The one loss the model has, Q, does not grow with
+  pressure or speed, so the swing grows until the tongue comes through.
 * **One mode.** Accordion tongues carry their 2nd-4th bending modes and a
   torsional mode, most visibly in the attack (Behrens et al. 2009; Cottingham
   ICA 2019).

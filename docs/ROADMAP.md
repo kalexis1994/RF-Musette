@@ -240,6 +240,57 @@ saturating, the third defect. **Next:** the swing's limit (St. Hilaire &
 Vaidya 1975, nonlinear dissipation by the flow's higher harmonics), then
 (A) again on top of it. The attack remains Ricot et al. 2005's question.
 
+## 2c. The swing's limit
+
+**Measured first** (`tests/saturation.rs`, MODEL.md): the air feeds the
+tongue while its tip is above the plate, about in proportion to the
+pressure; the tongue's only loss, Q, does not grow with pressure or speed;
+only the tip coming through the plate stops the growth. So the swing grows
+with pressure: 1.7, 5, 8.2, 11 mm at 0.1, 0.3, 0.9, 3 kPa. Measured reeds
+swing about 15 % of their length, ~5.4 mm here (Braasch & Cottingham,
+*Acoustics Today* 2023), jump to it past the onset and hold it (Cottingham
+et al. 1999).
+
+**First candidate: the air's drag on the moving tongue.** At 5 mm the tip
+moves at ~11 m/s, in the order of the jet's speed, and nothing in the model
+resists it. An oscillating flat plate's drag is measured: Keulegan &
+Carpenter (J. Res. NBS 60, 1958, Table 4) give C_d against the
+Keulegan–Carpenter number KC = 2πA/w, 5.2-5.5 near this reed's KC ≈ 8.
+Taken along the tongue with the local KC as Bidkar et al. do for
+cantilevers (JFM 634, 2009, eq. 3.10), ½ ρ C_d(KC(x)) w v|v| per unit
+length, only where the element is out of the slot (inside it the air is
+confined, and the pumped flow already carries it). No constant is voiced.
+
+**Predictions** (written before building it, 2026-09-30):
+
+1. The drag lowers the swing at every pressure and more at high pressure,
+   but does not make it nearly constant: estimated by hand ~3 mm at 300 Pa,
+   ~6 at 900, ~8.5 at 3 kPa.
+2. If so, drag alone is not what limits a real reed, and at 300 Pa it would
+   take the swing below Ziegenhals's "more than 4 mm at mf" -- unless mf is
+   well above 300 Pa, which nothing measured says.
+
+**Result (2026-09-30): both met, so the drag is not the limit.** In the
+energy balance (`tests/saturation.rs`) the drag takes about as much as the
+tongue's own Q at every swing (85 µJ against 108 at 5 mm), and moves the
+balance to 1.1, 3.4, 6.4 and 9.1 mm at 0.1, 0.3, 0.9 and 3 kPa. It is real
+physics, but the swing still grows with pressure, relatively more
+(×2.7 from 0.3 to 3 kPa, against ×2.2), and at 300 Pa it falls below
+Ziegenhals's 4 mm. It is not built.
+
+What the balance says instead: a swing that holds with pressure needs a
+loss that grows with pressure as the feed does -- an aerodynamic loss, not
+a mechanical one -- and a swing pinned at ~15 % of the tongue's length
+suggests geometry pins it. In the model the only aerodynamic loss is the tip
+coming through the plate, past 3.5 mm of travel (set 0.5 + plate 3 +
+thickness), and it bites only from ~6 mm. What the air does to a tongue
+emerging from the slot's far side is where to look next. Tarnopolsky et al.
+saw their flap sit in the aperture nearly half of each cycle and emerge
+from the back above ~5 mm; the builders in Llanos's thesis say that with a
+thin plate the tongue "passes straight to the other side" (p270). St.
+Hilaire & Vaidya (1975) put the limit in the potential flow's higher
+harmonics, but only their abstract has been read.
+
 **Open from milestone 1.** The absolute level and the air the reed spends
 (MODEL.md, known defects) want a measurement before anything moves them; the
 pitch-pressure mechanism wants Ricot et al. 2005 or Misdariis's potential-flow

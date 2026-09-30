@@ -177,3 +177,21 @@ the sink's steady suction on the upstream face; (B) is its inertance,
 (B) refuted (prediction 2). (A) meets prediction 1 about the equilibrium,
 −8.7 cents/kPa, and not in the model's ±5 mm swing. Nothing is built into
 the shipping step; the shipping tests are untouched.
+
+## 2026-09-30 -- Milestone 2c: why the swing does not saturate
+
+**Measured** (`tests/saturation.rs`: the tongue swung by hand at the
+playing frequency, the air's work per cycle over the tongue's damping, RK4
+at 1.536 MHz). The balance, where a free reed settles:
+
+| Supply | Without drag | With the plate's drag (Keulegan & Carpenter, local KC) |
+| --- | --- | --- |
+| 100 Pa | ~1.7 mm | ~1.1 mm |
+| 300 Pa | ~5.0 mm | ~3.4 mm |
+| 900 Pa | ~8.2 mm | ~6.4 mm |
+| 3 kPa | ~11 mm | ~9.1 mm |
+
+Without drag it reproduces the free reed's swings (4.9, 8.2, 11 mm), so the
+diagnosis computes the model. Almost all the energy enters above the plate;
+only the tip emerging beyond the plate returns it. Drag: 85 µJ per cycle at
+5 mm against Q's 108. Predictions 1 and 2 of 2c met; drag not built.

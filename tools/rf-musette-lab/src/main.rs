@@ -3,10 +3,11 @@
 
 mod audition;
 mod package;
+mod schema;
 mod score;
 mod wav;
 
-use rf_musette_dsp::{Engine, SAMPLE_RATES};
+use rf_musette_dsp::{Engine, PARAMETER_SPECS, REED_KEY, SAMPLE_RATES};
 use score::Action;
 use serde_json::json;
 use std::{
@@ -19,12 +20,16 @@ const HELP: &str = "RF-Musette laboratory
 Usage:
   rf-musette-lab render --output PATH.wav [options]
   rf-musette-lab inspect PATH.wav
+  rf-musette-lab schema
   rf-musette-lab package
   rf-musette-lab audition [--prepare-only]
 Render options:
   --score PATH      A score: `onset_ms duration_ms note velocity` per line,
                     or `onset_ms bellows 0..127`. Without it, one note.
-  --note N          MIDI 0..127 for the single note (default 69, A4)
+  --set ID=VALUE    Sets a parameter by its id, in its own units; repeat for
+                    more. The ids are in package/metadata/parameters.json.
+  --note N          MIDI 0..127 for the single note (default 65, F4: the
+                    one reed milestone 1 has)
   --velocity N      MIDI 1..127 for the single note (default 100)
   --hold S          Key hold of the single note, seconds (default 2)
   --lead-in S       Silence before the first event, 0..10 (default 1.5)
@@ -52,6 +57,7 @@ fn dispatch(arguments: &[String]) -> Result<(), Box<dyn Error>> {
     match command.as_str() {
         "render" => render(&Options::parse(rest)?),
         "inspect" => inspect(&single_path(rest)?),
+        "schema" => schema::write(),
         "package" => package::build(),
         "audition" => audition::run(rest),
         "help" | "--help" | "-h" => {
@@ -78,6 +84,8 @@ struct Options {
     lead_in: f64,
     tail: f64,
     sample_rate: f32,
+    /// Parameter index and value, in the order given.
+    settings: Vec<(usize, f64)>,
 }
 
 impl Options {
@@ -86,7 +94,8 @@ impl Options {
         let mut options = Self {
             output: PathBuf::new(),
             score: None,
-            note: 69,
+            settings: Vec::new(),
+            note: REED_KEY,
             velocity: 100,
             hold: 2.0,
             lead_in: 1.5,
@@ -97,7 +106,7 @@ impl Options {
         let mut index = 0;
         while index < arguments.len() {
             let flag = arguments[index].as_str();
-            if !seen.insert(flag.to_owned()) {
+            if flag != "--set" && !seen.insert(flag.to_owned()) {
                 return Err(format!("duplicate option: {flag}").into());
             }
             let value = arguments
@@ -113,6 +122,14 @@ impl Options {
             match flag {
                 "--output" => output = Some(PathBuf::from(value)),
                 "--score" => options.score = Some(PathBuf::from(value)),
+                "--set" => {
+                    let (id, number) = value.split_once('=').ok_or("--set takes ID=VALUE")?;
+                    let parameter = PARAMETER_SPECS
+                        .iter()
+                        .position(|spec| spec.id == id)
+                        .ok_or_else(|| format!("no parameter is called {id}"))?;
+                    options.settings.push((parameter, number.parse()?));
+                }
                 "--note" => {
                     options.note = value.parse()?;
                     if options.note > 127 {
@@ -176,6 +193,16 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
     let frames = last + (options.tail * f64::from(rate)).round() as usize;
 
     let mut engine = Engine::new(rate).map_err(|error| format!("{error:?}"))?;
+    for (index, value) in &options.settings {
+        let spec = &PARAMETER_SPECS[*index];
+        if !engine.set_parameter(*index, *value) {
+            return Err(format!(
+                "{} takes {}..{} {}",
+                spec.id, spec.minimum, spec.maximum, spec.unit
+            )
+            .into());
+        }
+    }
     let mut samples = vec![0.0f32; frames];
     let mut cursor = 0;
     for event in &events {
@@ -209,6 +236,12 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
         "rms": report.rms,
         "events": events.len(),
         "score": score_text,
+        // Every parameter as rendered, so a render can be reproduced.
+        "parameters": PARAMETER_SPECS
+            .iter()
+            .enumerate()
+            .map(|(index, spec)| (spec.id.to_owned(), json!(engine.parameter(index))))
+            .collect::<serde_json::Map<_, _>>(),
     });
     write_report(&options.output, &summary)?;
     println!(

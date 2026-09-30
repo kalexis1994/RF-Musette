@@ -1,10 +1,468 @@
 {
-  "schema_version": 1,
-  "pages": [{ "id": "output", "name": "Output", "order": 0 }],
-  "parameters": [{
-    "index": 0, "id": "gain", "name": "Output Gain", "page": "output", "order": 0,
-    "kind": { "type": "float", "minimum": 0.0, "maximum": 2.0, "default": 1.0, "step": 0.01, "unit": "x" },
-    "flags": { "automatable": true, "modulatable": false, "read_only": false, "advanced": false },
-    "suggested_control": "knob"
-  }]
+  "pages": [
+    {
+      "id": "output",
+      "name": "Output",
+      "order": 0
+    },
+    {
+      "id": "model_reed",
+      "name": "Model · Reed",
+      "order": 1
+    },
+    {
+      "id": "model_cell",
+      "name": "Model · Cell",
+      "order": 2
+    },
+    {
+      "id": "model_air",
+      "name": "Model · Air & Bellows",
+      "order": 3
+    }
+  ],
+  "parameters": [
+    {
+      "flags": {
+        "advanced": false,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "gain",
+      "index": 0,
+      "kind": {
+        "default": 1.0,
+        "maximum": 4.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float",
+        "unit": "x"
+      },
+      "name": "Output Gain",
+      "order": 0,
+      "page": "output",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "reed_frequency",
+      "index": 1,
+      "kind": {
+        "default": 355.0,
+        "maximum": 800.0,
+        "minimum": 150.0,
+        "step": 0.1,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "Hz"
+      },
+      "name": "Reed Frequency",
+      "order": 0,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "reed_q",
+      "index": 2,
+      "kind": {
+        "default": 250.0,
+        "maximum": 1000.0,
+        "minimum": 10.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float"
+      },
+      "name": "Reed Q",
+      "order": 1,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "reed_length",
+      "index": 3,
+      "kind": {
+        "default": 36.0,
+        "maximum": 80.0,
+        "minimum": 10.0,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Tongue Length",
+      "order": 2,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "reed_width",
+      "index": 4,
+      "kind": {
+        "default": 4.0,
+        "maximum": 8.0,
+        "minimum": 1.5,
+        "step": 0.05,
+        "taper": "linear",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Tongue Width",
+      "order": 3,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "reed_mode_ratio",
+      "index": 5,
+      "kind": {
+        "default": 4.6,
+        "maximum": 6.25,
+        "minimum": 3.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Tongue Mode Ratio",
+      "order": 4,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "reed_set",
+      "index": 6,
+      "kind": {
+        "default": 0.5,
+        "maximum": 2.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Tongue Set",
+      "order": 5,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "plate_thickness",
+      "index": 7,
+      "kind": {
+        "default": 3.0,
+        "maximum": 6.0,
+        "minimum": 0.5,
+        "step": 0.05,
+        "taper": "linear",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Plate Thickness",
+      "order": 6,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "side_clearance",
+      "index": 8,
+      "kind": {
+        "default": 0.035,
+        "maximum": 0.2,
+        "minimum": 0.005,
+        "step": 0.001,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Side Clearance",
+      "order": 7,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "tip_clearance",
+      "index": 9,
+      "kind": {
+        "default": 0.04,
+        "maximum": 0.3,
+        "minimum": 0.005,
+        "step": 0.001,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Tip Clearance",
+      "order": 8,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "contraction",
+      "index": 10,
+      "kind": {
+        "default": 0.61,
+        "maximum": 1.0,
+        "minimum": 0.4,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Jet Contraction",
+      "order": 0,
+      "page": "model_air",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "near_field_inertance",
+      "index": 11,
+      "kind": {
+        "default": 1.0,
+        "maximum": 20.0,
+        "minimum": 0.05,
+        "step": 0.01,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "x"
+      },
+      "name": "Near-Field Inertance",
+      "order": 1,
+      "page": "model_air",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "bellows_ceiling",
+      "index": 12,
+      "kind": {
+        "default": 1000.0,
+        "maximum": 6000.0,
+        "minimum": 100.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "Pa"
+      },
+      "name": "Bellows Ceiling",
+      "order": 2,
+      "page": "model_air",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "bellows_curve",
+      "index": 13,
+      "kind": {
+        "default": 2.0,
+        "maximum": 4.0,
+        "minimum": 0.5,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Bellows Curve",
+      "order": 3,
+      "page": "model_air",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "oversampling",
+      "index": 14,
+      "kind": {
+        "choices": [
+          {
+            "name": "1x",
+            "value": 1
+          },
+          {
+            "name": "2x",
+            "value": 2
+          },
+          {
+            "name": "4x",
+            "value": 4
+          }
+        ],
+        "default": 2,
+        "type": "enum"
+      },
+      "name": "Oversampling",
+      "order": 4,
+      "page": "model_air",
+      "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "cell_volume",
+      "index": 15,
+      "kind": {
+        "default": 8.0,
+        "maximum": 40.0,
+        "minimum": 1.0,
+        "step": 0.1,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "cm³"
+      },
+      "name": "Cell Volume",
+      "order": 0,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "tone_hole_area",
+      "index": 16,
+      "kind": {
+        "default": 150.0,
+        "maximum": 600.0,
+        "minimum": 20.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "mm²"
+      },
+      "name": "Tone Hole Area",
+      "order": 1,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "tone_hole_depth",
+      "index": 17,
+      "kind": {
+        "default": 5.0,
+        "maximum": 15.0,
+        "minimum": 1.0,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "mm"
+      },
+      "name": "Tone Hole Depth",
+      "order": 2,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "end_correction",
+      "index": 18,
+      "kind": {
+        "default": 0.6,
+        "maximum": 1.0,
+        "minimum": 0.3,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "End Correction",
+      "order": 3,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    }
+  ],
+  "schema_version": 1
 }

@@ -4,6 +4,6 @@
   "presets": [{
     "id": "research", "name": "Research", "bank": "research",
     "category": "Accordion", "order": 0, "tags": ["default"],
-    "description": "The model as it stands. Silent until the first reed exists."
+    "description": "Milestone 1: the one reed the IfM Zwota measured, F4, blown from its cell. Every other key is silent."
   }]
 }

@@ -37,12 +37,19 @@ name = "rackforge-plugin-sdk"
 version = "0.1.24"
 
 [[package]]
+name = "rf-musette-analysis"
+version = "0.2.0"
+dependencies = [
+ "rf-musette-dsp",
+]
+
+[[package]]
 name = "rf-musette-dsp"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "rf-musette-lab"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rf-musette-dsp",
  "serde_json",
@@ -50,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "rf-musette-plugin"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rackforge-plugin-sdk",
  "rf-musette-dsp",

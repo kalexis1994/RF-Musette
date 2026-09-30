@@ -104,10 +104,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         .join("packages")
         .join(ID)
         .join(env!("CARGO_PKG_VERSION"));
-    verify_install(
-        &installed,
-        &root.join("target/wasm32-unknown-unknown/release/rf_musette_plugin.wasm"),
-    )?;
+    verify_install(&installed, &archive)?;
     prepare_session(&library, &run_dir)?;
     copy_initial_audio_settings(&library)?;
     let logs = run_dir.join("rackforge.log");
@@ -262,16 +259,74 @@ fn ensure_no_newer_version(library: &Path) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn verify_install(installed: &Path, component: &Path) -> Result<(), Box<dyn Error>> {
+/// Checks that what was installed is what this run packed. The packer
+/// optimises the component (binaryen) on the way in, so the installed WASM
+/// is compared with the archive's copy, not with the build output: by the
+/// CRC-32 and size the archive's central directory records for it, which
+/// needs no decompression.
+fn verify_install(installed: &Path, archive: &Path) -> Result<(), Box<dyn Error>> {
     let runtime: Value =
         serde_json::from_slice(&fs::read(installed.join("metadata/runtime.json"))?)?;
     if runtime["version"] != env!("CARGO_PKG_VERSION") {
         return Err("installed metadata version does not match the laboratory version".into());
     }
-    if fs::read(installed.join("component.wasm"))? != fs::read(component)? {
-        return Err("installed WASM differs from the freshly built component".into());
+    let (crc, size) = archive_entry(&fs::read(archive)?, "component.wasm")?;
+    let component = fs::read(installed.join("component.wasm"))?;
+    if component.len() as u64 != u64::from(size) || crc32(&component) != crc {
+        return Err("installed WASM differs from the component this run packed".into());
     }
     Ok(())
+}
+
+/// The CRC-32 and uncompressed size a zip archive records for `name`.
+fn archive_entry(zip: &[u8], name: &str) -> Result<(u32, u32), Box<dyn Error>> {
+    let u16_at = |at: usize| -> Result<usize, Box<dyn Error>> {
+        let bytes = zip.get(at..at + 2).ok_or("truncated archive")?;
+        Ok(usize::from(u16::from_le_bytes([bytes[0], bytes[1]])))
+    };
+    let u32_at = |at: usize| -> Result<u32, Box<dyn Error>> {
+        let bytes = zip.get(at..at + 4).ok_or("truncated archive")?;
+        Ok(u32::from_le_bytes(bytes.try_into()?))
+    };
+    // The end-of-central-directory record: at least 22 bytes from the end,
+    // at most a 64 KiB comment further.
+    let lowest = zip.len().saturating_sub(22 + 65_535);
+    let end = (lowest..=zip.len().saturating_sub(22))
+        .rev()
+        .find(|at| zip[*at..].starts_with(&[0x50, 0x4b, 0x05, 0x06]))
+        .ok_or("not a zip archive")?;
+    let entries = u16_at(end + 10)?;
+    let mut at = u32_at(end + 16)? as usize;
+    for _ in 0..entries {
+        if u32_at(at)? != 0x0201_4b50 {
+            return Err("corrupt central directory".into());
+        }
+        let (name_length, extra, comment) = (u16_at(at + 28)?, u16_at(at + 30)?, u16_at(at + 32)?);
+        let entry_name = zip
+            .get(at + 46..at + 46 + name_length)
+            .ok_or("truncated archive")?;
+        if entry_name == name.as_bytes() {
+            return Ok((u32_at(at + 16)?, u32_at(at + 24)?));
+        }
+        at += 46 + name_length + extra + comment;
+    }
+    Err(format!("the archive has no {name}").into())
+}
+
+/// CRC-32 (IEEE 802.3), as zip records it.
+fn crc32(bytes: &[u8]) -> u32 {
+    let mut crc = !0u32;
+    for byte in bytes {
+        crc ^= u32::from(*byte);
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 {
+                (crc >> 1) ^ 0xEDB8_8320
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
 }
 
 fn checkpoint(previous: Option<Value>) -> Result<Value, Box<dyn Error>> {
@@ -400,11 +455,59 @@ mod tests {
         )
         .unwrap();
         fs::write(installed.join("component.wasm"), b"old").unwrap();
-        fs::write(path.join("current.wasm"), b"new").unwrap();
-        assert!(verify_install(&installed, &path.join("current.wasm")).is_err());
+        fs::write(
+            path.join("archive.rfplugin"),
+            stored_zip("component.wasm", b"new"),
+        )
+        .unwrap();
+        assert!(verify_install(&installed, &path.join("archive.rfplugin")).is_err());
         fs::write(installed.join("component.wasm"), b"new").unwrap();
-        verify_install(&installed, &path.join("current.wasm")).unwrap();
+        verify_install(&installed, &path.join("archive.rfplugin")).unwrap();
         fs::remove_dir_all(path).unwrap();
+    }
+
+    /// A one-entry zip with the entry stored, built by hand.
+    fn stored_zip(name: &str, data: &[u8]) -> Vec<u8> {
+        let crc = crc32(data);
+        let size = data.len() as u32;
+        let mut zip = Vec::new();
+        zip.extend_from_slice(&0x0403_4b50u32.to_le_bytes());
+        zip.extend_from_slice(&[20, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        zip.extend_from_slice(&crc.to_le_bytes());
+        zip.extend_from_slice(&size.to_le_bytes());
+        zip.extend_from_slice(&size.to_le_bytes());
+        zip.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        zip.extend_from_slice(&0u16.to_le_bytes());
+        zip.extend_from_slice(name.as_bytes());
+        zip.extend_from_slice(data);
+        let directory = zip.len() as u32;
+        zip.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
+        zip.extend_from_slice(&[20, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        zip.extend_from_slice(&crc.to_le_bytes());
+        zip.extend_from_slice(&size.to_le_bytes());
+        zip.extend_from_slice(&size.to_le_bytes());
+        zip.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        zip.extend_from_slice(&[0; 12]);
+        zip.extend_from_slice(&0u32.to_le_bytes());
+        zip.extend_from_slice(name.as_bytes());
+        let directory_size = zip.len() as u32 - directory;
+        zip.extend_from_slice(&0x0605_4b50u32.to_le_bytes());
+        zip.extend_from_slice(&[0, 0, 0, 0, 1, 0, 1, 0]);
+        zip.extend_from_slice(&directory_size.to_le_bytes());
+        zip.extend_from_slice(&directory.to_le_bytes());
+        zip.extend_from_slice(&0u16.to_le_bytes());
+        zip
+    }
+
+    #[test]
+    fn the_crc_is_the_one_zip_records() {
+        assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
+        let zip = stored_zip("component.wasm", b"abc");
+        assert_eq!(
+            archive_entry(&zip, "component.wasm").unwrap(),
+            (crc32(b"abc"), 3)
+        );
+        assert!(archive_entry(&zip, "missing").is_err());
     }
 
     #[test]

@@ -1,10 +1,9 @@
 //! The RF-Musette engine: a physically modelled accordion, treble side first.
 //!
-//! Nothing here sounds yet. This crate holds what the instrument's contract
-//! already fixes -- which keys are down, what the player asks of the bellows,
-//! the output gain -- so the reed model has a place to arrive. The reed is
-//! milestone 1 in `docs/ROADMAP.md`, and every mechanism it brings is entered
-//! in the ledger, `docs/MODEL.md`, with the source that measured it.
+//! Milestone 1 is one reed: the accordion F4 tongue the IfM Zwota measured,
+//! blown by the bellows through its own inertance, on key 65. Every other
+//! key is tracked and silent. The model and its sources are in [`reed`];
+//! every mechanism and constant is entered in the ledger, `docs/MODEL.md`.
 //!
 //! The crate is `no_std` and never allocates: it runs inside the plugin's
 //! WebAssembly component on every RackForge host, the Raspberry Pi included.
@@ -12,17 +11,35 @@
 #![no_std]
 
 mod bellows;
+mod decimator;
+pub mod math;
+pub mod parameters;
+pub mod reed;
+pub mod tongue;
 
 pub use bellows::{Bellows, BellowsSource};
+pub use decimator::Decimator;
+pub use parameters::{COUNT as PARAMETER_COUNT, Parameters, SPECS as PARAMETER_SPECS};
+use reed::{ReedModel, ReedState};
+use tongue::TongueMode;
 
 /// MIDI key numbers the engine tracks.
 pub const KEYS: usize = 128;
 
-/// The output gain's ceiling, as a linear factor.
-pub const GAIN_MAX: f32 = 2.0;
+/// The one key that sounds in milestone 1: F4, the reed Ziegenhals measured.
+pub const REED_KEY: u8 = 65;
 
 /// The sample rates the engine accepts, in hertz.
 pub const SAMPLE_RATES: core::ops::RangeInclusive<f32> = 8_000.0..=384_000.0;
+
+/// ρ / (4π r) at r = 1 m: sound pressure per unit rate of change of the
+/// volume flow, for a monopole.
+const RADIATION: f64 = reed::AIR_DENSITY / (4.0 * core::f64::consts::PI);
+
+/// Time constant of the guard that keeps a stepped controller from reaching
+/// the reed as a step. Numerical, not physical: the bellows' own compliance
+/// is milestone 5.
+const SUPPLY_SMOOTHING_SECONDS: f64 = 0.001;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EngineError {
@@ -32,7 +49,16 @@ pub enum EngineError {
 
 pub struct Engine {
     sample_rate: f32,
-    gain: f32,
+    parameters: Parameters,
+    /// The tongue's profile, solved from its mode ratio; kept, because
+    /// solving it takes milliseconds and the ratio rarely moves.
+    mode: TongueMode,
+    model: ReedModel,
+    state: ReedState,
+    supply: f64,
+    decimator: Decimator,
+    /// A reed parameter moved: rebuild before the next sample.
+    dirty: bool,
     held: [bool; KEYS],
     bellows: Bellows,
 }
@@ -42,9 +68,18 @@ impl Engine {
         if !sample_rate.is_finite() || !SAMPLE_RATES.contains(&sample_rate) {
             return Err(EngineError::SampleRate);
         }
+        let parameters = Parameters::default();
+        let mode = TongueMode::with_ratio(parameters.reed_design().mode_ratio);
+        let model = ReedModel::with_mode(parameters.reed_design(), &mode);
         Ok(Self {
             sample_rate,
-            gain: 1.0,
+            parameters,
+            mode,
+            model,
+            state: ReedState::default(),
+            supply: 0.0,
+            decimator: Decimator::new(parameters.oversampling()),
+            dirty: false,
             held: [false; KEYS],
             bellows: Bellows::new(),
         })
@@ -54,17 +89,24 @@ impl Engine {
         self.sample_rate
     }
 
-    pub fn gain(&self) -> f32 {
-        self.gain
+    pub fn parameters(&self) -> &Parameters {
+        &self.parameters
     }
 
-    /// Sets the output gain. A value outside `0..=GAIN_MAX`, or not a
-    /// number, is refused and changes nothing.
-    pub fn set_gain(&mut self, gain: f32) -> bool {
-        if !gain.is_finite() || !(0.0..=GAIN_MAX).contains(&gain) {
+    pub fn parameter(&self, index: usize) -> Option<f64> {
+        self.parameters.get(index)
+    }
+
+    /// Sets one parameter in its own units. A value outside its range, or
+    /// not a number, is refused and changes nothing. The reed is rebuilt
+    /// from the new value before the next sample it renders.
+    pub fn set_parameter(&mut self, index: usize, value: f64) -> bool {
+        if !self.parameters.set(index, value) {
             return false;
         }
-        self.gain = gain;
+        if index != parameters::GAIN {
+            self.dirty = true;
+        }
         true
     }
 
@@ -101,21 +143,90 @@ impl Engine {
         &mut self.bellows
     }
 
-    /// Lets every key go. What the bellows was asked stays asked: resetting
-    /// the audio does not move the player's arm.
-    pub fn reset(&mut self) {
-        self.held = [false; KEYS];
+    /// The reed as it stands, for measurement.
+    pub fn reed(&self) -> (&ReedModel, &ReedState) {
+        (&self.model, &self.state)
     }
 
-    /// Renders one block of mono output. Silent until the reed exists.
+    /// The pressure the reed is being blown with, Pa.
+    pub fn supply(&self) -> f64 {
+        self.supply
+    }
+
+    /// Lets every key go and silences the reed. What the bellows was asked
+    /// stays asked: resetting the audio does not move the player's arm.
+    pub fn reset(&mut self) {
+        self.held = [false; KEYS];
+        self.state = ReedState::default();
+        self.supply = 0.0;
+        self.decimator.reset();
+    }
+
+    fn rebuild(&mut self) {
+        let design = self.parameters.reed_design();
+        if design.mode_ratio != self.mode.ratio_asked {
+            self.mode = TongueMode::with_ratio(design.mode_ratio);
+        }
+        self.model = ReedModel::with_mode(design, &self.mode);
+        if self.decimator.factor() != self.parameters.oversampling() {
+            self.decimator = Decimator::new(self.parameters.oversampling());
+        }
+        self.dirty = false;
+    }
+
+    /// Renders one block of mono output, in units of 1 Pa at 1 m times the
+    /// gain.
     pub fn render(&mut self, output: &mut [f32]) {
-        output.fill(0.0);
+        if self.dirty {
+            self.rebuild();
+        }
+        let factor = self.decimator.factor();
+        let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
+        let target = if self.is_held(REED_KEY) {
+            self.parameters.bellows_pressure(self.bellows.intent())
+        } else {
+            0.0
+        };
+        let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
+        let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
+        let mut chunk = [0.0f32; decimator::MAX_FACTOR];
+        for sample in output.iter_mut() {
+            if target == 0.0 && self.at_rest() {
+                // Nothing moves and nothing is left in the filter.
+                *sample = 0.0;
+                continue;
+            }
+            for slot in chunk.iter_mut().take(factor) {
+                self.supply += (target - self.supply) * smoothing;
+                let flow_rate = reed::step(&self.model, &mut self.state, self.supply, h);
+                *slot = (RADIATION * flow_rate) as f32;
+            }
+            *sample = self.decimator.decimate(&chunk[..factor]) * gain;
+        }
+    }
+
+    /// True once the reed has stopped and the filter has emptied. The state
+    /// is then zeroed exactly, so the silence that follows is exact too.
+    fn at_rest(&mut self) -> bool {
+        if self.decimator.is_quiet() && self.state == ReedState::default() {
+            return true;
+        }
+        // A sounding F4 reed stores a few millijoules; 1e-12 J is about
+        // 98 dB below it.
+        let energy = self.state.energy(&self.model);
+        if self.supply < 1.0e-6 && energy < 1.0e-12 {
+            self.state = ReedState::default();
+            self.supply = 0.0;
+        }
+        false
     }
 }
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
     use super::*;
+    use std::vec;
 
     #[test]
     fn only_a_usable_sample_rate_makes_an_engine() {
@@ -147,20 +258,32 @@ mod tests {
     }
 
     #[test]
-    fn the_gain_refuses_what_it_cannot_be() {
+    fn parameters_refuse_what_they_cannot_be() {
         let mut engine = Engine::new(48_000.0).unwrap();
-        assert!(engine.set_gain(GAIN_MAX));
-        assert!(!engine.set_gain(-0.1));
-        assert!(!engine.set_gain(f32::INFINITY));
-        assert_eq!(engine.gain(), GAIN_MAX);
+        assert!(engine.set_parameter(parameters::GAIN, 2.0));
+        assert!(!engine.set_parameter(parameters::GAIN, -0.1));
+        assert!(!engine.set_parameter(parameters::GAIN, f64::INFINITY));
+        assert_eq!(engine.parameter(parameters::GAIN), Some(2.0));
     }
 
     #[test]
-    fn it_is_silent_until_the_reed_exists() {
+    fn only_the_reed_key_sounds_and_silence_is_exact() {
         let mut engine = Engine::new(48_000.0).unwrap();
+        let mut block = [1.0f32; 256];
         engine.note_on(69, 1.0);
-        let mut block = [1.0f32; 64];
         engine.render(&mut block);
-        assert!(block.iter().all(|sample| *sample == 0.0));
+        assert!(
+            block.iter().all(|sample| *sample == 0.0),
+            "A4 has no reed yet"
+        );
+        engine.note_on(REED_KEY, 0.8);
+        let mut sounding = [0.0f32; 48_000];
+        engine.render(&mut sounding);
+        assert!(sounding.iter().any(|sample| sample.abs() > 1.0e-4));
+        engine.note_off(REED_KEY);
+        // At Q 250 the tongue rings down with a 0.22 s time constant.
+        let mut tail = vec![1.0f32; 4 * 48_000];
+        engine.render(&mut tail);
+        assert!(tail[3 * 48_000..].iter().all(|sample| *sample == 0.0));
     }
 }

@@ -1,0 +1,19 @@
+# Milestone 1: the F4 reed alone. Velocity sets the bellows until CC 11 speaks.
+# pp, mf, ff: velocity 40, 80, 120 -> about 100, 400, 890 Pa.
+0     1800  65  40
+2800  1800  65  80
+5600  1800  65  120
+# A held note under a bellows swell (CC 11 takes the bellows over from here).
+8600  bellows 20
+8600  6000  65  100
+9100  bellows 40
+9600  bellows 60
+10100 bellows 80
+10600 bellows 100
+11100 bellows 120
+11600 bellows 127
+12100 bellows 110
+12600 bellows 90
+13100 bellows 70
+13600 bellows 50
+14100 bellows 35

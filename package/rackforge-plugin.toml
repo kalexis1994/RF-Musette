@@ -4,10 +4,10 @@ schema_version = 1
 id = "org.rackforge.musette"
 name = "RF-Musette Research"
 vendor = "RackForge"
-version = "0.1.0"
+version = "0.2.0"
 description = "Physically modelled accordion: free reeds driven by the bellows, with no samples"
 kind = "instrument"
-state_version = 1
+state_version = 2
 capabilities = ["audio_output", "midi_input", "presets", "state"]
 ui_layouts = ["little@1"]
 

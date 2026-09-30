@@ -4,19 +4,26 @@
 //! the engine understands -- keys, and the player's bellows -- and keeps the
 //! state. The bellows arrives as key velocity until Expression (CC 11, with
 //! CC 43 as its low bits) speaks; see `rf_musette_dsp::Bellows`.
+//!
+//! Every parameter is the engine's own, in physical units, indexed as in
+//! `rf_musette_dsp::parameters::SPECS`; `package/metadata/parameters.json`
+//! is generated from that table.
 
 use rackforge_plugin_sdk::{
     MIDI_FAMILY_CONTROL, MIDI_FAMILY_NOTE, MIDI2_FLAG_ORIGIN_7BIT, MIDI2_KIND_CONTROL_CHANGE,
     MIDI2_KIND_NOTE_OFF, MIDI2_KIND_NOTE_ON, MidiEvent, MidiEvent2, ParameterEvent, Processor,
     export_processor,
 };
-use rf_musette_dsp::{Engine, GAIN_MAX};
+use rf_musette_dsp::{Engine, PARAMETER_COUNT, Parameters, parameters};
 
 pub const MAX_FRAMES: u32 = 4096;
 pub const MAX_EVENTS: usize = 256;
-pub const STATE_VERSION: u32 = 1;
-pub const STATE_BYTES: usize = 16;
-pub const PARAMETER_GAIN: u32 = 0;
+/// Version 2 carries every parameter; version 1 carried the gain alone and
+/// still loads.
+pub const STATE_VERSION: u32 = 2;
+pub const STATE_BYTES: usize = 12 + 8 * PARAMETER_COUNT;
+const STATE_V1_BYTES: usize = 16;
+pub const PARAMETER_GAIN: u32 = parameters::GAIN as u32;
 /// The one program the research package ships.
 pub const PROGRAM_RESEARCH: &str = "research";
 
@@ -27,12 +34,13 @@ pub const CC_EXPRESSION_LSB: u8 = 43;
 const CC_ALL_SOUND_OFF: u8 = 120;
 const CC_ALL_NOTES_OFF: u8 = 123;
 
-const DEFAULT_GAIN: f64 = 1.0;
 const STATE_MAGIC: &[u8; 4] = b"RFMU";
 
 pub struct MusetteProcessor {
     engine: Option<Engine>,
-    gain: f64,
+    /// The values, kept here too so they survive until `prepare` builds an
+    /// engine, and move into every engine it builds.
+    parameters: Parameters,
     maximum_frames: u32,
     channels: u32,
     mono: [f32; MAX_FRAMES as usize],
@@ -42,7 +50,7 @@ impl Default for MusetteProcessor {
     fn default() -> Self {
         Self {
             engine: None,
-            gain: DEFAULT_GAIN,
+            parameters: Parameters::default(),
             maximum_frames: 0,
             channels: 0,
             mono: [0.0; MAX_FRAMES as usize],
@@ -54,6 +62,15 @@ impl MusetteProcessor {
     /// The prepared engine, for tests and the laboratory.
     pub fn engine(&self) -> Option<&Engine> {
         self.engine.as_ref()
+    }
+
+    fn apply(&mut self, values: Parameters) {
+        self.parameters = values;
+        if let Some(engine) = &mut self.engine {
+            for (index, value) in values.values().iter().enumerate() {
+                engine.set_parameter(index, *value);
+            }
+        }
     }
 
     fn midi1(&mut self, event: &MidiEvent) {
@@ -118,7 +135,9 @@ impl Processor for MusetteProcessor {
         let Ok(mut engine) = Engine::new(rate as f32) else {
             return false;
         };
-        engine.set_gain(self.gain as f32);
+        for (index, value) in self.parameters.values().iter().enumerate() {
+            engine.set_parameter(index, *value);
+        }
         self.engine = Some(engine);
         self.maximum_frames = frames;
         self.channels = outputs;
@@ -126,21 +145,17 @@ impl Processor for MusetteProcessor {
     }
 
     fn set_parameter(&mut self, index: u32, value: f64) -> bool {
-        if index != PARAMETER_GAIN
-            || !value.is_finite()
-            || !(0.0..=f64::from(GAIN_MAX)).contains(&value)
-        {
+        if !self.parameters.set(index as usize, value) {
             return false;
         }
-        self.gain = value;
         if let Some(engine) = &mut self.engine {
-            engine.set_gain(value as f32);
+            engine.set_parameter(index as usize, value);
         }
         true
     }
 
     fn get_parameter(&self, index: u32) -> Option<f64> {
-        (index == PARAMETER_GAIN).then_some(self.gain)
+        self.parameters.get(index as usize)
     }
 
     fn reset(&mut self) {
@@ -153,30 +168,54 @@ impl Processor for MusetteProcessor {
         if id != PROGRAM_RESEARCH {
             return false;
         }
-        self.set_parameter(PARAMETER_GAIN, DEFAULT_GAIN)
+        self.apply(Parameters::default());
+        true
     }
 
     fn save_state(&self, destination: &mut [u8]) -> Option<usize> {
         let bytes = destination.get_mut(..STATE_BYTES)?;
         bytes[..4].copy_from_slice(STATE_MAGIC);
         bytes[4..8].copy_from_slice(&STATE_VERSION.to_le_bytes());
-        bytes[8..16].copy_from_slice(&self.gain.to_le_bytes());
+        bytes[8..12].copy_from_slice(&(PARAMETER_COUNT as u32).to_le_bytes());
+        for (index, value) in self.parameters.values().iter().enumerate() {
+            let at = 12 + 8 * index;
+            bytes[at..at + 8].copy_from_slice(&value.to_le_bytes());
+        }
         Some(STATE_BYTES)
     }
 
     fn load_state(&mut self, state: &[u8]) -> bool {
-        if state.len() != STATE_BYTES || &state[..4] != STATE_MAGIC {
+        if state.len() < 8 || &state[..4] != STATE_MAGIC {
             return false;
         }
-        let version = u32::from_le_bytes([state[4], state[5], state[6], state[7]]);
-        if version != STATE_VERSION {
-            return false;
+        let word = |at: usize| {
+            u32::from_le_bytes([state[at], state[at + 1], state[at + 2], state[at + 3]])
+        };
+        let value = |at: usize| {
+            let mut bytes = [0; 8];
+            bytes.copy_from_slice(&state[at..at + 8]);
+            f64::from_le_bytes(bytes)
+        };
+        // Every value is checked before any is applied, so a rejected state
+        // leaves the instrument exactly as it was.
+        let mut loaded = Parameters::default();
+        match word(4) {
+            1 if state.len() == STATE_V1_BYTES => {
+                if !loaded.set(parameters::GAIN, value(8)) {
+                    return false;
+                }
+            }
+            STATE_VERSION if state.len() == STATE_BYTES && word(8) as usize == PARAMETER_COUNT => {
+                for index in 0..PARAMETER_COUNT {
+                    if !loaded.set(index, value(12 + 8 * index)) {
+                        return false;
+                    }
+                }
+            }
+            _ => return false,
         }
-        let mut gain = [0; 8];
-        gain.copy_from_slice(&state[8..16]);
-        // Checked before it is applied, so a rejected state leaves the
-        // instrument exactly as it was.
-        self.set_parameter(PARAMETER_GAIN, f64::from_le_bytes(gain))
+        self.apply(loaded);
+        true
     }
 
     fn process(
@@ -227,9 +266,8 @@ impl Processor for MusetteProcessor {
                 .iter()
                 .any(|event| event.channel >= 16 || event.index >= 128)
             || parameters.iter().any(|event| {
-                event.index != PARAMETER_GAIN
-                    || !event.value.is_finite()
-                    || !(0.0..=f64::from(GAIN_MAX)).contains(&event.value)
+                let mut probe = Parameters::default();
+                !probe.set(event.index as usize, event.value)
             })
         {
             return;
@@ -262,12 +300,12 @@ impl Processor for MusetteProcessor {
             .fold(frames, u32::min);
             let span = &mut self.mono[start as usize..end as usize];
             let engine = self.engine.as_mut().expect("prepared engine");
+            // The engine applies the gain itself.
             engine.render(span);
-            let gain = engine.gain();
             for (offset, sample) in span.iter().enumerate() {
                 let frame = (start as usize + offset) * outputs as usize;
                 for channel in 0..outputs as usize {
-                    output[frame + channel] = sample * gain;
+                    output[frame + channel] = *sample;
                 }
             }
             start = end;

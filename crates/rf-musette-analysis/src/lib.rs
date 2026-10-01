@@ -37,6 +37,188 @@ pub fn simulate(design: ReedDesign, rate: f64, seconds: f64, supply: impl Fn(f64
     trace
 }
 
+/// Blows `design`, its pallet fully open, from a bellows that at audio
+/// frequencies is only its air -- a compliance of `volume` m³ -- while the
+/// arm delivers the air the reed draws on average (over `mean_time` s) and
+/// brings the mean back to `ask` Pa over `regulation` seconds. From rest,
+/// the bellows at `ask`. The diagnosis tool that found the bass's coupling
+/// to the bellows (docs/ROADMAP.md, 8e), before the engine's bellows was
+/// made so; [`simulate_bellows`] drives the engine's own.
+#[allow(clippy::too_many_arguments)]
+pub fn simulate_fed(
+    design: ReedDesign,
+    pallet: PalletDesign,
+    rate: f64,
+    seconds: f64,
+    ask: f64,
+    volume: f64,
+    regulation: f64,
+    mean_time: f64,
+) -> Trace {
+    let compliance = volume / (reed::AIR_DENSITY * reed::SPEED_OF_SOUND * reed::SPEED_OF_SOUND);
+    let open = Pallet {
+        position: 1.0,
+        target: 1.0,
+    };
+    let area = open.area(&pallet, design.tone_hole_area);
+    let model = ReedModel::new(design);
+    let mut state = ReedState::default();
+    let mut bellows = ask;
+    let mut mean_draw = 0.0;
+    let frames = (seconds * rate) as usize;
+    let h = 1.0 / rate;
+    let mut trace = Trace {
+        rate,
+        zeta: Vec::with_capacity(frames),
+        flow_rate: Vec::with_capacity(frames),
+    };
+    for _ in 0..frames {
+        let rate_of_flow = reed::step(&model, &mut state, bellows, area, h);
+        // C P' = Q̄ + (ask − P) C / τ − Q_hole: the arm delivers the mean
+        // draw and slowly restores the mean pressure; the hole draws.
+        mean_draw += h / mean_time * (state.hole_flow - mean_draw);
+        bellows += h * ((ask - bellows) / regulation + (mean_draw - state.hole_flow) / compliance);
+        bellows = bellows.max(0.0);
+        trace.zeta.push(state.zeta);
+        trace.flow_rate.push(rate_of_flow);
+    }
+    trace
+}
+
+/// Blows `design` from the engine's own bellows -- the arm asking `ask` Pa,
+/// the parameters' bellows -- its pallet fully open, from rest, the bellows
+/// at `ask`. What the reed sees is what it sees in the engine.
+pub fn simulate_bellows(
+    parameters: &rf_musette_dsp::Parameters,
+    design: ReedDesign,
+    rate: f64,
+    seconds: f64,
+    ask: f64,
+) -> Trace {
+    let mut arm = *parameters;
+    arm.set(
+        rf_musette_dsp::parameters::BELLOWS_RESPONSE,
+        rf_musette_dsp::parameters::ARM,
+    );
+    let wind_design = arm.wind_design().expect("the arm's bellows");
+    let mut wind = rf_musette_dsp::wind::Wind {
+        pressure: ask,
+        mean: 0.0,
+    };
+    let open = Pallet {
+        position: 1.0,
+        target: 1.0,
+    };
+    let area = open.area(&parameters.pallet_design(), design.tone_hole_area);
+    let model = ReedModel::new(design);
+    let mut state = ReedState::default();
+    let frames = (seconds * rate) as usize;
+    let h = 1.0 / rate;
+    let mut trace = Trace {
+        rate,
+        zeta: Vec::with_capacity(frames),
+        flow_rate: Vec::with_capacity(frames),
+    };
+    for _ in 0..frames {
+        let supply = wind.step(&wind_design, ask, state.hole_flow, h);
+        let rate_of_flow = reed::step(&model, &mut state, supply, area, h);
+        trace.zeta.push(state.zeta);
+        trace.flow_rate.push(rate_of_flow);
+    }
+    trace
+}
+
+/// Whether `design`, its mode on `aim`, speaks from rest on the engine's
+/// bellows asked each of `pressures`.
+pub fn speaks_on_bellows(
+    parameters: &rf_musette_dsp::Parameters,
+    mut design: ReedDesign,
+    aim: f64,
+    pressures: &[f64],
+) -> bool {
+    design.frequency = aim;
+    let seconds = (600.0 / aim).clamp(1.5, 6.0);
+    pressures.iter().all(|pressure| {
+        let trace = simulate_bellows(parameters, design, 96_000.0, seconds, *pressure);
+        speaks(&trace, seconds, design.set)
+    })
+}
+
+/// The pitch below which a reed is expected to speak from 50 Pa to the
+/// bellows' ceiling, Hz: the low reeds, the ones a maker loads.
+pub const LOW_REED: f64 = 300.0;
+
+/// How long a low reed's inlet duct must be, as a multiple of the tone
+/// hole's depth, for it to speak on the bellows -- found as a maker finds
+/// it, by trying (docs/ROADMAP.md, 8e). Seen from the reed, the bellows' air
+/// behind its hole is a cavity below the hole and bellows' resonance, which
+/// "adds friction" (Fletcher & Rossing, after Llanos p236); a longer duct,
+/// more inertance, moves the resonance under the reed's pitch. From 50 Pa if
+/// it can, else the least pressure it can, to 300 Pa and the ceiling; the
+/// least duct, raised by quarters, the bracket halved four times. 1 for a
+/// reed that needs none, or that is not a low reed speaking across the range
+/// from an ideal pressure. `None` if no duct up to forty times makes it.
+pub fn duct_reed(
+    parameters: &rf_musette_dsp::Parameters,
+    design: ReedDesign,
+    aim: f64,
+) -> Option<f64> {
+    let ceiling = parameters
+        .get(rf_musette_dsp::parameters::BELLOWS_CEILING)
+        .unwrap_or(1000.0);
+    if aim >= LOW_REED || !holds(design, aim, &[TUNING_PRESSURE, ceiling]) {
+        return Some(1.0);
+    }
+    let speaks_with = |duct: f64, pressures: &[f64]| {
+        let trial = ReedDesign {
+            tone_hole_depth: design.tone_hole_depth * duct,
+            ..design
+        };
+        speaks_on_bellows(parameters, trial, aim, pressures)
+    };
+    [50.0, 100.0, 150.0, 200.0, TUNING_PRESSURE]
+        .into_iter()
+        .find_map(|floor| {
+            // The ceiling first: it is where a soft reed fails.
+            let pressures = [ceiling, floor, TUNING_PRESSURE.max(floor)];
+            if speaks_with(1.0, &pressures) {
+                return Some(1.0);
+            }
+            let (mut low, mut high) = (1.0, 1.25);
+            while !speaks_with(high, &pressures) {
+                low = high;
+                high *= 1.25;
+                if high > 40.0 {
+                    return None;
+                }
+            }
+            for _ in 0..4 {
+                let middle = (low * high).sqrt();
+                if speaks_with(middle, &pressures) {
+                    high = middle;
+                } else {
+                    low = middle;
+                }
+            }
+            Some(high)
+        })
+}
+
+/// Whether a trace of `seconds` from rest shows a reed that speaks: a tone
+/// in its last half second at least as wide as its set, and not dying -- no
+/// smaller than 0.98 of the half second a second before. A tone alone is not
+/// enough: a reed started by the pressure's step and slowly dying still has
+/// one after seconds (docs/ROADMAP.md, 8d).
+pub fn speaks(trace: &Trace, seconds: f64, set: f64) -> bool {
+    let (Some(last), Some(before)) = (
+        trace.tone(seconds - 0.5, seconds),
+        trace.tone(seconds - 1.5, seconds - 1.0),
+    ) else {
+        return false;
+    };
+    last.amplitude >= set && last.amplitude >= 0.98 * before.amplitude
+}
+
 /// Blows `design` at a steady supply `pressure` (Pa) -- the bellows already
 /// pressed -- while the key is taken to `depth(t)` (0 up, 1 fully down) and
 /// the pallet follows it as `pallet` says. From rest.
@@ -431,9 +613,11 @@ pub fn tune_bass(
 /// `pressures`.
 pub fn holds(mut design: ReedDesign, aim: f64, pressures: &[f64]) -> bool {
     design.frequency = aim;
-    pressures
-        .iter()
-        .all(|pressure| sounding(design, *pressure).is_some())
+    let seconds = (600.0 / aim).clamp(1.5, 6.0);
+    pressures.iter().all(|pressure| {
+        let trace = simulate(design, 192_000.0, seconds, |_| *pressure);
+        speaks(&trace, seconds, design.set)
+    })
 }
 
 /// The least tip load, over the unloaded tongue's modal mass, that lets a
@@ -457,56 +641,76 @@ pub fn load_reed(
     let ceiling = parameters
         .get(rf_musette_dsp::parameters::BELLOWS_CEILING)
         .unwrap_or(1000.0);
-    let pressures = [50.0, TUNING_PRESSURE, ceiling];
-    let speaks = |stiffening: f64| {
-        let mut loaded = design;
-        loaded.tip_load = load_for(stiffening);
-        holds(loaded, aim, &pressures)
-    };
-    // Raise the stiffening by a quarter from the yield rule's until the
-    // reed speaks, then halve the bracket six times.
-    let (mut low, mut high) = (1.0, start);
-    while !speaks(high) {
-        low = high;
-        high *= 1.25;
-        if high > 50.0 {
-            return None;
-        }
-    }
-    for _ in 0..6 {
-        let middle = (low * high).sqrt();
-        if speaks(middle) {
-            high = middle;
-        } else {
-            low = middle;
-        }
-    }
-    Some(load_for(high))
+    // From 50 Pa if it can; a loaded reed's threshold may stand above it,
+    // and then from the least pressure it can (docs/ROADMAP.md, 8e).
+    [50.0, 100.0, 150.0, 200.0, TUNING_PRESSURE]
+        .into_iter()
+        .find_map(|floor| {
+            // The ceiling first: it is where a soft reed fails.
+            let pressures = [ceiling, floor, TUNING_PRESSURE.max(floor)];
+            let speaks = |stiffening: f64| {
+                let mut loaded = design;
+                loaded.tip_load = load_for(stiffening);
+                holds(loaded, aim, &pressures)
+            };
+            // Raise the stiffening by a quarter from the yield rule's until
+            // the reed speaks, then halve the bracket six times.
+            let (mut low, mut high) = (1.0, start);
+            while !speaks(high) {
+                low = high;
+                high *= 1.25;
+                if high > 20.0 {
+                    return None;
+                }
+            }
+            for _ in 0..6 {
+                let middle = (low * high).sqrt();
+                if speaks(middle) {
+                    high = middle;
+                } else {
+                    low = middle;
+                }
+            }
+            Some(load_for(high))
+        })
 }
 
-/// Both of a reed's finishing tables, as `rf-musette-lab tune` writes them:
-/// each treble reed's load and cents, then each bass-side reed's.
+/// How a maker finishes one reed: its tip load, its inlet duct (a multiple
+/// of the tone hole's depth), and the cents its mode sits above its aim.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Finish {
+    pub load: f64,
+    pub duct: f64,
+    pub cents: f64,
+}
+
+/// Every reed's finish, as `rf-musette-lab tune` writes it: the treble's,
+/// then the bass side's.
 #[allow(clippy::type_complexity)]
 pub fn voice(
     parameters: &rf_musette_dsp::Parameters,
 ) -> (
-    [[Option<(f64, f64)>; rf_musette_dsp::compass::KEYS]; rf_musette_dsp::parameters::RANKS],
-    [[Option<(f64, f64)>; rf_musette_dsp::compass::BASS_KEYS];
-        rf_musette_dsp::parameters::BASS_RANKS],
+    [[Option<Finish>; rf_musette_dsp::compass::KEYS]; rf_musette_dsp::parameters::RANKS],
+    [[Option<Finish>; rf_musette_dsp::compass::BASS_KEYS]; rf_musette_dsp::parameters::BASS_RANKS],
 ) {
     use rf_musette_dsp::compass::{
         BASS_KEYS, FIRST_KEY, KEYS, bare, bass_bare, bass_target, target,
     };
     let finish = |bare: ReedDesign, aim: f64| {
         let load = load_reed(parameters, bare, aim)?;
+        let loaded = ReedDesign {
+            tip_load: load,
+            ..bare
+        };
+        let duct = duct_reed(parameters, loaded, aim)?;
         let cents = tune_design(
             ReedDesign {
-                tip_load: load,
-                ..bare
+                tone_hole_depth: loaded.tone_hole_depth * duct,
+                ..loaded
             },
             aim,
         )?;
-        Some((load, cents))
+        Some(Finish { load, duct, cents })
     };
     let mut treble = [[None; KEYS]; rf_musette_dsp::parameters::RANKS];
     for (rank, row) in treble.iter_mut().enumerate() {

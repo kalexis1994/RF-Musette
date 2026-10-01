@@ -3,19 +3,18 @@
 //! bellows' range, then tunes each -- and writes the tables the engine
 //! reads, `crates/rf-musette-dsp/src/tuning.rs`.
 
-use rf_musette_analysis::voice;
+use rf_musette_analysis::{Finish, voice};
 use rf_musette_dsp::Parameters;
 use std::{error::Error, fs};
 
 const RANK_NAMES: &str = "L, M−, M, M+, H";
 const BASS_RANK_NAMES: &str = "16′, 8′, 8-4′, 4′, 2′";
 
-/// One table's source text: `rows` of `(load, cents)`, the field `pick`
-/// picks.
+/// One table's source text: `rows` of finishes, the field `pick` picks.
 fn table<const N: usize>(
     name: &str,
-    rows: &[[Option<(f64, f64)>; N]],
-    pick: impl Fn((f64, f64)) -> f64,
+    rows: &[[Option<Finish>; N]],
+    pick: impl Fn(Finish) -> f64,
     what: &str,
 ) -> Result<String, Box<dyn Error>> {
     let mut text = format!("pub const {name}: [[f32; {N}]; {}] = [\n", rows.len());
@@ -41,23 +40,28 @@ pub fn source() -> Result<String, Box<dyn Error>> {
          //!\n\
          //! For each reed, as a maker finishes it with the default parameters:\n\
          //! the least tip load, over its unloaded tongue's modal mass, that lets a\n\
-         //! low reed hold a tone at 50 Pa, 300 Pa and the bellows' ceiling; then\n\
-         //! the cents by which its mode sits above the pitch it must sound at\n\
-         //! 300 Pa -- or, for a reed that does not speak there, at the lowest\n\
-         //! pressure it does: what a tuner files in.\n\n",
+         //! low reed speak at 50 Pa, 300 Pa and the bellows' ceiling; the least\n\
+         //! inlet duct, a multiple of its tone hole's depth, with which a low reed\n\
+         //! speaks on the bellows; then the cents by which its mode sits above\n\
+         //! the pitch it must sound at 300 Pa -- or, for a reed that does not\n\
+         //! speak there, at the lowest pressure it does: what a tuner files in.\n\n",
     );
     text.push_str(&format!(
         "/// The treble's, for each rank ({RANK_NAMES}) and key (F3-A6).\n"
     ));
-    text.push_str(&table("CENTS", &treble, |cell| cell.1, "treble")?);
+    text.push_str(&table("CENTS", &treble, |cell| cell.cents, "treble")?);
     text.push_str(&format!(
         "\n/// The bass side's, for each rank ({BASS_RANK_NAMES}) and pitch class\n/// (C-B).\n"
     ));
-    text.push_str(&table("BASS_CENTS", &bass, |cell| cell.1, "bass")?);
+    text.push_str(&table("BASS_CENTS", &bass, |cell| cell.cents, "bass")?);
     text.push_str("\n/// The treble's tip loads, by rank and key as `CENTS`.\n");
-    text.push_str(&table("LOADS", &treble, |cell| cell.0, "treble")?);
+    text.push_str(&table("LOADS", &treble, |cell| cell.load, "treble")?);
     text.push_str("\n/// The bass side's tip loads, by rank and pitch class as `BASS_CENTS`.\n");
-    text.push_str(&table("BASS_LOADS", &bass, |cell| cell.0, "bass")?);
+    text.push_str(&table("BASS_LOADS", &bass, |cell| cell.load, "bass")?);
+    text.push_str("\n/// The treble's inlet ducts, as multiples of the tone hole's depth.\n");
+    text.push_str(&table("DUCTS", &treble, |cell| cell.duct, "treble")?);
+    text.push_str("\n/// The bass side's inlet ducts, as multiples of the tone hole's depth.\n");
+    text.push_str(&table("BASS_DUCTS", &bass, |cell| cell.duct, "bass")?);
     Ok(text)
 }
 

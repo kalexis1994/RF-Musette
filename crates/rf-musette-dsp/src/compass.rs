@@ -119,11 +119,13 @@ pub fn bare(parameters: &Parameters, key: u8, rank: usize) -> Option<ReedDesign>
     ))
 }
 
-/// A rank's reed of a key before tuning: [`bare`], loaded at the tip as the
-/// load table says.
+/// A rank's reed of a key before tuning: [`bare`], loaded at the tip and fed
+/// through the inlet duct the finishing tables say.
 pub fn untuned(parameters: &Parameters, key: u8, rank: usize) -> Option<ReedDesign> {
     let mut design = bare(parameters, key, rank)?;
-    design.tip_load = f64::from(crate::tuning::LOADS[rank][usize::from(key - FIRST_KEY)]);
+    let index = usize::from(key - FIRST_KEY);
+    design.tip_load = f64::from(crate::tuning::LOADS[rank][index]);
+    design.tone_hole_depth *= f64::from(crate::tuning::DUCTS[rank][index]);
     Some(design)
 }
 
@@ -209,8 +211,8 @@ pub fn bass_bare(parameters: &Parameters, pitch_class: usize, rank: usize) -> Op
     Some(unloaded(parameters, pitch(note, 440.0), frequency))
 }
 
-/// A bass-side reed before tuning: [`bass_bare`], loaded at the tip as the
-/// load table says.
+/// A bass-side reed before tuning: [`bass_bare`], loaded at the tip and fed
+/// through the inlet duct the finishing tables say.
 pub fn bass_untuned(
     parameters: &Parameters,
     pitch_class: usize,
@@ -218,6 +220,7 @@ pub fn bass_untuned(
 ) -> Option<ReedDesign> {
     let mut design = bass_bare(parameters, pitch_class, rank)?;
     design.tip_load = f64::from(crate::tuning::BASS_LOADS[rank][pitch_class]);
+    design.tone_hole_depth *= f64::from(crate::tuning::BASS_DUCTS[rank][pitch_class]);
     Some(design)
 }
 

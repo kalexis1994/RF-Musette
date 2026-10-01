@@ -547,3 +547,37 @@ met: A2-B2 151-179 ms (90-112 through a 5 ms pallet).
 The 16′ C2-D♯2 do not speak fed by the bellows' air, massive or not. The
 cause is open (docs/ROADMAP.md, 8d). milestone 8's test of "speaks" proved
 too weak: it passed a slowly dying reed.
+
+## 2026-10-01 -- Milestone 8e: the bass's inlet ducts (0.9.2)
+
+**Measured first** (`tests/bass_diagnosis.rs`, on a reed fed by the
+bellows' air, `simulate_fed`):
+* The lowest 16′ do not speak with the bellows' air behind their holes.
+* A longer inlet duct makes them speak: ×10 for C2, ×6 for C♯2-D♯2.
+* A higher set, a thicker plate or a smaller hole alone do not reach.
+
+The diagnosis tool's first form sagged the mean pressure under any draw;
+it was corrected and checked on A2, F3 and F4 before being trusted.
+
+**Built.**
+* The bellows is its air at audio frequencies: the arm delivers the mean
+  draw and holds Hill's mean pressure, over 10 ms each.
+* The honest test of speaking, for the loads and the ducts.
+* An inlet duct for each reed under 300 Hz, found by
+  `rf-musette-lab tune` on the engine's bellows (`DUCTS`, `BASS_DUCTS`).
+
+**Tests** (`tests/milestone_8e.rs`):
+* the 16′ C2 under the arm reaches 4.9 mm;
+* every reed under 300 Hz speaks at 300 Pa and 1 kPa on the bellows.
+
+Now met, earlier marked not met:
+* the 16′ thresholds (16-8 Pa);
+* the 16′ C2 attack (130 ms);
+* A2-B2 (129-139 ms).
+
+**Checks.**
+* Every earlier test passes: milestone 5's droops, 7b's F4 79/98 ms,
+  7c's 111/109 ms.
+* Milestone 8's range test reads speaking honestly; the top-4′ defect
+  shows from key 87.
+* Both hands 7.7 µs per sample; 357 KiB.

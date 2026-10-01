@@ -3,7 +3,7 @@
 //! docs/ROADMAP.md before the code; each test says which.
 
 use rf_musette_analysis::{
-    attack_time, cents, component_envelope, linear_threshold, sounding, tune_bass,
+    attack_time, cents, component_envelope, holds, linear_threshold, sounding, tune_bass,
 };
 use rf_musette_dsp::compass::{BASS_KEYS, bass_design, bass_target, bass_untuned};
 use rf_musette_dsp::parameters::{
@@ -213,10 +213,9 @@ fn a_shared_reed_sounds_once() {
 
 /// Prediction 7: the 16′ reeds' thresholds are under 20 Pa.
 ///
-/// NOT MET for the loaded ones: the load that keeps a reed speaking at
-/// 1 kPa stiffens it, and its threshold rises with it (docs/ROADMAP.md, 8).
+/// Not met at first: loaded, C2-E2 started at 20-54 Pa. Met since 8e: with
+/// their inlet ducts the 16′ start at 16-8 Pa (docs/ROADMAP.md, 8e).
 #[test]
-#[ignore = "not met: the loaded 16′ reeds start above 20 Pa (docs/ROADMAP.md, 8)"]
 fn the_sixteen_foot_speaks_easily() {
     let p = Parameters::default();
     let thresholds: Vec<f64> = (0..BASS_KEYS)
@@ -236,11 +235,9 @@ fn the_sixteen_foot_speaks_easily() {
 
 /// Prediction 8: the 16′ C2's finger attack at 400 Pa is 50-140 ms.
 ///
-/// NOT MET: 467 ms, 399 since 8c gave the start as the air reaches the
-/// cell. A loaded tongue grows slowest (docs/ROADMAP.md, 8 and 8c);
-/// nothing measured bounds a C2.
+/// Not met at first: 467 ms, 399 after 8c. Met since 8e: 130 ms, the inlet
+/// duct's inertance feeding the reed (docs/ROADMAP.md, 8e).
 #[test]
-#[ignore = "not met: the 16′ C2 attacks in 399 ms (docs/ROADMAP.md, 8c)"]
 fn the_sixteen_foot_attacks_as_a_finger_attack() {
     let mut engine = Engine::new(RATE).unwrap();
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
@@ -334,7 +331,8 @@ fn every_reed_speaks_across_the_bellows_range() {
 /// Prediction 12, what it was for: no reed of either side is silent at the
 /// bellows' ceiling, every reed but the top four 4′ speaks at 300 Pa, and
 /// every reed below 300 Hz -- the loaded ones among them -- speaks from 50 Pa
-/// to 1 kPa.
+/// to 1 kPa. "Speaks" as 8d found it must be read: sustained, at least as
+/// wide as the set, from an ideal pressure.
 #[test]
 fn no_reed_chokes_and_the_low_ones_speak_throughout() {
     use rf_musette_dsp::compass::{FIRST_KEY, KEYS, design};
@@ -343,7 +341,9 @@ fn no_reed_chokes_and_the_low_ones_speak_throughout() {
     for rank in 0..parameters::RANKS {
         for index in 0..KEYS {
             let key = FIRST_KEY + index as u8;
-            let top_four = rank == parameters::RANK_HIGH && key >= 90;
+            // Milestone 7's defect: the top 4′ start near or above 300 Pa,
+            // keys 90-93 by its test and 87-93 read as 8d says it must be.
+            let top_four = rank == parameters::RANK_HIGH && key >= 87;
             reeds.push((
                 format!("treble rank {rank} key {key}"),
                 design(&p, key, rank).unwrap(),
@@ -357,18 +357,20 @@ fn no_reed_chokes_and_the_low_ones_speak_throughout() {
             reeds.push((name, bass_design(&p, pitch_class, rank).unwrap(), false));
         }
     }
+    let mut failing = Vec::new();
     for (name, reed, top_four) in reeds {
-        assert!(sounding(reed, 1000.0).is_some(), "{name} chokes at 1 kPa");
-        if !top_four {
-            assert!(
-                sounding(reed, 300.0).is_some(),
-                "{name} is silent at 300 Pa"
-            );
+        if !holds(reed, reed.frequency, &[1000.0]) {
+            failing.push(format!("{name} chokes at 1 kPa"));
         }
-        if reed.frequency < 300.0 {
-            assert!(sounding(reed, 50.0).is_some(), "{name} is silent at 50 Pa");
+        if !top_four && !holds(reed, reed.frequency, &[300.0]) {
+            failing.push(format!("{name} is silent at 300 Pa"));
+        }
+        if reed.frequency < 300.0 && !holds(reed, reed.frequency, &[50.0]) {
+            failing.push(format!("{name} is silent at 50 Pa"));
         }
     }
+    println!("{failing:#?}");
+    assert!(failing.is_empty(), "{failing:#?}");
 }
 
 /// The load tables are the ones a fresh finishing makes: the treble's

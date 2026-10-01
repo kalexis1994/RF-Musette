@@ -47,12 +47,9 @@ fn attack(note: u8) -> Option<f64> {
 
 /// Prediction 1: A2-B2 attack in 50-140 ms (Llanos: 70-100 ms at mf).
 ///
-/// NOT MET: 179, 164, 151 ms (were 249, 235, 220). With the pallet opening
-/// in 5 ms they are 90-112: what still slows them is the half-open pallet
-/// of the first tens of milliseconds, which throttles a large reed's
-/// growing flow more than a small one's (docs/ROADMAP.md, 8c).
+/// Not met in 8c: 179, 164, 151 ms. Met since 8e: 139, 134, 129 ms, with
+/// their inlet ducts (docs/ROADMAP.md, 8e) -- still slower than measured.
 #[test]
-#[ignore = "not met: A2-B2 attack in 151-179 ms (docs/ROADMAP.md, 8c)"]
 fn the_lowest_measured_notes_attack_as_measured() {
     for note in [45u8, 46, 47] {
         let attack = attack(note).expect("no attack");

@@ -1607,6 +1607,99 @@ reeds, when real 16′ basses down to C2 speak. Candidates, none measured:
 
 The next step is reading and measuring, not voicing.
 
+**Found in 8e.**
+* The bellows' air behind a big tone hole is, for the lowest reeds, a
+  cavity below its resonance, which "adds friction" (Fletcher, after
+  Llanos p236).
+* An inlet duct moves the resonance under the reed's pitch.
+* At audio frequencies the bellows is its air, the arm on the mean.
+
+## 8e. The bass's inlet ducts
+
+**What the sources say** (read 2026-10-01, the user's copy of Llanos's
+thesis):
+* An inlet duct "favours the onset of the vibrations", while a cavity,
+  whose reactance is −ρc²/(Vω), "adds friction" (Llanos p236, after
+  Fletcher & Rossing 1998 p228). The onset of a (−,+) reed asks the
+  reactance upstream to be inertive (Appendix 1, Eq. A1.5a).
+* Luthiers set the lowest reeds "slightly higher than normal" to shorten
+  their delay (p153).
+* In mf the lowest octave always attacks slower, and all those reeds are
+  loaded (p220; Table 4.7, A1 200-295 ms).
+
+**Measured** (`tests/bass_diagnosis.rs`, `the_bass_coupling_levers`,
+`depth_against_set_for_the_lowest`). The reed is fed by a bellows that at
+audio frequencies is its air (12 L), the arm delivering the mean draw and
+holding the mean pressure (`simulate_fed`). "Speaks" means sustained, at
+least as wide as its set.
+* Seen from the reed, the bellows' air behind the tone hole is a cavity
+  below the hole+bellows resonance (53-77 Hz for the big holes). The
+  lowest 16′ sit there and do not speak.
+* A deeper tone hole -- a longer inlet duct, more inertance -- moves that
+  resonance under the reed. Its depth is today the assumed 5 mm of a
+  pallet board, everywhere.
+  * ×10 (50 mm): C2 speaks at 100, 300 and 1000 Pa.
+  * ×6 (30 mm): C♯2-D♯2 do.
+  * A higher set helps D2-E2 at 1 kPa. A thicker plate, or a smaller hole
+    alone, do not reach.
+* Whether the arm answers the mean draw in 50 ms or in 10 ms (the time
+  scale the bellows' mass sets) changes nothing.
+
+On an instrument the bass reeds stand on blocks above the bass board, and
+the air reaches each cell through a channel in the block. The duct is
+plausible; its length is not published.
+
+**The change** (written before building it, 2026-10-01):
+* `wind.rs`: at audio frequencies the bellows is its air. The arm delivers
+  the mean air drawn (over 10 ms, the time scale of the moving half's
+  mass, critically damped -- assumed, as no player reports a ring), and
+  holds the mean pressure on Hill's law over 0.1 s. The steady states are
+  unchanged.
+* "Speaks", for the loads and the new search, means sustained and at
+  least as wide as the set.
+* Each reed under 300 Hz gets the least inlet duct (a multiple of the 5 mm
+  hole) with which it speaks, fed by the engine's own bellows, at 50 Pa
+  (or the least pressure it can), 300 Pa and 1 kPa.
+* Written by `rf-musette-lab tune` beside the loads and cents.
+
+**Predictions:**
+1. Steady states unchanged: milestone 5's droops pass.
+2. Ducts are found for the lowest 16′ only, C2 the longest, near ×10
+   (50 mm); from A2 up nothing changes.
+3. On the engine's bellows, under the arm at CC 11 = 80, the 16′ C2 grows:
+   its swing passes 3 mm within 2 s.
+4. Every reed under 300 Hz speaks, sustained, at 300 Pa and 1 kPa on the
+   engine's bellows.
+5. Every earlier test passes. A3-B4's attacks stay within 50-140 ms.
+
+**Status (2026-10-01): built (0.9.2); four met, one not.**
+1. **Met.** Milestone 5's droops pass. Master holds 259.9 Pa (13.4 %
+   below); the arm costs it 0.89 dB.
+2. **Not met: more reeds than predicted get a duct.** Every 16′ does:
+   * from C2 ×9.06 (45 mm) down to B2 ×1.58;
+   * the treble's 16′ of keys F3-B3, the same pitches, ×3.23-1.58.
+
+   The loads are unchanged.
+3. **Met.** Under the arm at CC 11 = 80 the 16′ C2's swing reaches
+   4.9 mm (it stayed at the start's 1.1 mm).
+4. **Met.** Every reed under 300 Hz speaks, sustained, at 300 Pa and 1 kPa
+   on the engine's bellows.
+5. **Met.** Every earlier test passes. A3-B4: 82-102 ms.
+
+The duct also feeds the reed from an ideal pressure, and three earlier
+predictions are now met:
+* milestone 8's 7: the 16′ thresholds are 16-8 Pa;
+* milestone 8's 8: the 16′ C2 attacks in 130 ms;
+* 8c's 1: A2-B2 attack in 139, 134, 129 ms, still slower than Llanos's
+  70-100.
+
+The bellows' first form held the pressure over 0.1 s. A note begun with
+the bellows then took 203 ms (7c), so the hold took the mass's 10 ms too.
+7c: 111 and 109 ms.
+
+The honest test of speaking shows milestone 7's top-4′ defect from key 87,
+not 90. Both hands now cost 7.7 µs per sample.
+
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.

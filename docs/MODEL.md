@@ -423,9 +423,11 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | The bass side, tuned at 300 Pa | all 60 reeds within ±2 cents (worst +0.00) | in tune where a tuner tunes | Met |
 | The low reeds across the bellows' range | loaded, every reed below 300 Hz holds from 50 Pa to 1 kPa; none chokes at 1 kPa (unloaded, the 16′ below B2 choked from 400-800 Pa) | a reed speaks across a player's range | Met, by a load found as a maker finds it |
 | 16′ C2 length | 64.6 mm | 52 mm at 62.5-87.5 Hz, loaded (Llanos, Table 3.1) | Not met |
-| 16′ thresholds, C2-B2 | 54 → 9 Pa | -- (predicted under 20) | Not met for C2-E2 |
-| 16′ C2 finger attack at 400 Pa | 399 ms (was 467 before 8c) | none measured below A2; "low reeds need a certain time to respond" (Llanos 2014, p377) | No bound |
-| Finger attacks against Llanos 2014, Table I, 400 Pa, 50 ms pallet | A2-B2 151-179 ms; A3-B4 82-102; A5-B5 39-52; A6 13 | 70-100; 60-110; 50; 100 | A2-B2 too slow (90-112 through a 5 ms pallet); the top too fast |
+| 16′ thresholds, C2-B2 | 16 → 8 Pa (54 → 9 before the ducts) | -- (predicted under 20) | Met |
+| 16′ C2 finger attack at 400 Pa | 130 ms (467 in 8, 399 in 8c) | none measured below A2; A1 200-295 ms (Llanos thesis, Table 4.7) | Faster than A1 measured |
+| Finger attacks against Llanos 2014, Table I, 400 Pa, 50 ms pallet | A2-B2 129-139 ms (151-179 before the ducts); A3-B4 82-102; A5-B5 39-52; A6 13 | 70-100; 60-110; 50; 100 | A2-B2 in range, slower than measured; the top too fast |
+| The low reeds' inlet ducts | the least that lets each reed under 300 Hz speak on the bellows: the 16′ C2 ×9.06 (45 mm) down to B2 ×1.58; none above | an inlet duct favours the onset, a cavity adds friction (Fletcher & Rossing, after Llanos p236) | Derived by search, on an assumed rule |
+| The bellows at audio frequencies | its air: the arm delivers the mean draw over 10 ms and holds Hill's mean pressure over 10 ms | the moving half cannot follow a reed's cycle | Assumed time scale, √(MC)/A for 4 kg |
 | A free reed's growth, C3 | the model's 8′ C3 18.8/s at 400 Pa | 4.5/s at 0.3 kPa, 8.3/s at 0.5 kPa (Cottingham, Reed & Busha 1999, Fig. 4) | As fast as measured or faster |
 | Cassotto, M at mf | centroid 1693 → 959 Hz (0.57); attack unchanged | 2013 → 1389 Hz (0.69, Llanos E4); attack unchanged (p174) | Met |
 | Air button fully open, note held | −29 % pressure, −2.9 dB | the bellows moves without sounding | Weaker than predicted (assumed arm and vent) |

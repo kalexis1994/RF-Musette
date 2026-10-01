@@ -765,3 +765,196 @@ fn the_low_notes_under_the_arm() {
         println!("{line}");
     }
 }
+
+/// Milestone 8e, measured first: the lowest 16′ fed by the bellows' air
+/// (12 L, the arm holding the mean over 0.2 s), one lever at a time from
+/// the sources -- a higher set (Llanos's luthiers, p153), a deeper tone hole
+/// (an inlet duct "favours the onset", Fletcher, Llanos p236), a thicker
+/// plate (low reeds have thicker plates, p263), a smaller hole. For each:
+/// whether it speaks, sustained, at 100, 300 and 1000 Pa, and its swing
+/// after 3 s at 300 Pa.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_bass_coupling_levers() {
+    use rf_musette_analysis::{simulate_fed, speaks};
+    use rf_musette_dsp::compass::{bass_design, bass_target};
+    let p = Parameters::default();
+    let pallet = p.pallet_design();
+    let seconds = 3.0;
+    for pitch_class in [0usize, 2, 4] {
+        let base = bass_design(&p, pitch_class, BASS_16).unwrap();
+        let aim = bass_target(&p, pitch_class, BASS_16).unwrap();
+        println!("16′ pitch class {pitch_class} ({aim:.1} Hz):");
+        let levers: [(&str, ReedDesign); 9] = [
+            ("as built", base),
+            (
+                "set ×1.5",
+                ReedDesign {
+                    set: base.set * 1.5,
+                    ..base
+                },
+            ),
+            (
+                "set ×2",
+                ReedDesign {
+                    set: base.set * 2.0,
+                    ..base
+                },
+            ),
+            (
+                "hole depth ×3",
+                ReedDesign {
+                    tone_hole_depth: base.tone_hole_depth * 3.0,
+                    ..base
+                },
+            ),
+            (
+                "hole depth ×6",
+                ReedDesign {
+                    tone_hole_depth: base.tone_hole_depth * 6.0,
+                    ..base
+                },
+            ),
+            (
+                "hole area ×0.5",
+                ReedDesign {
+                    tone_hole_area: base.tone_hole_area * 0.5,
+                    ..base
+                },
+            ),
+            (
+                "plate ×1.5",
+                ReedDesign {
+                    plate_thickness: base.plate_thickness * 1.5,
+                    ..base
+                },
+            ),
+            (
+                "set ×1.5, depth ×3",
+                ReedDesign {
+                    set: base.set * 1.5,
+                    tone_hole_depth: base.tone_hole_depth * 3.0,
+                    ..base
+                },
+            ),
+            ("ideal source", base),
+        ];
+        for (name, reed) in levers {
+            let mut line = format!("  {name:20}:");
+            for pressure in [100.0, 300.0, 1000.0] {
+                let trace = if name == "ideal source" {
+                    rf_musette_analysis::simulate(reed, 96_000.0, seconds, |_| pressure)
+                } else {
+                    simulate_fed(reed, pallet, 96_000.0, seconds, pressure, 0.012, 0.2, 0.05)
+                };
+                let ok = speaks(&trace, seconds, reed.set);
+                let swing = trace
+                    .tone(seconds - 0.5, seconds)
+                    .map_or(0.0, |t| t.amplitude);
+                line += &format!(
+                    " {pressure:4} Pa {} {:4.2} mm |",
+                    if ok { "■" } else { "·" },
+                    swing * 1e3
+                );
+            }
+            println!("{line}");
+        }
+    }
+}
+
+/// The bellows-fed simulation on reeds that speak in the engine: A2 (16′),
+/// the treble's F3 and F4 (8′), at 300 Pa, against an ideal source -- to
+/// know the tool before trusting it.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_fed_simulation_on_speaking_reeds() {
+    use rf_musette_analysis::{simulate_fed, speaks};
+    use rf_musette_dsp::compass::{bass_design, design};
+    use rf_musette_dsp::parameters::RANK_MIDDLE;
+    let p = Parameters::default();
+    let pallet = p.pallet_design();
+    let seconds = 3.0;
+    for (name, reed) in [
+        ("16′ A2", bass_design(&p, 9, BASS_16).unwrap()),
+        ("M F3", design(&p, 53, RANK_MIDDLE).unwrap()),
+        ("M F4", design(&p, 65, RANK_MIDDLE).unwrap()),
+    ] {
+        let mut line = format!("{name:7}:");
+        for (label, regulation, volume) in [
+            ("fed 12 L", 0.2, 0.012),
+            ("fed 12 L τ 20 ms", 0.02, 0.012),
+            ("fed 40 L", 0.2, 0.040),
+        ] {
+            let trace = simulate_fed(
+                reed, pallet, 96_000.0, seconds, 300.0, volume, regulation, 0.05,
+            );
+            let swing = trace
+                .tone(seconds - 0.5, seconds)
+                .map_or(0.0, |t| t.amplitude);
+            line += &format!(
+                " {label}: {} {:4.2} mm |",
+                if speaks(&trace, seconds, reed.set) {
+                    "■"
+                } else {
+                    "·"
+                },
+                swing * 1e3
+            );
+        }
+        let ideal = rf_musette_analysis::simulate(reed, 96_000.0, seconds, |_| 300.0);
+        line += &format!(
+            " ideal: {:4.2} mm",
+            ideal
+                .tone(seconds - 0.5, seconds)
+                .map_or(0.0, |t| t.amplitude)
+                * 1e3
+        );
+        println!("{line}");
+    }
+}
+
+/// The lowest 16′ fed by the bellows' air: hole depth against set, whether
+/// it speaks (sustained) at 100, 300 and 1000 Pa.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn depth_against_set_for_the_lowest() {
+    use rf_musette_analysis::{simulate_fed, speaks};
+    use rf_musette_dsp::compass::bass_design;
+    let p = Parameters::default();
+    let pallet = p.pallet_design();
+    let seconds = 3.0;
+    println!(
+        "hole depth default {:.1} mm",
+        p.reed_design().tone_hole_depth * 1e3
+    );
+    for pitch_class in [0usize, 1, 3] {
+        let base = bass_design(&p, pitch_class, BASS_16).unwrap();
+        println!("pc {pitch_class}:");
+        for set in [1.0, 1.5, 2.0] {
+            let mut line = format!("  set ×{set}:");
+            for depth in [6.0, 10.0, 15.0, 25.0] {
+                let reed = ReedDesign {
+                    set: base.set * set,
+                    tone_hole_depth: base.tone_hole_depth * depth,
+                    ..base
+                };
+                let marks: String = [100.0, 300.0, 1000.0]
+                    .iter()
+                    .map(|pressure| {
+                        let trace = simulate_fed(
+                            reed, pallet, 96_000.0, seconds, *pressure, 0.012, 0.2, 0.05,
+                        );
+                        if speaks(&trace, seconds, reed.set) {
+                            '■'
+                        } else {
+                            '·'
+                        }
+                    })
+                    .collect();
+                line += &format!("  depth ×{depth}: {marks}");
+            }
+            println!("{line}");
+        }
+    }
+    println!("(100, 300, 1000 Pa)");
+}

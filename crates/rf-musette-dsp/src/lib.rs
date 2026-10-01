@@ -470,13 +470,16 @@ impl Engine {
     /// initial displacement of the reed tongue into the reed frame" (ICA
     /// 2019).
     ///
-    /// The start belongs to the air's arrival, not to the key's: a reed is
-    /// owed it while its key is down, its register open and its side's
-    /// pressure above P₀, and is given the share's rise as the pressure
-    /// rises. The air gone -- the key up, the register shut, the pressure at
-    /// or below P₀ as the bellows stops or turns -- it is owed again. So a
-    /// key pressed before the bellows moves, or held through a reversal,
-    /// starts as one pressed into a moving bellows does.
+    /// The start belongs to the air's arrival at the reed (docs/ROADMAP.md,
+    /// 7c and 8c). A reed is owed it while its key is down, its register
+    /// open and its side's pressure above P₀. It is given whole once the air
+    /// is in its own cell, above P₀ -- so the start and the push of the air
+    /// arriving through the opening pallet come together -- and the share's
+    /// rise as the bellows' pressure rises after. The air gone --
+    /// the key up, the register shut, the bellows' pressure at or below P₀
+    /// as it stops or turns -- it is owed again. A key pressed before the
+    /// bellows moves, or held through a reversal, starts as one pressed into
+    /// a moving bellows does.
     ///
     /// Checked at every step, so it does not hang on how the host cuts its
     /// blocks. `given` is the share the reed has had; `blow` its side's
@@ -491,6 +494,12 @@ impl Engine {
     ) {
         if !down || blow <= parameters::KICK_PRESSURE {
             *given = 0.0;
+            return;
+        }
+        // Nothing until the air is in the reed's cell: then the start the
+        // bellows' pressure gives, at once, and later rises of that pressure
+        // as they come.
+        if *given == 0.0 && state.cell_pressure <= parameters::KICK_PRESSURE {
             return;
         }
         let share = blow / (blow + parameters::KICK_PRESSURE);

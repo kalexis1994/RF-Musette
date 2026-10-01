@@ -424,7 +424,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | The low reeds across the bellows' range | loaded, every reed below 300 Hz holds from 50 Pa to 1 kPa; none chokes at 1 kPa (unloaded, the 16′ below B2 choked from 400-800 Pa) | a reed speaks across a player's range | Met, by a load found as a maker finds it |
 | 16′ C2 length | 64.6 mm | 52 mm at 62.5-87.5 Hz, loaded (Llanos, Table 3.1) | Not met |
 | 16′ thresholds, C2-B2 | 54 → 9 Pa | -- (predicted under 20) | Not met for C2-E2 |
-| 16′ C2 finger attack at 400 Pa | 467 ms | 50-140 ms (Llanos 2014, A2) | Not met |
+| 16′ C2 finger attack at 400 Pa | 399 ms (was 467 before 8c) | none measured below A2; "low reeds need a certain time to respond" (Llanos 2014, p377) | No bound |
+| Finger attacks against Llanos 2014, Table I, 400 Pa, 50 ms pallet | A2-B2 151-179 ms; A3-B4 82-102; A5-B5 39-52; A6 13 | 70-100; 60-110; 50; 100 | A2-B2 too slow (90-112 through a 5 ms pallet); the top too fast |
+| A free reed's growth, C3 | the model's 8′ C3 18.8/s at 400 Pa | 4.5/s at 0.3 kPa, 8.3/s at 0.5 kPa (Cottingham, Reed & Busha 1999, Fig. 4) | As fast as measured or faster |
 | Cassotto, M at mf | centroid 1693 → 959 Hz (0.57); attack unchanged | 2013 → 1389 Hz (0.69, Llanos E4); attack unchanged (p174) | Met |
 | Air button fully open, note held | −29 % pressure, −2.9 dB | the bellows moves without sounding | Weaker than predicted (assumed arm and vent) |
 | L, H against M's octaves | −9.6, +2.4 cents | in tune, as a tuner sets them | L flat: set by its mode |
@@ -458,10 +460,15 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   nothing published says what an accordion reed spends.
 * **The finger attack is three to five times too slow as derived; a
   voiced start brings it to a player's** (ROADMAP 7b; parameter "Attack
-  Kick"). Each reed starts κ·set·P/(P + 20 Pa) into its frame as the air
-  reaches it -- its key down, its register open, its side's pressure P
-  above 20 Pa -- and again each time that air has gone and come back (the
-  bellows stopped or turned), standing on Cottingham's observed "initial
+  Kick"). Not the growth: 7b read the radiated harmonic's dB/ms as the
+  reed's growth, but the one direct measurement of a free reed's growth
+  (Cottingham, Reed & Busha 1999, Fig. 4: a C3 reed, 4.5/s at 0.3 kPa,
+  8.3/s at 0.5, 11.5/s at its 1 kPa peak) is no faster than the model's
+  (ROADMAP 8c). What is missing is the start. Each reed starts
+  κ·set·P/(P + 20 Pa) into its frame, P the side's pressure, at the
+  moment the air reaches its cell -- its key down, its register open, the
+  side's pressure above 20 Pa -- and again each time that air has gone and
+  come back (the bellows stopped or turned), standing on Cottingham's observed "initial
   displacement of the reed tongue into the reed frame". F4 attacks in 85 ms
   at p and 99 at mf, the true 8′ in 53-106 ms from F3 to A5, too fast above
   (22 ms at D♯6). Tried and refuted before it: the second bending mode

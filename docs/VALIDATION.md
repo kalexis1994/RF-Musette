@@ -518,3 +518,32 @@ Native tests run on 8 MiB threads; fmt and clippy clean.
 **Render for listening.** `scores/frere-jacques-bass.score`: the tune in
 Clarinet over C bass, C major, G counter-bass, C major in every bar. The
 16′ stays 30 dB under its level through each 440 ms bass note.
+
+## 2026-10-01 -- Milestone 8c: the low reeds' attack (0.9.1)
+
+**Measured first** (`tests/bass_diagnosis.rs`, and a literature search):
+* The model's growth is not too slow: the direct measurement of a C3
+  reed's growth (Cottingham, Reed & Busha 1999) is no faster than the
+  model's. 7b's premise is withdrawn.
+* Against Llanos 2014's Table I note by note:
+  * A3-B4 agree;
+  * A2-B2 are 2.5 times too slow;
+  * the top at p is too fast.
+* In the engine, A2's start fired with its pallet still shut; the air
+  arriving afterwards partly cancelled it.
+
+**Built.** The start waits for the air in the reed's own cell, then comes
+whole.
+
+**Tests** (`tests/milestone_8c.rs`): A3-B4 82-102 ms; C2 faster. Ignored, not
+met: A2-B2 151-179 ms (90-112 through a 5 ms pallet).
+
+**Checks.** 7b's F4 79/98 ms, 7c's 106/90 ms; every earlier test passes.
+
+**Also tried and reverted (8d):**
+* the bellows' moving mass;
+* tone holes and loads found on a simulation fed by the bellows' air.
+
+The 16′ C2-D♯2 do not speak fed by the bellows' air, massive or not. The
+cause is open (docs/ROADMAP.md, 8d). milestone 8's test of "speaks" proved
+too weak: it passed a slowly dying reed.

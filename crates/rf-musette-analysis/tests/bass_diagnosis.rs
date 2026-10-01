@@ -213,3 +213,555 @@ fn where_each_reed_falls_silent() {
         println!("silent at {pressure}: {}", names.join(" "));
     }
 }
+
+/// What sets the low reeds' attack, at 400 Pa, from C2 up to F4: the growth
+/// rate of a small disturbance, the start 7b gives (κ·set·P/(P + 20 Pa)) as
+/// a share of the swing the reed settles to, and the time those two predict
+/// to reach the swing, ln(swing/start)/σ.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn what_sets_the_low_attack() {
+    use rf_musette_analysis::growth_rate;
+    use rf_musette_dsp::compass::{bass_design, design};
+    use rf_musette_dsp::parameters::RANK_MIDDLE;
+    let p = Parameters::default();
+    let pressure = 400.0;
+    let reeds = [
+        ("16′ C2", bass_design(&p, 0, BASS_16).unwrap()),
+        ("16′ E2", bass_design(&p, 4, BASS_16).unwrap()),
+        ("16′ A2", bass_design(&p, 9, BASS_16).unwrap()),
+        ("16′ B2", bass_design(&p, 11, BASS_16).unwrap()),
+        ("8′ C3", bass_design(&p, 0, 1).unwrap()),
+        ("M F3", design(&p, 53, RANK_MIDDLE).unwrap()),
+        ("M F4", design(&p, 65, RANK_MIDDLE).unwrap()),
+        ("M F5", design(&p, 77, RANK_MIDDLE).unwrap()),
+    ];
+    for (name, reed) in reeds {
+        let sigma = growth_rate(reed, 192_000.0, pressure);
+        let swing = sounding(reed, pressure).map_or(f64::NAN, |t| t.amplitude);
+        let start = reed.set * pressure / (pressure + 20.0);
+        let model = ReedModel::new(reed);
+        println!(
+            "{name:7}: f {:6.1} Hz, Q {:5.1}, load {:.2}, σ {:6.1}/s ({:.3}/cycle), swing {:5.2} mm, start {:4.2} mm ({:5.1} dB), ln(swing/start)/σ {:5.0} ms, static {:4.2} mm",
+            reed.frequency,
+            reed.q,
+            reed.tip_load,
+            sigma,
+            sigma / reed.frequency,
+            swing * 1e3,
+            start * 1e3,
+            20.0 * (start / swing).log10(),
+            (swing / start).ln() / sigma * 1e3,
+            model.mu * pressure / (model.omega * model.omega) * 1e3,
+        );
+    }
+}
+
+/// The 16′ C2's growth at 400 Pa, one thing moved at a time: σ, and whether
+/// it still holds a tone at 50 Pa and 1 kPa.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_c2_growth_levers() {
+    use rf_musette_analysis::growth_rate;
+    use rf_musette_dsp::compass::bass_design;
+    let p = Parameters::default();
+    let base = bass_design(&p, 0, BASS_16).unwrap();
+    let report = |name: &str, reed: ReedDesign| {
+        let sigma = growth_rate(reed, 192_000.0, 400.0);
+        let low = sounding(reed, 50.0).is_some();
+        let high = sounding(reed, 1000.0).is_some();
+        let swing = sounding(reed, 400.0).map_or(f64::NAN, |t| t.amplitude);
+        println!(
+            "{name:34}: σ {sigma:5.1}/s, swing {:4.2} mm, 50 Pa {}, 1 kPa {}",
+            swing * 1e3,
+            if low { "yes" } else { "no " },
+            if high { "yes" } else { "no " },
+        );
+    };
+    report("as built (64.6 mm, load 3.67)", base);
+    for load in [0.0, 1.0, 2.0, 6.0] {
+        report(
+            &format!("load {load}"),
+            ReedDesign {
+                tip_load: load,
+                ..base
+            },
+        );
+    }
+    for (length, load) in [
+        (0.052, 0.0),
+        (0.052, 3.67),
+        (0.052, 8.0),
+        (0.045, 8.0),
+        (0.045, 15.0),
+    ] {
+        // Shorter, the rest of the geometry kept.
+        report(
+            &format!("length {:.0} mm, load {load}", length * 1e3),
+            ReedDesign {
+                length,
+                tip_load: load,
+                ..base
+            },
+        );
+    }
+    for q in [2.0, 4.0] {
+        report(
+            &format!("Q ×{q}"),
+            ReedDesign {
+                q: base.q * q,
+                ..base
+            },
+        );
+    }
+    for x in [0.5, 2.0] {
+        report(
+            &format!("cell ×{x}"),
+            ReedDesign {
+                cell_volume: base.cell_volume * x,
+                ..base
+            },
+        );
+        report(
+            &format!("hole ×{x}"),
+            ReedDesign {
+                tone_hole_area: base.tone_hole_area * x,
+                ..base
+            },
+        );
+        report(
+            &format!("set ×{x}"),
+            ReedDesign {
+                set: base.set * x,
+                ..base
+            },
+        );
+        report(
+            &format!("width ×{x}"),
+            ReedDesign {
+                width: base.width * x,
+                ..base
+            },
+        );
+        report(
+            &format!("near field ×{x}"),
+            ReedDesign {
+                inertance_scale: base.inertance_scale * x,
+                ..base
+            },
+        );
+    }
+}
+
+/// The growth against the upstream inertia, from C2 to F5 at 400 Pa: σ at
+/// the near field ×1, ×2, ×4 and with the hole's inertance ×2 (hole area
+/// ×0.5), and the inertances themselves.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn growth_against_the_upstream_inertia() {
+    use rf_musette_analysis::growth_rate;
+    use rf_musette_dsp::compass::{bass_design, design};
+    use rf_musette_dsp::parameters::RANK_MIDDLE;
+    let p = Parameters::default();
+    let reeds = [
+        ("16′ C2", bass_design(&p, 0, BASS_16).unwrap()),
+        ("16′ B2", bass_design(&p, 11, BASS_16).unwrap()),
+        ("M F3", design(&p, 53, RANK_MIDDLE).unwrap()),
+        ("M F4", design(&p, 65, RANK_MIDDLE).unwrap()),
+        ("M F5", design(&p, 77, RANK_MIDDLE).unwrap()),
+    ];
+    for (name, reed) in reeds {
+        let model = ReedModel::new(reed);
+        let sigma = |r: ReedDesign| growth_rate(r, 192_000.0, 400.0);
+        println!(
+            "{name:7}: M_n {:6.0}, M_h {:6.0} kg/m⁴, ωM_n·S_r/ρ... σ ×1 {:5.1}, near ×2 {:5.1}, near ×4 {:5.1}, hole-inertia ×2 {:5.1}, both ×2 {:5.1}",
+            model.inertance,
+            model.hole_inertance,
+            sigma(reed),
+            sigma(ReedDesign {
+                inertance_scale: reed.inertance_scale * 2.0,
+                ..reed
+            }),
+            sigma(ReedDesign {
+                inertance_scale: reed.inertance_scale * 4.0,
+                ..reed
+            }),
+            sigma(ReedDesign {
+                tone_hole_area: reed.tone_hole_area * 0.5,
+                ..reed
+            }),
+            sigma(ReedDesign {
+                inertance_scale: reed.inertance_scale * 2.0,
+                tone_hole_area: reed.tone_hole_area * 0.5,
+                ..reed
+            }),
+        );
+    }
+}
+
+/// Llanos-Vázquez et al. 2014, Table I, against the model: the finger attack
+/// of the first harmonic (−50 → −5 dB) of the 8′ notes they measured, the
+/// model at 400 Pa (their mf) and 100 Pa (p), the bellows stiff. A2-B2 are
+/// the bass side's 16′ (the treble's 8′ starts at F3); the rest the treble's
+/// true 8′.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn llanos_table_one_against_the_model() {
+    use rf_musette_analysis::{attack_time, component_envelope};
+    use rf_musette_dsp::Engine;
+    use rf_musette_dsp::compass::target;
+    use rf_musette_dsp::parameters::{self, RANK_MIDDLE, STIFF};
+    let rate = 48_000.0f32;
+    let measured: [(&str, i32, Option<u32>, Option<u32>); 13] = [
+        ("A2", 45, Some(80), Some(110)),
+        ("A#2", 46, Some(70), None),
+        ("B2", 47, Some(100), None),
+        ("A3", 57, Some(110), Some(90)),
+        ("A#3", 58, Some(70), Some(100)),
+        ("B3", 59, Some(60), Some(70)),
+        ("A4", 69, Some(60), Some(90)),
+        ("A#4", 70, Some(60), Some(140)),
+        ("B4", 71, Some(70), Some(120)),
+        ("A5", 81, Some(50), Some(60)),
+        ("A#5", 82, Some(50), Some(80)),
+        ("B5", 83, Some(50), Some(80)),
+        ("A6", 93, Some(100), Some(130)),
+    ];
+    let attack = |note: i32, pressure: f32| -> Option<f64> {
+        let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
+        // The bass side in 16′ alone is register 16′/2′; the 2′ is far up.
+        assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
+        if let Ok(ms) = std::env::var("PALLET_MS") {
+            assert!(engine.set_parameter(parameters::PALLET_OPENING, ms.parse().unwrap()));
+        }
+        if let Ok(kick) = std::env::var("KICK") {
+            assert!(engine.set_parameter(parameters::ATTACK_KICK, kick.parse().unwrap()));
+        }
+        engine
+            .bellows_mut()
+            .expression_wide((pressure / 1000.0).sqrt());
+        let mut block = [0.0f32; 256];
+        for _ in 0..(0.3 * rate / 256.0) as usize {
+            engine.render(&mut block);
+        }
+        let frequency = if note < 53 {
+            engine.bass_on(note as u8, 1.0);
+            440.0 * 2f64.powf((f64::from(note) - 69.0) / 12.0)
+        } else {
+            engine.note_on(note as u8, 1.0);
+            target(&Parameters::default(), note as u8, RANK_MIDDLE)
+        };
+        let mut out = Vec::new();
+        for _ in 0..(2.5 * rate / 256.0) as usize {
+            engine.render(&mut block);
+            out.extend(block.iter().map(|x| f64::from(*x)));
+        }
+        attack_time(&component_envelope(
+            &out,
+            f64::from(rate),
+            frequency,
+            4.0,
+            0.001,
+        ))
+    };
+    let ms = |a: Option<f64>| a.map_or("  --".to_owned(), |a| format!("{:4.0}", a * 1e3));
+    let mm = |a: Option<u32>| a.map_or("  --".to_owned(), |a| format!("{a:4}"));
+    println!("note | mf measured  model | p measured  model");
+    for (name, note, mf, p) in measured {
+        println!(
+            "{name:4} |        {}   {} |       {}   {}",
+            mm(mf),
+            ms(attack(note, 400.0)),
+            mm(p),
+            ms(attack(note, 100.0)),
+        );
+    }
+}
+
+/// The 16′ A2 through the engine at 400 Pa, its pallet opening in 50 ms or
+/// 5 ms, the start on or off: every 10 ms, the cell's pressure, the tongue's
+/// mean and its swing over the last period.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_a2_opening_traced() {
+    use rf_musette_dsp::parameters::{self, STIFF};
+    use rf_musette_dsp::{Engine, PULL_REED};
+    let rate = 48_000.0f32;
+    for (opening, kick) in [(50.0, 1.0), (50.0, 0.0), (5.0, 1.0)] {
+        let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
+        assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
+        assert!(engine.set_parameter(parameters::PALLET_OPENING, opening));
+        assert!(engine.set_parameter(parameters::ATTACK_KICK, kick));
+        engine.bellows_mut().expression_wide(0.4f32.sqrt());
+        let mut one = [0.0f32; 1];
+        for _ in 0..(0.3 * rate) as usize {
+            engine.render(&mut one);
+        }
+        engine.bass_on(45, 1.0);
+        println!("opening {opening} ms, kick {kick}:");
+        let period = (rate / 110.0) as usize;
+        let mut zeta = Vec::new();
+        let mut cell = Vec::new();
+        for _ in 0..(0.3 * rate) as usize {
+            engine.render(&mut one);
+            let (_, state) = engine.bass_reed(9, BASS_16, PULL_REED).unwrap();
+            zeta.push(state.zeta);
+            cell.push(state.cell_pressure);
+        }
+        for step in (1..30).map(|k| k * (rate as usize / 100)) {
+            let window = &zeta[step.saturating_sub(period)..step];
+            let (lo, hi) = window
+                .iter()
+                .fold((f64::MAX, f64::MIN), |(l, h), z| (l.min(*z), h.max(*z)));
+            println!(
+                "  {:4.0} ms: cell {:5.0} Pa, mean {:5.2} mm, swing {:5.2} mm",
+                step as f32 / rate * 1e3,
+                cell[step - 1],
+                0.5 * (hi + lo) * 1e3,
+                0.5 * (hi - lo) * 1e3
+            );
+        }
+    }
+}
+
+/// The C bass held 2 s as the tune plays it -- the arm at CC 11 = 80, all
+/// five ranks -- against the 16′ alone: the 16′ C2's swing every 100 ms, and
+/// the bellows' pressure.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_c2_in_the_tune() {
+    use rf_musette_dsp::parameters;
+    use rf_musette_dsp::{Engine, PULL_REED};
+    let rate = 48_000.0f32;
+    for register in [3.0, 6.0] {
+        let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(parameters::BASS_REGISTER, register));
+        engine.bellows_mut().expression_msb(80);
+        let mut one = [0.0f32; 1];
+        for _ in 0..(0.5 * rate) as usize {
+            engine.render(&mut one);
+        }
+        engine.bass_on(48, 100.0 / 127.0);
+        println!("bass register {register}:");
+        let mut peak = 0.0f64;
+        for n in 0..(2.0 * rate) as usize {
+            engine.render(&mut one);
+            let zeta = engine.bass_reed(0, BASS_16, PULL_REED).unwrap().1.zeta;
+            peak = peak.max(zeta.abs());
+            if (n + 1) % (rate as usize / 10) == 0 {
+                println!(
+                    "  {:4.0} ms: C2 peak {:5.2} mm, supply {:5.0} Pa",
+                    (n + 1) as f32 / rate * 1e3,
+                    peak * 1e3,
+                    engine.supply()
+                );
+                peak = 0.0;
+            }
+        }
+    }
+}
+
+/// The 16′ C2 made shorter and loaded more, as Llanos-Vázquez's bass reeds
+/// are (thesis Tables 3.1, 4.3): for each length and load, σ at 300 Pa and
+/// whether it holds a tone at 50 Pa, 300 Pa and 1 kPa. The set and the hole
+/// go with the length, the cell with its cube, as along the compass.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_c2_shorter_and_loaded() {
+    use rf_musette_analysis::growth_rate;
+    use rf_musette_dsp::compass::bass_bare;
+    let p = Parameters::default();
+    let base = bass_bare(&p, 0, BASS_16).unwrap();
+    for length in [0.040, 0.045, 0.052, 0.058, 0.0646] {
+        let k = length / base.length;
+        let shaped = ReedDesign {
+            length,
+            set: base.set * k,
+            tone_hole_area: base.tone_hole_area * k,
+            cell_volume: base.cell_volume * k * k * k,
+            ..base
+        };
+        let mut line = format!("{:4.1} mm:", length * 1e3);
+        for load in [0.0, 1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 16.0] {
+            let reed = ReedDesign {
+                tip_load: load,
+                ..shaped
+            };
+            let sigma = growth_rate(reed, 192_000.0, 300.0);
+            let holds = [50.0, 300.0, 1000.0]
+                .iter()
+                .all(|pressure| sounding(reed, *pressure).is_some());
+            line += &format!(" {load:>2}:{sigma:5.1}{}", if holds { "*" } else { " " });
+        }
+        println!("{line}");
+    }
+    println!("(load over the unloaded modal mass: σ at 300 Pa, * = holds at 50, 300 and 1000 Pa)");
+}
+
+/// The 16′ C2's growth against pressure, as built and at two other loads,
+/// beside Cottingham, Reed & Busha's measured C3 (4.5/s at 0.3 kPa, 8.3 at
+/// 0.5, 11.5 near 1 kPa).
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_c2_growth_against_pressure() {
+    use rf_musette_analysis::growth_rate;
+    use rf_musette_dsp::compass::{bass_bare, bass_design};
+    let p = Parameters::default();
+    let built = bass_design(&p, 0, BASS_16).unwrap();
+    let bare = bass_bare(&p, 0, BASS_16).unwrap();
+    let pressures = [100.0, 200.0, 300.0, 350.0, 400.0, 500.0, 700.0, 1000.0];
+    println!("{:>14}: {pressures:?} Pa", "");
+    for (name, reed) in [
+        ("as built", built),
+        (
+            "load 2",
+            ReedDesign {
+                tip_load: 2.0,
+                frequency: built.frequency,
+                ..bare
+            },
+        ),
+        (
+            "load 6",
+            ReedDesign {
+                tip_load: 6.0,
+                frequency: built.frequency,
+                ..bare
+            },
+        ),
+        (
+            "8′ C3",
+            rf_musette_dsp::compass::bass_design(&p, 0, 1).unwrap(),
+        ),
+    ] {
+        let line: String = pressures
+            .iter()
+            .map(|pressure| format!(" {:5.1}", growth_rate(reed, 192_000.0, *pressure)))
+            .collect();
+        println!("{name:>14}:{line}");
+    }
+}
+
+/// The 16′ C2 alone (register 16′/2′) at ~365 Pa, the bellows stiff or the
+/// arm's, pulling or pushing: its swing every 200 ms over 2 s.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_c2_stiff_against_the_arm() {
+    use rf_musette_dsp::parameters::{self, ARM, PUSH, STIFF};
+    use rf_musette_dsp::{Engine, PULL_REED, PUSH_REED};
+    let rate = 48_000.0f32;
+    for (name, response, push) in [
+        ("stiff, pull", STIFF, false),
+        ("arm, pull", ARM, false),
+        ("stiff, push", STIFF, true),
+        ("arm ×5 fast", ARM, false),
+    ] {
+        let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, response));
+        assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
+        if push {
+            assert!(engine.set_parameter(parameters::BELLOWS_DIRECTION, PUSH));
+        }
+        if name == "arm ×5 fast" {
+            assert!(engine.set_parameter(parameters::ARM_SPEED, 5.0));
+        }
+        engine.bellows_mut().expression_wide(if response == STIFF {
+            0.365f32.sqrt()
+        } else {
+            80.0 / 127.0
+        });
+        let mut one = [0.0f32; 1];
+        for _ in 0..(0.5 * rate) as usize {
+            engine.render(&mut one);
+        }
+        engine.bass_on(48, 1.0);
+        let which = if push { PUSH_REED } else { PULL_REED };
+        let mut line = format!("{name:12}:");
+        let mut peak = 0.0f64;
+        for n in 0..(2.0 * rate) as usize {
+            engine.render(&mut one);
+            peak = peak.max(engine.bass_reed(0, BASS_16, which).unwrap().1.zeta.abs());
+            if (n + 1) % (rate as usize / 5) == 0 {
+                line += &format!(" {:4.2}", peak * 1e3);
+                peak = 0.0;
+            }
+        }
+        println!("{line} mm, supply {:.0} Pa", engine.supply());
+    }
+}
+
+/// Low and middle notes alone, the bellows stiff or the arm's, ~370 Pa: each
+/// reed's swing after 0.5 and 2 s, and the Helmholtz frequency its tone hole
+/// makes with the bellows' air.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn the_low_notes_under_the_arm() {
+    use rf_musette_dsp::parameters::{self, ARM, RANK_MIDDLE, STIFF};
+    use rf_musette_dsp::{Engine, PULL_REED};
+    let rate = 48_000.0f32;
+    let p = Parameters::default();
+    let wind = {
+        let mut q = p;
+        q.set(parameters::BELLOWS_RESPONSE, ARM);
+        q.wind_design().unwrap()
+    };
+    for note in [36u8, 40, 45, 48, 53, 65] {
+        let mut line = format!("note {note}:");
+        for response in [STIFF, ARM] {
+            let mut engine = Engine::new(rate).unwrap();
+            assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, response));
+            assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
+            assert!(engine.set_parameter(parameters::REGISTER, 11.0));
+            engine.bellows_mut().expression_wide(if response == STIFF {
+                0.37f32.sqrt()
+            } else {
+                80.0 / 127.0
+            });
+            let mut one = [0.0f32; 1];
+            for _ in 0..(0.5 * rate) as usize {
+                engine.render(&mut one);
+            }
+            let bass = note < 53;
+            if bass {
+                engine.bass_on(note, 1.0)
+            } else {
+                engine.note_on(note, 1.0)
+            }
+            // (frequency, the hole's inertance, the tip's displacement)
+            let reed = |engine: &Engine| -> (f64, f64, f64) {
+                let (model, state) = if bass {
+                    engine
+                        .bass_reed(usize::from(note) % 12, BASS_16, PULL_REED)
+                        .unwrap()
+                } else {
+                    engine.reed(note, RANK_MIDDLE, PULL_REED).unwrap()
+                };
+                (model.design.frequency, model.hole_inertance, state.zeta)
+            };
+            let mut peaks = Vec::new();
+            let mut peak = 0.0f64;
+            for n in 0..(2.0 * rate) as usize {
+                engine.render(&mut one);
+                peak = peak.max(reed(&engine).2.abs());
+                if (n + 1) % (rate as usize / 2) == 0 {
+                    peaks.push(peak);
+                    peak = 0.0;
+                }
+            }
+            let (frequency, hole_inertance, _) = reed(&engine);
+            let helmholtz =
+                1.0 / (2.0 * std::f64::consts::PI * (hole_inertance * wind.compliance).sqrt());
+            line += &format!(
+                " {}: {:.2} → {:.2} mm (f {:.0} Hz, hole+bellows {:.0} Hz) |",
+                if response == STIFF { "stiff" } else { "arm" },
+                peaks[0] * 1e3,
+                peaks[3] * 1e3,
+                frequency,
+                helmholtz
+            );
+        }
+        println!("{line}");
+    }
+}

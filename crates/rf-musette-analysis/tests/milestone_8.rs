@@ -236,11 +236,11 @@ fn the_sixteen_foot_speaks_easily() {
 
 /// Prediction 8: the 16′ C2's finger attack at 400 Pa is 50-140 ms.
 ///
-/// NOT MET: 467 ms. 7b's start brings the treble's attacks to a player's;
-/// the reed's own growth, too slow everywhere (7b), is slowest at the
-/// lowest pitch.
+/// NOT MET: 467 ms, 399 since 8c gave the start as the air reaches the
+/// cell. A loaded tongue grows slowest (docs/ROADMAP.md, 8 and 8c);
+/// nothing measured bounds a C2.
 #[test]
-#[ignore = "not met: the 16′ C2 attacks in 467 ms (docs/ROADMAP.md, 8)"]
+#[ignore = "not met: the 16′ C2 attacks in 399 ms (docs/ROADMAP.md, 8c)"]
 fn the_sixteen_foot_attacks_as_a_finger_attack() {
     let mut engine = Engine::new(RATE).unwrap();
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));

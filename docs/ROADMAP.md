@@ -1464,6 +1464,149 @@ component does (`.cargo/config.toml`). One test keeps two 357 KiB engines.
 * The 16′ stays 30 dB under its level for the whole 440 ms note: the slow
   growth of the lowest reeds is now the bass side's first defect.
 
+## 8c. The low reeds' attack
+
+The user, after milestone 8: the attack of the low notes. Measured first
+(`tests/bass_diagnosis.rs`, 2026-10-01), with a literature search.
+
+**7b's premise does not hold.**
+* 7b took Llanos's ~0.75 dB/ms rise of the radiated first harmonic
+  (thesis Fig. 4.11) as the reed's growth, τ ≈ 11 ms, and judged the
+  model's ~20/s four times too slow.
+* The one direct measurement of a free reed's growth coefficient
+  (Cottingham, Reed & Busha 1999, Fig. 4, read off; a C3 reed-organ reed,
+  131-137 Hz) is:
+  * negative below ~0.1 kPa;
+  * 4.5/s at 0.3 kPa and 8.3/s at 0.5 kPa;
+  * 11.5/s at its peak near 1 kPa, falling beyond.
+* The model's 8′ C3 grows 18.8/s at 400 Pa: as fast as measured, or
+  faster. A radiated harmonic's slope in dB/ms is not a growth rate; it
+  carries the start and the pallet with it.
+* A harmonium B5's onset, read off a vibrometer trace, is 20-25/s
+  (Puranik & Scavone, Forum Acusticum 2023, Fig. 6).
+* The linear theory gives σ of order ρv/(ρ_steel t), independent of
+  pitch. A heavier tongue per unit area grows slower, so a loaded bass
+  reed is slower.
+
+**Llanos's Table I against the model**, note by note: finger attacks of the
+8′, 400 Pa for mf and 100 Pa for p, the bellows stiff.
+* A3-B4 agree (model 83-103 ms at mf; measured 60-110).
+* A2-B2 do not: 220-249 ms against 70-100 at mf, 155-191 against 110 at p.
+  Llanos measured nothing below A2. The technical literature he cites says
+  low reeds "need a certain time to respond", counting from the trigger
+  (p377).
+* A5-A6 at p come out at 0-3 ms against 60-130. The start is already
+  nearly the whole of the small swing they settle to at 100 Pa.
+
+**What makes A2 slow in the engine and not in the reed alone**
+(`the_a2_opening_traced`):
+* The pallet's 50 ms opening. With a 5 ms opening, A2-B2 attack in
+  90-112 ms.
+* Not by throttling: the cell holds its 400 Pa by 20 ms.
+* The start fires when the bellows' pressure is there, with the pallet
+  still shut and the cell empty. The air reaching the tongue a few
+  milliseconds later pushes it into its frame too, and in an A2, whose
+  period (9 ms) is about as long as that rise, the two partly cancel. Its
+  swing at 20 ms:
+  * 0.19 mm with the start;
+  * 0.35 mm without it;
+  * 0.82 mm with the start and a 5 ms opening, where both arrive together.
+
+**The change:** the start belongs to the air's arrival, as 7c said: the
+arrival at the reed. Each reed is given the rise of P/(P + P₀) of its own
+cell's pressure, not of the bellows' side, while its key is down and its
+register open. It is owed again when its cell's pressure falls to P₀.
+
+**Predictions** (written before building it, 2026-10-01):
+1. A2-B2 (the 16′), finger attack at 400 Pa through a 50 ms pallet:
+   50-140 ms (Llanos 70-100 at mf).
+2. A3-B4 stay in 50-140 ms at 400 Pa.
+3. 7b's tests and 7c's pass as written (F4 50-140 ms at 100 and 400 Pa;
+   a note begun with the bellows, a key held before the air).
+4. The 16′ C2 attacks faster than its 467 ms. Nothing measured bounds it.
+5. A5-A6 at p stay too fast: this change does not touch them.
+
+**Built, first as written, then corrected.**
+* As written, the start given as the cell's pressure rises spread over
+  that rise, several of a mid reed's periods, and partly cancelled itself:
+  * mid notes slowed to 118-128 ms at mf;
+  * A5 at p to over a second;
+  * A2 gained only 249 → 204 ms.
+* Corrected: nothing until the air is in the reed's cell (above P₀); then
+  the whole start the bellows' pressure gives, at once; later rises of the
+  bellows' pressure as before. This is what was meant: the start and the
+  air's push arrive together.
+
+**Status (2026-10-01): built (0.9.1); three met, one not, one as foreseen**
+(`tests/milestone_8c.rs`).
+1. **Not met.** A2, A♯2, B2: 179, 164, 151 ms (were 249, 235, 220), against
+   50-140. Through a 5 ms pallet they are 90-112. What still slows them is
+   the pallet half open through its first tens of milliseconds, which
+   throttles a large reed's growing flow more than a small one's. The
+   pallet's lift, opening and shape are assumed; nothing measures them.
+2. **Met.** A3-B4: 82-102 ms.
+3. **Met.** 7b: F4 79/98 ms at 100/400 Pa (were 85/99). 7c: 106 and 90 ms.
+   Every earlier test passes.
+4. **Met.** The 16′ C2: 399 ms over milestone 8's 2 s render (was 467),
+   427 over 8c's 2.5 s.
+5. **As foreseen.** A5-A6 at p: 0-3 ms, unchanged.
+
+## 8d. The bellows' mass -- tried, reverted, open
+
+**Measured first** (2026-10-01): in "Frère Jacques" the 16′ C2 never grows.
+* Under the arm, at CC 11 = 80 (~370 Pa), its swing stays at the start's
+  1.1 mm for two seconds.
+* At the same pressure from a stiff bellows it grows to 3.5 mm. With the
+  arm five times faster it grows to 3.1 mm.
+* Redesigning the tongue is no lever: over 40-65 mm and every load, its
+  growth at 300 Pa stays under 7/s.
+
+**First hypothesis: the arm at audio rate.** `wind.rs` makes the arm's
+speed answer the pressure at every sample (Hill's law, no mass between
+them). The arm is then a resistance across the bellows' air,
+≈ 1.3 kPa·s/m³ at 400 Pa, at every frequency, and dissipates the flow a
+reed modulates.
+
+**Tried: the moving half's mass** (4 kg, assumed), M v' = F(v) − A P.
+* At audio frequencies the bellows becomes its air.
+* The C2 then died faster: 1.1 → 0.5 mm in 2 s.
+* Note by note at ~370 Pa (swing at 0.5 → 2 s):
+  * C2 (66 Hz) 1.1 → 0.5 mm, against 2.0 → 3.5 stiff;
+  * E2 (83 Hz) 1.4 → 1.8, against 3.8 → 5.2 stiff;
+  * A2, F3 and F4 nearly as stiff.
+* The bellows' air and a reed's tone hole make a Helmholtz resonator,
+  53-77 Hz. The lowest 16′ sit on it.
+
+**Tried: tone holes and loads found as a maker finds them**, on a
+simulation of the reed fed by the bellows' air:
+* It worked for the treble and the bass from E2 up.
+* For C2-D♯2 nothing worked, once "speaks" was measured honestly.
+
+**A flaw in my own measurement, found on the way.** "Holds a tone" asked
+only for an oscillation over 1 µm in the last half second. A reed started
+by the pressure's step and slowly dying passes that after six seconds. The
+honest test asks for a tone that does not die and is at least as wide as
+the reed's set. Under it:
+* on the 12 L bellows, the 16′ C2-D♯2 do not speak at 300 Pa with any load
+  or hole;
+* from an ideal pressure they do;
+* a larger bellows (up to 40 L) does not help.
+
+milestone 8's load search used the weak test. Its loads hold, but the
+claim "every reed below 300 Hz speaks from 50 Pa to 1 kPa" rests on it and
+is to be measured again.
+
+**Reverted** (nothing of it ships): the mass, the hole tables, the joint
+search. The experiments' code went with them; the numbers are above.
+**Open:** why a bellows with air in it, massive or not, holds the lowest
+reeds, when real 16′ basses down to C2 speak. Candidates, none measured:
+* the path between the bellows and the bass pallets (a plenum, the bass
+  mechanism's box);
+* walls that give;
+* the bass blocks' cells and holes, which here are the treble's scaled.
+
+The next step is reading and measuring, not voicing.
+
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.

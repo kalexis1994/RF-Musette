@@ -70,6 +70,9 @@ struct Rank {
     /// `None` until the key is first built, or where the rank has no reed.
     model: Option<ReedModel>,
     states: [ReedState; 2],
+    /// How much of its start each reed has been given since air could last
+    /// reach it, as the share P/(P + P₀) of the full start.
+    started: [f64; 2],
 }
 
 impl Rank {
@@ -148,6 +151,7 @@ impl Engine {
             ranks: core::array::from_fn(|_| Rank {
                 model: None,
                 states: [ReedState::default(); 2],
+                started: [0.0; 2],
             }),
             stale: true,
         });
@@ -218,6 +222,7 @@ impl Engine {
                 | parameters::CASSOTTO
                 | parameters::CASSOTTO_RESONANCE
                 | parameters::CASSOTTO_Q
+                | parameters::ATTACK_KICK
         ) {
             self.dirty = true;
         }
@@ -292,6 +297,7 @@ impl Engine {
             key.pallet = Pallet::default();
             for rank in key.ranks.iter_mut() {
                 rank.states = [ReedState::default(); 2];
+                rank.started = [0.0; 2];
             }
         }
         self.ask = 0.0;
@@ -329,6 +335,43 @@ impl Engine {
         }
     }
 
+    /// Starts the reeds the air has just reached: each reed is set moving
+    /// into its frame as if released from κ · set · P/(P + P₀) there, P its
+    /// side's pressure. Voiced (parameter "Attack Kick"), standing on
+    /// Cottingham's observation that a free reed's motion "begins with an
+    /// initial displacement of the reed tongue into the reed frame" (ICA
+    /// 2019).
+    ///
+    /// The start belongs to the air's arrival, not to the key's: a reed is
+    /// owed it while its key is down, its register open and its side's
+    /// pressure above P₀, and is given the share's rise as the pressure
+    /// rises. The air gone -- the key up, the register shut, the pressure at
+    /// or below P₀ as the bellows stops or turns -- it is owed again. So a
+    /// key pressed before the bellows moves, or held through a reversal,
+    /// starts as one pressed into a moving bellows does.
+    ///
+    /// Checked at every step, so it does not hang on how the host cuts its
+    /// blocks. `given` is the share the reed has had; `blow` its side's
+    /// pressure, zero when its register is shut.
+    fn start_into_frame(
+        model: &ReedModel,
+        state: &mut ReedState,
+        given: &mut f64,
+        down: bool,
+        blow: f64,
+        kick: f64,
+    ) {
+        if !down || blow <= parameters::KICK_PRESSURE {
+            *given = 0.0;
+            return;
+        }
+        let share = blow / (blow + parameters::KICK_PRESSURE);
+        if share > *given {
+            state.velocity += model.omega * kick * model.design.set * (share - *given);
+            *given = share;
+        }
+    }
+
     /// A reed parameter moved: every key's reeds are out of date. They are
     /// built again as they are needed, or a few per block meanwhile.
     fn rebuild(&mut self) {
@@ -363,6 +406,7 @@ impl Engine {
         let direction = self.parameters.direction();
         let turning = 2.0 * h / self.parameters.reversal_time();
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
+        let kick = self.parameters.get(parameters::ATTACK_KICK).unwrap_or(0.0);
         // The ranks the register lets the bellows reach.
         let open = self.parameters.open_ranks();
         // The bellows' air, when the intent is the arm's push; otherwise the
@@ -418,6 +462,7 @@ impl Engine {
                         continue;
                     }
                     key.pallet.advance(&self.pallet_design, h);
+                    let down = key.pallet.target > 0.0;
                     for (index, rank) in key.ranks.iter_mut().enumerate() {
                         let Some(model) = &rank.model else {
                             continue;
@@ -433,13 +478,16 @@ impl Engine {
                         } else {
                             &mut outward
                         };
-                        for (which, state) in rank.states.iter_mut().enumerate() {
+                        for ((which, state), given) in
+                            rank.states.iter_mut().enumerate().zip(&mut rank.started)
+                        {
                             let (side, sign) = if which == PULL_REED {
                                 ((-signed).max(0.0), -1.0)
                             } else {
                                 (signed.max(0.0), 1.0)
                             };
                             let blow = if open[index] { side } else { 0.0 };
+                            Self::start_into_frame(model, state, given, down, blow, kick);
                             if blow == 0.0 && *state == ReedState::default() {
                                 continue;
                             }

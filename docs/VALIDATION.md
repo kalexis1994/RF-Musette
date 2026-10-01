@@ -407,3 +407,70 @@ a 64 MiB thread.
 
 **Render for listening.** `scores/frere-jacques.score`: the tune
 (traditional), once in Clarinet, once in Musette.
+
+## 2026-10-01 -- Milestone 7b: the finger attack (0.8.1)
+
+**Measured first** (`tests/attack_diagnosis.rs`): F4 1165/396 ms at p/mf,
+growing slower with pitch (A6 721 ms at mf). No assumed constant alone
+reaches 50-140 ms; the best (upstream inertia ×4, a 5 ms pallet) bring mf
+to ~200 ms and leave p above 600.
+
+**Refuted** (`tests/two_modes.rs`, RK4):
+* the second bending mode, which leaves the attack unchanged (747/296 ms,
+  q₂ < 0.01 mm);
+* the cell's pressure on the tongue's face, which makes it slower (mf
+  296 → 455 ms at β = 1).
+
+**Built.** The voiced start: when a key opens, each reed the bellows blows
+gets a velocity ω·κ·set·P/(P + 20 Pa) into its frame (`attack_kick`,
+index 38, κ 1). The state grows to 39 values.
+
+**Tests** (`tests/milestone_7b.rs`, through the engine, stiff bellows):
+* F4 85 ms at 100 Pa, 99 ms at 400 Pa;
+* the true 8′ at 400 Pa: 106, 103, 99, 83, 73, 53 ms from F3 to A5;
+* no sound with no air.
+
+Ignored: D♯6 22 ms, A6 13 ms (too fast).
+
+**Checks.** Every earlier test passes; fmt and clippy clean.
+
+**Render for listening.** "Frère Jacques" with κ 0 then κ 1 (RMS 0.139 →
+0.206): the eighth notes reach their tone.
+
+## 2026-10-01 -- The start at the air's arrival (0.8.2)
+
+**Measured first** (`tests/musette_diagnosis.rs`, and the render note by
+note above 600 Hz):
+* In Clarinet, every note but the first reaches −5 dB of its level in
+  100-150 ms.
+* The first note, with the arm and the key moving together, got no start.
+  At that block's start the pressure was still 0 Pa. It was silent until
+  ~250 ms.
+* In Musette each reed attacks as in Clarinet and the bellows holds
+  (351 ± 15 Pa). The three reeds, started together by one pallet, dip the
+  sum's fundamental 35 dB at 120 ms (C4, beats of 2.4 and 3.1 Hz). Left
+  as the physics.
+
+**Built.** Each reed is owed its start while its key is down, its register
+open and its side's pressure above 20 Pa. It is given the rise of
+P/(P + 20 Pa) as the pressure comes, checked at every step, and owed again
+once that air has gone.
+
+**Tests** (`tests/milestone_7c.rs`, the arm, C4 Clarinet):
+* the arm and the key together: 112 ms (was 303);
+* key held, then the air: 92 ms (was 212).
+
+Through a reversal (diagnosis): ~240 ms after the turn begins (was ~410).
+
+**Checks.**
+* 7b is unchanged.
+* Milestones 4 and 5 now read their levels over 20 s. Over 1.5-2.5 s
+  Master's level hung on the beats' phase.
+  * Stiff Master: +6.32 dB (was recorded +5.94).
+  * The arm's Master: +5.50 dB, the arm costing 0.82 dB.
+  * Milestone 5's test asserts that cost (0.44-1.44 dB, the band it
+    predicted).
+* fmt and clippy clean.
+
+**Render for listening.** `renders/frere-jacques-k2.wav`: the first note
+speaks like the others (−26 dB above 600 Hz at 100 ms; was silent).

@@ -73,7 +73,7 @@ fn level(register: f64) -> f64 {
     assert!(engine.set_parameter(parameters::REGISTER, register));
     engine.bellows_mut().expression_wide(0.547_722_6);
     engine.note_on(REED_KEY, 1.0);
-    let mut out = vec![0.0f32; (4.0 * rate) as usize];
+    let mut out = vec![0.0f32; (21.5 * rate) as usize];
     for block in out.chunks_mut(256) {
         engine.render(block);
     }

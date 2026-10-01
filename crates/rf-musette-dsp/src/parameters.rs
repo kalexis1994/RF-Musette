@@ -87,8 +87,14 @@ pub const CASSOTTO_RESONANCE: usize = 34;
 pub const CASSOTTO_Q: usize = 35;
 pub const PITCH_A4: usize = 36;
 pub const Q_SLOPE: usize = 37;
+pub const ATTACK_KICK: usize = 38;
 
-pub const COUNT: usize = 38;
+pub const COUNT: usize = 39;
+
+/// The pressure below which the air is too weak to push a tongue into its
+/// frame at a key's opening, Pa: half the start is reached here. Assumed, of
+/// the order of the lowest thresholds.
+pub const KICK_PRESSURE: f64 = 20.0;
 
 /// [`BELLOWS_RESPONSE`]'s values.
 pub const ARM: f64 = 0.0;
@@ -516,6 +522,15 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         (0.0, 1.5, 0.7, 0.01),
         Taper::Linear,
         "A measured trend, extrapolated: each reed's Q is the F4's times (f / F4)^slope. 0.7 is the exponent between the two free reeds whose Q is measured, a reed-organ C3's 83 at 137 Hz (Cottingham, ICA 1998) and a harmonica reed's ~233 at 598 Hz (Förtsch 2021); Nussbaumer & Agarwal found 200-400 at 236-743 Hz. Nothing above ~750 Hz is measured, and no damping mechanism falls for small reeds.",
+    ),
+    spec(
+        "attack_kick",
+        "Attack Kick",
+        PAGE_REED,
+        "",
+        (0.0, 3.0, 1.0, 0.01),
+        Taper::Linear,
+        "Voiced, standing on a measurement: when a key opens, each reed the bellows blows starts this many times its set into the frame, scaled by P/(P + 20 Pa). Cottingham (ICA 2019): the motion of a free reed \"begins with an initial displacement of the reed tongue into the reed frame\". At 1 the finger attack meets Llanos-Vázquez et al.'s measured 50-140 ms at p and mf, which nothing derived in the model reaches (docs/ROADMAP.md, 7b). At 0 the start is as derived.",
     ),
 ];
 

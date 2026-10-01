@@ -744,7 +744,8 @@ before any test ran):
    against 3.666 and −3.143 asked of the modes.
 3. **Met.** M− against M+: 6.813 Hz.
 4. **Met.** Celeste +3.01 dB, Musette +4.77 dB over Clarinet; Master
-   +5.94 dB.
+   +5.94 dB. (Over 20 s, which averages the beats (7b, 2026-10-01):
+   Celeste +3.03, Musette +4.77, Master +6.32.)
 5. **Half met.** L sounds −9.6 cents from M's octave and H +2.4, within 15.
    But L sits −16.4 cents below its own mode and H −4.4, against M's
    −6.8: the offset does grow with scale.
@@ -827,7 +828,9 @@ met** (`tests/milestone_5.rs`).
 2. **Met.** M alone holds 288.1 Pa against the 300 the push asks: 4.0 %
    below.
 3. **Met.** Master holds 259.3 Pa (13.6 % below), +4.98 dB over Clarinet
-   against +5.98 stiff.
+   against +5.98 stiff. (Over 20 s, which averages the beats (7b,
+   2026-10-01): 252 Pa (15.9 % below), +5.50 dB against +6.32 stiff. The
+   arm costs 0.82 dB, inside the 0.44-1.44 the band meant.)
 4. **Withdrawn: its premise was wrong.** Built as written -- the open
    ranks sharing one hole's curtain -- it silenced Master: five reeds
    cannot draw through one 150 mm² hole. On an instrument each rank's cell
@@ -1052,6 +1055,195 @@ so: a parameter, "Q Slope".
 What is left for the top: a measurement of what makes the smallest reeds
 speak on an instrument -- their cells, their set, the tip turned to the
 inlet (Tonon) -- or of their Q.
+
+## 7b. The finger attack, now that it can be heard
+
+The user, playing the first tune (2026-10-01): the short notes never reach
+their tone. With the bellows already pushing, Llanos-Vázquez et al. measured
+finger attacks of 50-110 ms at mf and 60-140 ms at p, from A2 to B6 with no
+trend in pitch. The model is slower and grows slower still with pitch
+(`tests/attack_diagnosis.rs`):
+* F3 595/220 ms at p/mf;
+* F4 1165/396 ms;
+* A6 --/721 ms.
+
+None of the assumed constants reaches the target alone:
+* the inertia upstream (a hole 4× deeper, or the near field ×4) or a 5 ms
+  pallet bring mf to ~200 ms;
+* p stays above 600 ms.
+
+The model's growth scales with the pressure above threshold, so p is slow;
+a real reed attacks about as fast at p as at mf. The measured growth is
+τ ≈ 11 ms (Llanos, Fig. 4.11) against the model's ~76 ms at F4 mf.
+
+**First, what can be derived: the second mode.** Cottingham (ICA 2019,
+read in full):
+* "the motion of this type of reed begins with an initial displacement of
+  the reed tongue into the reed frame";
+* the second transverse and first torsional modes appear in the first
+  10-20 cycles and "may be significant in initiating reed oscillation";
+* reed-organ tongues curved to excite them attack faster.
+
+The tongue's solver already finds the F4's second mode (the measured
+1:4.6). The experiment (`tests/two_modes.rs`, RK4) gives the tongue both
+modes:
+* the deflection along it is q₁ψ₁ + q₂ψ₂, with the section integrated
+  from it;
+* each mode is driven by its share of the pressure, S_k = W L ∫ψ_k;
+* it pumps its own flow;
+* Q₂ is taken as Q₁ (assumed).
+
+The supply rises over 50 ms, as the pallet opens.
+
+**Predictions** (written before running it, 2026-10-01):
+1. The hypothesis (Cottingham): with the second mode, the finger attack at
+   400 Pa shortens by at least 30 % against the same harness with one mode.
+   My expectation is otherwise: a flat tongue feeds its second mode only
+   through the section's nonlinearity, so little should change.
+2. In the steady state the second mode stays small and the pitch moves
+   less than 2 cents: the tongue stays sinusoidal (its 2nd-4th harmonics
+   56-72 dB down, as measured).
+
+**Result (2026-10-01).**
+1. **Refuted.** The attack is identical with the second mode and without:
+   F4 747/296 ms at 100/400 Pa either way, q₂ under 0.01 mm. A flat,
+   symmetric tongue hardly drives its second mode; on real tongues their
+   curve and asymmetries do.
+2. **Met.** The pitch moves 0.01 cents.
+
+**Also tried: which pressure the tongue's face feels.** The minimal model
+puts the jet's drop on it, Δp, which starts from zero while the flow
+builds; the face sits in the cell. A share β of the cell's pressure in its
+place makes the attack slower, not faster (mf 296 → 455 ms at β = 1), the
+swing smaller and the pitch +2 cents. The near field's inertial pressure on
+the face is part of what feeds the reed.
+
+**Decision: a voiced start, standing on what Cottingham measured.**
+Nothing derivable has reached the measured attack:
+* the second mode, the face's pressure;
+* the passages' and the sink's inertia (2b);
+* every assumed constant.
+
+What is measured is the start itself: the tongue "begins with an initial
+displacement into the reed frame" (Cottingham, ICA 2019).
+
+From where the model's own growth would take it, an excursion the size of
+the reed's set reaches the target at p and at mf alike:
+* at F4 the growth time τ is 144 ms at 100 Pa and 57 ms at 400 Pa;
+* a 0.5 mm start is −10 dB of the swing at 100 Pa and −19 dB at 400 Pa;
+* so the first harmonic reaches −5 dB in ~80 and ~90 ms.
+
+So when a key opens, each reed the bellows blows is started that far into
+the frame:
+* d = κ · set · P/(P + P₀), as a velocity ω d toward the plate;
+* κ, "Attack Kick", is voiced, 1 by default;
+* P₀ = 20 Pa (assumed, of the order of the lowest thresholds), so with no
+  air there is no start, as on an instrument a key pressed with the
+  bellows still says nothing.
+
+It acts at the key's opening and nowhere else: thresholds, the steady tone
+and the tuning do not see it.
+
+**Predictions** (written before building it, 2026-10-01):
+3. F4's finger attack (−50 → −5 dB of the first harmonic) is 50-140 ms at
+   100 Pa and at 400 Pa (Llanos: p 60-140, mf 50-110).
+4. At 400 Pa the true 8′'s attack is 50-140 ms from F3 to A6: no trend.
+5. Nothing else moves: every earlier test passes, the tuning included.
+6. With the bellows still (no pressure), pressing a key is silent.
+
+**Status (2026-10-01): built (0.8.1); three met, one met to A5**
+(`tests/milestone_7b.rs`).
+3. **Met.** F4: 85 ms at 100 Pa, 99 ms at 400 Pa (were 1165 and 396).
+4. **Met from F3 to A5, too fast above.** 106, 103, 99, 83, 73, 53 ms from
+   F3 to A5, then 22 ms at D♯6 and 13 at A6. At 400 Pa the high reeds sit
+   near their thresholds and swing little more than the start itself.
+   Llanos's ~80 ms windows read an instant onset as ~40 ms, so part of the
+   measured floor is the window's; the prediction stands as written.
+5. **Met.** Every earlier test passes.
+6. **Met.** With no air, a key is silent.
+
+On "Frère Jacques" the eighth notes now reach their tone (the render's
+RMS 0.139 → 0.206).
+
+**Then (2026-10-01): "siguen habiendo notas que no llegan a salir".**
+Measured note by note on the render, before changing anything
+(`tests/musette_diagnosis.rs`, and the render's envelopes above 600 Hz,
+which is what a phone plays):
+* In Clarinet every note reaches its tone except the first. Each reaches
+  −5 dB of its level in 100-150 ms.
+* The first note never got its start. The score moves the arm and the key
+  at the same instant. The start is given once, when the pallet leaves its
+  seat, from the pressure at that block's start, which was still 0 Pa. So
+  the start was spent before the air came, and the reed grew from rest. It
+  was silent for ~250 ms and reached its tone at ~360 ms.
+
+The same happens in play:
+* whenever a key goes down before the bellows moves;
+* to every held key's other reed when the bellows turns;
+* to a rank whose register opens under a held key.
+
+The physics: the start is the tongue pushed into its frame by the air
+reaching it. It belongs to the air's arrival, not to the key's.
+* In Musette each of the three reeds attacks as in Clarinet, and the
+  bellows holds (351 ± 15 Pa). Started together, the three beat:
+  * at C4, 2.4 and 3.1 Hz apart, the fundamental of the sum dips 35 dB at
+    120 ms;
+  * the harmonics dip at other moments, so the sound does not.
+
+  The three reeds share the key's pallet, so starting them together is the
+  physics. It is left as it is.
+
+**The change:** each reed is owed its start from the moment air can reach
+it:
+* its key down;
+* its register open;
+* its side's pressure above P₀.
+
+As that pressure rises, the reed is given the rise of P/(P + P₀) not yet
+given. It is owed again once its air is gone: the key up, the register
+shut, or its side's pressure at or below P₀ (as at a reversal, or with the
+bellows stopped). Below P₀ no reed speaks anyway. A key pressed into a
+steady bellows gets exactly the start it got before.
+
+**Predictions** (written before building it, 2026-10-01):
+7. The arm and the key moving together, C4 in Clarinet: the first
+   harmonic reaches −5 dB of its level (−50 → −5 dB, as in 3) in
+   50-140 ms. It was ~360 ms.
+8. A key held with the bellows still, then the bellows starting at 400 Pa:
+   the same, 50-140 ms.
+9. Every earlier test passes, 7b's included, unchanged.
+
+**Status (2026-10-01): built (0.8.2); all three met**
+(`tests/milestone_7c.rs`).
+7. **Met.** 112 ms. Before the change the same metric read 303 ms; the
+   ~360 ms above was read off the tongue's trace.
+8. **Met.** 92 ms (was 212 ms).
+9. **Met, after one earlier test's window was mended.** 7b reads the same:
+   F4 85/99 ms, F3-A5 106-53 ms. Milestone 5's prediction 3 moved, and not
+   because the steady state did. Its level was the RMS over 1.5 s, and
+   Master's tremolo ranks beat at ~3.5 Hz, so the level hung on the phase
+   they started at.
+   * Over 20 s it settles to +5.50 dB over Clarinet with the arm. Without
+     the start it is +5.47.
+   * The stiff Master is +6.32, not the +5.94 recorded. That +5.94 came
+     from milestone 4's 2.5 s window; Celeste and Musette moved under
+     0.03 dB.
+   * The prediction's band (+4.5 to +5.5, against +5.94 stiff) is what the
+     arm costs, 0.44-1.44 dB. It costs 0.82 dB.
+
+   Both tests now read 20 s, and milestone 5's asserts the cost.
+
+The start is checked at every step, not once per block: the laboratory
+renders from one event to the next in one call, and the first build gave
+the start once per call.
+
+A key held through a reversal: the push reed reaches −5 dB of its swing
+~240 ms after the turn begins (the pressure crosses zero at 50 ms). With
+no start, as before, it took ~410 ms. The pressure comes through the
+100 ms turn gradually, so the start spreads over several cycles.
+
+On "Frère Jacques" the first note now speaks like the others. Above
+600 Hz it is −26 dB at 100 ms; it was silent until ~250 ms.
 
 ## 8. Stradella bass
 

@@ -55,6 +55,13 @@ pub struct TongueMode {
     pub slope_squared: f64,
     /// ψ'(1).
     pub tip_slope: f64,
+    /// The second bending mode, ψ₂(s), likewise sampled and ψ₂(1) = 1: not
+    /// in the shipping reed, kept for the experiments that test it.
+    pub second_shape: [f64; SPAN_POINTS],
+    /// ∫ψ₂ ds.
+    pub second_shape_integral: f64,
+    /// ∫ (t/t₀) ψ₂² ds.
+    pub second_mass_integral: f64,
 }
 
 fn integrate(f: impl Fn(f64) -> f64) -> f64 {
@@ -221,27 +228,31 @@ impl TongueMode {
                 m[j][i] = mass;
             }
         }
-        let [(first, a), (second, _)] = lowest_modes(&k, &m);
-        let at = |s: f64| -> (f64, f64) {
+        let [(first, a), (second, a2)] = lowest_modes(&k, &m);
+        let at = |coefficients: &[f64; BASIS], s: f64| -> (f64, f64) {
             let mut value = 0.0;
             let mut slope = 0.0;
-            for (index, coefficient) in a.iter().enumerate() {
+            for (index, coefficient) in coefficients.iter().enumerate() {
                 let (b, db, _) = basis(index, s);
                 value += coefficient * b;
                 slope += coefficient * db;
             }
             (value, slope)
         };
-        let tip = at(1.0).0;
+        let tip = at(&a, 1.0).0;
         let normalised = |s: f64| {
-            let (value, slope) = at(s);
+            let (value, slope) = at(&a, s);
             (value / tip, slope / tip)
         };
+        let tip2 = at(&a2, 1.0).0;
+        let second_at = |s: f64| at(&a2, s).0 / tip2;
         let mut shape = [0.0; SPAN_POINTS];
+        let mut second_shape = [0.0; SPAN_POINTS];
         let mut thickness = [0.0; SPAN_POINTS];
         for i in 0..SPAN_POINTS {
             let s = i as f64 / (SPAN_POINTS - 1) as f64;
             shape[i] = normalised(s).0;
+            second_shape[i] = second_at(s);
             thickness[i] = relative(s);
         }
         let ratio = math::sqrt(second / first);
@@ -259,6 +270,9 @@ impl TongueMode {
                 slope * slope
             }),
             tip_slope: normalised(1.0).1,
+            second_shape,
+            second_shape_integral: integrate(second_at),
+            second_mass_integral: integrate(|s| relative(s) * second_at(s) * second_at(s)),
         }
     }
 

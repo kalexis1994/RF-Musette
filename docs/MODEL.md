@@ -382,6 +382,7 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Compass | F3-A6, 41 keys | Decided | A full-size piano accordion |
 | Pitch A4 | 440 Hz, equal temperament, at 300 Pa | Decided; measured reference | Richter, "Stimmung", IfM Zwota |
 | Reed geometry across the compass | the F4 × a bayan maker's slot ratios | Assumed | RU2233009, Table 3 |
+| Attack kick κ, its pressure scale | 1 × set, 20 Pa | Voiced, on Cottingham's observation; the scale assumed | Brings the finger attack to Llanos's 50-140 ms |
 | Q slope | 0.7 | Measured trend, extrapolated above ~750 Hz | Cottingham 1998 (83 at 137 Hz), Förtsch 2021 (~233 at 598 Hz) |
 | Cassotto | off; L and M when on | A choice of instrument | Pigini Sirius (Llanos p51); double cassotto (bassoon, clarinet) |
 | Cassotto resonance | 900 Hz | Measured range 800-1000 Hz | Richter, IfM Zwota 1989 |
@@ -407,11 +408,12 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Bend, pallet part-way open (300 Pa) | down to −16.0 cents before silence, never up | 15-35 cents (Elejalde-García 2021) | Met |
 | Choking: cell resonance at 1.3, 1.0, 0.95, 0.9 of the reed | onset 35, 119, 217, 356 Pa | "far above normal" at or just below (Tonon; Cottingham ICA 2019) | Met in shape (see VALIDATION) |
 | Closing the pallet | exact silence; −121 dB near the host's Nyquist | -- | Met |
-| Finger attack, −50 → −5 dB | 249 ms (400 Pa), 730 ms (100 Pa) | 50-110 ms mf, 60-140 ms p (Llanos 2014) | **Not met** |
+| Finger attack, −50 → −5 dB | with the voiced start, F4 85 ms (100 Pa), 99 ms (400 Pa), F3-A5 53-106 ms, D♯6-A6 22-13 ms; as derived 249/730 ms | 50-110 ms mf, 60-140 ms p, no trend (Llanos 2014) | Met to A5, by a voiced term; too fast above |
+| The start at the air's arrival, C4 | arm and key together 112 ms (was 303); key held, then the air 92 ms (was 212); through a reversal −5 dB ~240 ms after the turn begins (was ~410) | as the finger attack | Met |
 | Swing against pressure | κ 0.5: 3.7, 4.8, 5.2, 5.5, 5.65 mm at 0.3, 0.6, 0.9, 1.5, 3 kPa (κ 0: 4.9 → 11 mm) | within 3 % from 0.3 to 1.2 kPa, 12 % lower at 2.9 kPa (Cottingham, Lilly & Reed 1999, Fig. 2) | Met from 0.6 kPa (+19 % to 3 kPa), by the voiced term; still climbing at 0.3 kPa |
 | Tremolo beats at 300 Pa | M+ +3.667, M− −3.146, M−/M+ 6.813 Hz | asked 3.666, −3.143 (Borsini lines at 355 Hz) | Met |
-| Ranks together, bellows stiff | Celeste +3.01, Musette +4.77, Master +5.94 dB over Clarinet | powers add | Met |
-| One bellows, the arm pushing for 300 Pa | Clarinet 288.1 Pa (−4.0 %), Master 259.3 Pa (−13.6 %), +4.98 dB over Clarinet | more reeds draw the pressure down (McMahan; no measurement) | Met (as predicted) |
+| Ranks together, bellows stiff | Celeste +3.03, Musette +4.77, Master +6.32 dB over Clarinet, over 20 s (the beats averaged) | powers add | Met |
+| One bellows, the arm pushing for 300 Pa | Clarinet 287.8 Pa (−4.1 %), Master 252.2 Pa (−15.9 %), +5.50 dB over Clarinet: the arm costs 0.82 dB | more reeds draw the pressure down (McMahan; no measurement) | Met (as predicted) |
 | Tuning across the compass, at 300 Pa | all 205 reeds within ±2 cents (worst −0.01); M within ±15 cents at 100 and 600 Pa | in tune where a tuner tunes | Met |
 | Thresholds across the compass | M: 13 Pa (F3) → 48 (C5) → 170 (A6); H at F♯7-A7 350-440 Pa | lower treble 40-70 Pa, top piccolos 100-250 Pa (a tuner) | Low ends met; the top 4′ too high |
 | A four-note Master chord, native | 4.6 µs per sample, 22 % of a core | -- | Measured; the Pi not yet |
@@ -446,8 +448,19 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   known and the weighting differs, so this is a lead, not yet a measurement.
   Related: the reed spends 390 mL/s at 300 Pa and 1.3 L/s at 900 Pa, and
   nothing published says what an accordion reed spends.
-* **The finger attack is three to five times too slow**, and what sets it
-  is not what sets a real reed's. Measured on the model: the attack is
+* **The finger attack is three to five times too slow as derived; a
+  voiced start brings it to a player's** (ROADMAP 7b; parameter "Attack
+  Kick"). Each reed starts κ·set·P/(P + 20 Pa) into its frame as the air
+  reaches it -- its key down, its register open, its side's pressure P
+  above 20 Pa -- and again each time that air has gone and come back (the
+  bellows stopped or turned), standing on Cottingham's observed "initial
+  displacement of the reed tongue into the reed frame". F4 attacks in 85 ms
+  at p and 99 at mf, the true 8′ in 53-106 ms from F3 to A5, too fast above
+  (22 ms at D♯6). Tried and refuted before it: the second bending mode
+  (attack unchanged, q₂ < 0.01 mm) and the cell's pressure on the tongue's
+  face (slower). At κ 0 the start is as derived, and what follows describes
+  it. As derived, what sets it is not what sets a real reed's. Measured on
+  the model: the attack is
   exactly the equilibrium's exponential growth, 5.2/σ, from the kick the
   opening pallet gives the tongue -- its static deflection μP/ω0², 0.06 mm at
   400 Pa, −38 dB of the final swing. The growth rate itself is realistic:

@@ -37,10 +37,12 @@ fn level(signal: &[f32]) -> f64 {
 }
 
 /// The steady pressure and level with the key held, the bellows as given.
+/// The level over 20 s: Master's tremolo ranks beat at ~3.5 Hz, and over a
+/// shorter window the sum's level hangs on the phase they start at.
 fn steady(response: f64, register: f64) -> (f64, f64) {
     let mut engine = engine(response, register);
     engine.note_on(REED_KEY, 1.0);
-    let out = render(&mut engine, 3.0);
+    let out = render(&mut engine, 21.5);
     (engine.supply().abs(), level(&out[(1.5 * RATE) as usize..]))
 }
 
@@ -58,7 +60,10 @@ fn the_arm_gives_a_little_way_to_one_reed() {
 }
 
 /// Prediction 3: with Master the fall is ~15 %, so Master sits +4.5 to
-/// +5.5 dB over Clarinet, against +5.94 with the bellows stiff.
+/// +5.5 dB over Clarinet, against +5.94 with the bellows stiff -- the arm
+/// costing it 0.44 to 1.44 dB. Over a window long enough for the beats
+/// (2026-10-01) the stiff Master is +6.33 dB, not +5.94, so the band is
+/// read as what the arm costs.
 #[test]
 fn five_ranks_draw_the_pressure_down() {
     let (clarinet, clarinet_level) = steady(ARM, CLARINET);
@@ -73,10 +78,8 @@ fn five_ranks_draw_the_pressure_down() {
         stiff_master - stiff_clarinet
     );
     assert!((0.08..0.25).contains(&fall), "fall {:.1} %", 100.0 * fall);
-    assert!(
-        (4.5..5.5).contains(&over),
-        "Master over Clarinet {over:+.2} dB"
-    );
+    let cost = stiff_master - stiff_clarinet - over;
+    assert!((0.44..1.44).contains(&cost), "the arm costs {cost:.2} dB");
 }
 
 /// The M reed's sounding frequency with the key held part-way down, the

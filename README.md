@@ -21,7 +21,9 @@ With no bellows controller, key velocity sets the push; once Expression
 which is what digital accordions send. Which way the bellows moves, and so
 which reed of each plate sounds, is the Bellows Direction parameter or CC 80
 as a switch (below 64 pull, 64 and above push), since no MIDI accordion
-sends it.
+sends it. The Register parameter opens the ranks as Roland's FR-3x draws its
+14 treble registers, from Clarinet (M alone) to Master; Tremolo sets the
+musette's beat.
 
 ## How it is judged
 

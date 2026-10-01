@@ -5,6 +5,7 @@
 //! 0     2000  69  100     # onset_ms duration_ms note velocity
 //! 500   bellows 90        # onset_ms bellows 0..127 (Expression, CC 11)
 //! 1500  direction push    # onset_ms direction pull|push (CC 80)
+//! 3000  register musette  # onset_ms register NAME (as the parameter names it)
 //! ```
 //!
 //! The same shape as the Concert Grand laboratory's scores, with the
@@ -27,6 +28,10 @@ pub enum Action {
     /// The bellows turns: true pushing, false pulling.
     Direction {
         push: bool,
+    },
+    /// A register switch: the register parameter's value.
+    Register {
+        value: u32,
     },
 }
 
@@ -73,6 +78,20 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
                     action: Action::Direction { push },
                 });
             }
+            [_, "register", name] => {
+                let spec = &rf_musette_dsp::PARAMETER_SPECS[rf_musette_dsp::parameters::REGISTER];
+                let Some((value, _)) = spec
+                    .choices
+                    .iter()
+                    .find(|(_, choice)| choice.eq_ignore_ascii_case(name))
+                else {
+                    return Err(fail("no such register").into());
+                };
+                events.push(Event {
+                    at_ms,
+                    action: Action::Register { value: *value },
+                });
+            }
             [_, duration, note, velocity] => {
                 let duration: f64 = duration.parse().map_err(|_| fail("bad duration"))?;
                 let note: u8 = note.parse().map_err(|_| fail("bad note"))?;
@@ -94,7 +113,7 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
             }
             _ => {
                 return Err(fail(
-                    "expected `onset duration note velocity`, `onset bellows value` or `onset direction pull|push`",
+                    "expected `onset duration note velocity`, `onset bellows value`, `onset direction pull|push` or `onset register NAME`",
                 )
                 .into());
             }
@@ -111,7 +130,7 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
 fn rank(action: &Action) -> u8 {
     match action {
         Action::NoteOff { .. } => 0,
-        Action::Bellows { .. } | Action::Direction { .. } => 1,
+        Action::Bellows { .. } | Action::Direction { .. } | Action::Register { .. } => 1,
         Action::NoteOn { .. } => 2,
     }
 }
@@ -174,5 +193,13 @@ mod tests {
         let events = parse("1000 direction push\n2000 direction pull").unwrap();
         assert_eq!(events[0].action, Action::Direction { push: true });
         assert_eq!(events[1].action, Action::Direction { push: false });
+    }
+
+    #[test]
+    fn registers_are_named_as_the_parameter_names_them() {
+        let events = parse("0 register Musette\n10 register master").unwrap();
+        assert_eq!(events[0].action, Action::Register { value: 8 });
+        assert_eq!(events[1].action, Action::Register { value: 6 });
+        assert!(parse("0 register kazoo").is_err());
     }
 }

@@ -74,8 +74,21 @@ pub const PALLET_CLOSING: usize = 21;
 pub const SWING_LIMIT: usize = 22;
 pub const BELLOWS_DIRECTION: usize = 23;
 pub const REVERSAL_TIME: usize = 24;
+pub const TREMOLO: usize = 25;
+pub const REGISTER: usize = 26;
 
-pub const COUNT: usize = 25;
+pub const COUNT: usize = 27;
+
+/// The treble's ranks, in the order the engine keeps them.
+pub const RANK_LOW: usize = 0;
+/// M−, the tremolo's flat 8′.
+pub const RANK_FLAT: usize = 1;
+/// M, the true 8′: the reed Ziegenhals measured.
+pub const RANK_MIDDLE: usize = 2;
+/// M+, the tremolo's sharp 8′.
+pub const RANK_SHARP: usize = 3;
+pub const RANK_HIGH: usize = 4;
+pub const RANKS: usize = 5;
 
 /// [`BELLOWS_DIRECTION`]'s values.
 pub const PULL: f64 = 0.0;
@@ -360,6 +373,57 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Logarithmic,
         "Assumed: how long the bellows takes to stop and turn when the direction changes, the pressure passing through zero on the way. Not measured; players describe \"a slight interruption in the sound\", like a bow change (McMahan 2016; Llanos et al. 2002).",
     ),
+    spec(
+        "tremolo",
+        "Tremolo",
+        PAGE_REED,
+        "Hz",
+        (0.0, 15.0, 4.1, 0.01),
+        Taper::Linear,
+        "Measured, and a style to voice by taste: the beat between the true and the sharp 8′ at A4. 4.1 Hz is a Borsini Super Star LMMMH's, whose builder tuned M+ at +4.1 Hz at A4 rising 1.4 Hz per octave and M− at −3.7 Hz falling 1.8 Hz per octave (Hergert, Acta Acustica 8, 2024, Fig. 6, read off); both lines keep that shape, scaled to this value. Accordions run from \"dry\" to \"wet\", 0.5-7 Hz at A4 (Hergert, Forum Acusticum 2023).",
+    ),
+    choice(
+        "register",
+        "Register",
+        PAGE_REED,
+        &[
+            (0, "Bassoon"),
+            (1, "Bandoneon"),
+            (2, "Cello"),
+            (3, "Harmonium"),
+            (4, "Organ"),
+            (5, "Accordion"),
+            (6, "Master"),
+            (7, "Tremolo"),
+            (8, "Musette"),
+            (9, "Violin"),
+            (10, "Oboe"),
+            (11, "Clarinet"),
+            (12, "Celeste"),
+            (13, "Piccolo"),
+        ],
+        11,
+        "Measured as a maker draws it: the 14 treble registers of Roland's FR-3x, with the reeds each opens (Owner's Manual, p. 27): Bassoon L, Bandoneon LM, Cello L M M+, Harmonium LMH, Organ LH, Accordion L M− M H, Master L M− M M+ H, Tremolo M− M+, Musette M− M M+, Violin M M+ H, Oboe MH, Clarinet M, Celeste M M+, Piccolo H.",
+    ),
+];
+
+/// Which ranks each [`REGISTER`] opens, in the order of its choices:
+/// L, M−, M, M+, H (Roland FR-3x Owner's Manual, p. 27).
+const REGISTERS: [[bool; RANKS]; 14] = [
+    [true, false, false, false, false], // Bassoon
+    [true, false, true, false, false],  // Bandoneon
+    [true, false, true, true, false],   // Cello
+    [true, false, true, false, true],   // Harmonium
+    [true, false, false, false, true],  // Organ
+    [true, true, true, false, true],    // Accordion
+    [true, true, true, true, true],     // Master
+    [false, true, false, true, false],  // Tremolo
+    [false, true, true, true, false],   // Musette
+    [false, false, true, true, true],   // Violin
+    [false, false, true, false, true],  // Oboe
+    [false, false, true, false, false], // Clarinet
+    [false, false, true, true, false],  // Celeste
+    [false, false, false, false, true], // Piccolo
 ];
 
 /// One engine's parameter values, in the units of [`SPECS`].
@@ -450,6 +514,73 @@ impl Parameters {
     /// Seconds the bellows takes to turn.
     pub fn reversal_time(&self) -> f64 {
         self.values[REVERSAL_TIME] * 1.0e-3
+    }
+
+    /// The beats of M+ and M− against M at this key, Hz (the second
+    /// negative): the tremolo t asked at A4, along the Borsini's measured
+    /// lines scaled to it -- M+ = t (1 + 0.341 log₂(f/440)), M− = −t (0.902 +
+    /// 0.439 log₂(f/440)) (Hergert 2024, Fig. 6).
+    pub fn tremolo_beats(&self) -> (f64, f64) {
+        let t = self.values[TREMOLO];
+        let octaves =
+            crate::math::ln(self.values[REED_FREQUENCY] / 440.0) / core::f64::consts::LN_2;
+        (
+            t * (1.0 + 1.4 / 4.1 * octaves),
+            -t * (3.7 / 4.1 + 1.8 / 4.1 * octaves),
+        )
+    }
+
+    /// Which ranks the register lets the bellows reach.
+    pub fn open_ranks(&self) -> [bool; RANKS] {
+        REGISTERS[self.values[REGISTER] as usize]
+    }
+
+    /// The design of one rank's reed for this key ([`RANK_LOW`] ..
+    /// [`RANK_HIGH`]), or `None` where that rank has no reed.
+    ///
+    /// The tremolo's ranks are the measured tongue retuned, as a tuner
+    /// files it: the same geometry at a frequency the beat away, its profile
+    /// derived again for it. L and H are the measured tongue scaled an
+    /// octave down and up by the ratios of a bayan maker's slots (patent
+    /// RU2233009, Table 3: F3, F4, F5 slots 35.4, 27.8, 20.5 mm long, root
+    /// widths 4.23, 3.37, 2.66 mm, plates 2.7, 2.7, 2.2 mm) -- assumed, as no
+    /// maker publishes tongue dimensions; the profile again derived for the
+    /// frequency.
+    pub fn rank_design(&self, rank: usize) -> Option<ReedDesign> {
+        let middle = self.reed_design();
+        let (sharp, flat) = self.tremolo_beats();
+        let scaled = |frequency: f64, length: f64, width: f64, plate: f64| ReedDesign {
+            frequency,
+            length: middle.length * length,
+            width: middle.width * width,
+            set: middle.set * length,
+            plate_thickness: middle.plate_thickness * plate,
+            ..middle
+        };
+        match rank {
+            RANK_LOW => Some(scaled(
+                middle.frequency / 2.0,
+                35.4 / 27.8,
+                4.23 / 3.37,
+                1.0,
+            )),
+            RANK_FLAT => Some(ReedDesign {
+                frequency: middle.frequency + flat,
+                ..middle
+            }),
+            RANK_MIDDLE => Some(middle),
+            RANK_SHARP => Some(ReedDesign {
+                frequency: middle.frequency + sharp,
+                ..middle
+            }),
+            RANK_HIGH => Some(scaled(
+                middle.frequency * 2.0,
+                20.5 / 27.8,
+                2.66 / 3.37,
+                2.2 / 2.7,
+            )),
+            _ => None,
+        }
     }
 
     pub fn pallet_design(&self) -> crate::pallet::PalletDesign {

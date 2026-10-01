@@ -604,6 +604,105 @@
       "order": 7,
       "page": "model_air",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "tremolo",
+      "index": 25,
+      "kind": {
+        "default": 4.1,
+        "maximum": 15.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float",
+        "unit": "Hz"
+      },
+      "name": "Tremolo",
+      "order": 9,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "register",
+      "index": 26,
+      "kind": {
+        "choices": [
+          {
+            "name": "Bassoon",
+            "value": 0
+          },
+          {
+            "name": "Bandoneon",
+            "value": 1
+          },
+          {
+            "name": "Cello",
+            "value": 2
+          },
+          {
+            "name": "Harmonium",
+            "value": 3
+          },
+          {
+            "name": "Organ",
+            "value": 4
+          },
+          {
+            "name": "Accordion",
+            "value": 5
+          },
+          {
+            "name": "Master",
+            "value": 6
+          },
+          {
+            "name": "Tremolo",
+            "value": 7
+          },
+          {
+            "name": "Musette",
+            "value": 8
+          },
+          {
+            "name": "Violin",
+            "value": 9
+          },
+          {
+            "name": "Oboe",
+            "value": 10
+          },
+          {
+            "name": "Clarinet",
+            "value": 11
+          },
+          {
+            "name": "Celeste",
+            "value": 12
+          },
+          {
+            "name": "Piccolo",
+            "value": 13
+          }
+        ],
+        "default": 11,
+        "type": "enum"
+      },
+      "name": "Register",
+      "order": 10,
+      "page": "model_reed",
+      "suggested_control": "list"
     }
   ],
   "schema_version": 1

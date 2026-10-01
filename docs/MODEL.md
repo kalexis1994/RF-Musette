@@ -6,10 +6,12 @@ stated rather than hidden; each constant says where its value came from. The
 tests hold the model to what this document claims -- it is allowed to be
 approximate, not to drift from what is written here.
 
-**Status (0.4.0, in progress): one plate behind its pallet.** The accordion
-F4 the IfM Zwota measured, on key 65: its plate's two reeds, one for each
-way the bellows moves, behind the pallet the key lifts, blown by a bellows
-that holds its pressure and turns. Every other key is silent.
+**Status (0.5.0, in progress): one key, five ranks.** Key 65, F4, behind
+the pallet it lifts, with five plates: L (16′), M− M M+ (the 8′ tremolo
+and musette) and H (4′), each with a reed for each way the bellows moves.
+The registers open them. The M reed is the F4 the IfM Zwota measured.
+They are blown by a bellows that holds its pressure and turns. Every other
+key is silent.
 
 ## How a value earns its place
 
@@ -105,6 +107,30 @@ chooses the side. A change takes the signed pressure through zero over
 `reversal_time`, assumed 100 ms: nothing measures it, and players describe
 "a slight interruption, like a bow change". The radiated sound is the
 hole's outward flow, so push and pull have opposite polarity.
+
+### Ranks, tremolo and registers (tested)
+
+Five ranks for the key, each its own plate and cell behind the key's one
+pallet:
+* **M:** the measured F4.
+* **M− and M+:** the same tongue at a frequency a beat away, as a tuner
+  files it, the profile re-derived. The beats follow the builder's lines
+  Hergert measured on a Borsini Super Star LMMMH (Acta Acustica 8, 2024,
+  Fig. 6): M+ +4.1 Hz at A4, +1.4 Hz per octave; M− −3.7 Hz, −1.8 Hz per
+  octave. Both are scaled to the Tremolo parameter, M+'s beat at A4.
+* **L and H:** the F4 scaled an octave down and up by the ratios of a
+  bayan maker's slots (RU2233009, Table 3) -- **assumed**, as no maker
+  publishes tongue dimensions.
+
+The Register parameter opens ranks as Roland's FR-3x draws its 14 treble
+registers (Owner's Manual, p. 27).
+
+Two simplifications, both standing until milestone 5:
+* every reed sees the bellows' full pressure, so ranks add their powers;
+* each rank has its own copy of the pallet's curtain.
+
+Each rank is set by its mode, not by where it sounds: L comes out 9.6
+cents flat of M's octave (ROADMAP 4).
 
 ### The swing limit (voiced: the one term that is not derived)
 
@@ -268,6 +294,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Pallet opening | 50 ms | Reported | "Los ataques usuales de dedo son realizados en unos 0.05 s" (Llanos-Vázquez, thesis 2015, p164) |
 | Pallet closing | 10 ms | Assumed | Not published |
 | Tone hole shape | 4 : 1 rectangle | Assumed | Not published; sets the pallet's rim |
+| Tremolo | 4.1 Hz at A4 (M+), lines' shape | Measured (one instrument), a style to voice by taste | A Borsini Super Star LMMMH (Hergert 2024, Fig. 6) |
+| Registers | Roland FR-3x's 14 | Measured as a maker draws them | FR-3x Owner's Manual p. 27 |
+| L, H geometry | F4 × slot ratios 1.27 / 0.74 (length), 1.25 / 0.79 (width) | Assumed | A bayan maker's slots, RU2233009 Table 3 |
 | Reversal time | 100 ms | Assumed | Not measured; "a slight interruption, like a bow change" (McMahan 2016; Llanos et al. 2002) |
 | Swing limit κ | 0.5 | Voiced by ear, 2026-09-30 | Heard on a continuous swell of the F4 (A/B against κ 0, the bellows to 1 kPa): preferred. The one underived term; chosen so the swing settles near 5 mm from ~1 kPa (Ziegenhals: > 4 mm at mf; Braasch & Cottingham: ~15 % of the length) and holds with pressure (Cottingham, Lilly & Reed 1999) |
 
@@ -287,6 +316,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Closing the pallet | exact silence; −121 dB near the host's Nyquist | -- | Met |
 | Finger attack, −50 → −5 dB | 249 ms (400 Pa), 730 ms (100 Pa) | 50-110 ms mf, 60-140 ms p (Llanos 2014) | **Not met** |
 | Swing against pressure | κ 0.5: 3.7, 4.8, 5.2, 5.5, 5.65 mm at 0.3, 0.6, 0.9, 1.5, 3 kPa (κ 0: 4.9 → 11 mm) | within 3 % from 0.3 to 1.2 kPa, 12 % lower at 2.9 kPa (Cottingham, Lilly & Reed 1999, Fig. 2) | Met from 0.6 kPa (+19 % to 3 kPa), by the voiced term; still climbing at 0.3 kPa |
+| Tremolo beats at 300 Pa | M+ +3.667, M− −3.146, M−/M+ 6.813 Hz | asked 3.666, −3.143 (Borsini lines at 355 Hz) | Met |
+| Ranks together | Celeste +3.01, Musette +4.77, Master +5.94 dB over Clarinet | powers add (no shared air yet) | Met |
+| L, H against M's octaves | −9.6, +2.4 cents | in tune, as a tuner sets them | L flat: set by its mode |
 | Push against pull | the same samples, opposite polarity | attacks independent of direction (Llanos); push thresholds ×10 on an artificial chamber (Cottingham 2016, preliminary) | Met for the instrument; the rig's difference is out of reach |
 | Bellows reversal, 400 Pa held | a gap of the turn + ~150 ms (250 ms at 100 ms), then the same level (+0.05 dB) | "a slight interruption" (McMahan; Llanos 2002); no gap is measured | Level met; gap long, by the slow attack |
 | Level against mean flow, past 600 Pa | +4.2-4.7 dB per doubling (κ 0: 2.6-2.8) | ~7.6 dB per doubling (Nussbaumer & Agarwal 2016) | **Not met** |

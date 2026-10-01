@@ -222,6 +222,9 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
                 };
                 engine.set_parameter(parameters::BELLOWS_DIRECTION, way);
             }
+            Action::Register { value } => {
+                engine.set_parameter(parameters::REGISTER, f64::from(value));
+            }
         }
     }
     engine.render(&mut samples[cursor..]);

@@ -665,6 +665,96 @@ tremolo curve across the compass is voiced by ear inside its published bounds:
 0.5–7 Hz at A4 from dry to wet, doubling roughly every 1.5 octaves, capped at
 10–15 Hz (Hergert 2023/2024). The beat comes from separate reeds, never an LFO.
 
+**Plan (2026-09-30).** Key 65 gets five ranks, each its own plate of two
+reeds (milestone 3), each with its own cell:
+* **M (8′):** the measured F4.
+* **M− and M+ (8′):** the same tongue retuned flat and sharp. A tuner
+  files the tip or the root, which moves the frequency and little else.
+  So these are the F4's geometry at a detuned frequency, the profile
+  re-derived for it.
+* **L (16′) and H (4′):** the reeds sounding F3 and F5. Their geometry is
+  what the literature must give (in research); they wait for it.
+
+The rest of the plan:
+* **The tremolo.** "Tremolo" is the beat between M and M+ at A4, in Hz:
+  a choice of style, so voiced by taste within Hergert's 0.5-7 Hz at A4,
+  "dry" to "wet". It is carried to each note by Hergert's recommendation,
+  doubling every 1.5 octaves, beat(f) = t (f/440)^(2/3). The musette is
+  flat, true and sharp at −Δf, 0, +Δf (Hergert: pair beats Δf and 2Δf).
+* **Registers** select ranks, as the switches open and close the reed
+  blocks. Their names and combinations wait for a manufacturer's table (in
+  research).
+* **The bellows.** Every reed still sees the bellows' full pressure; one
+  bellows drained by every reed is milestone 5.
+
+**What the research found (2026-09-30), and the plan revised before any
+test ran:**
+* **A measured tremolo.** Hergert (*Acta Acustica* 8, 2024, 33) was read
+  in full from the Internet Archive's copy of the open HTML, its figures
+  read off. A Borsini Super Star LMMMH, five voices like this instrument,
+  has the builder's lines:
+  * M+ at +4.1 Hz at A4, +1.4 Hz per octave;
+  * M− at −3.7 Hz at A4, −1.8 Hz per octave;
+  * so asymmetric, and straight on a log-pitch axis.
+
+  The tremolo parameter is therefore M+'s beat at A4 (default 4.1). Both
+  lines are scaled to it with their measured shape:
+  * M+ = t (1 + 0.341 log₂(f/440));
+  * M− = −t (0.902 + 0.439 log₂(f/440)).
+
+  At this M (355 Hz) that is +3.67 and −3.14 Hz. It replaces Hergert's
+  recommendation, which is a recommendation, not a measurement.
+* **Registers.** Roland's FR-3x manual (p. 27) gives 14 treble registers
+  with their reeds drawn as dots: Bassoon L, Bandoneon LM, Cello L M M+,
+  Harmonium LMH, Organ LH, Accordion L M− M H, Master L M− M M+ H, Tremolo
+  M− M+, Musette M− M M+, Violin M M+ H, Oboe MH, Clarinet M, Celeste
+  M M+, Piccolo H. Taken as drawn, Accordion and Violin included. Clarinet
+  (M alone) is the default, the instrument until now.
+* **L and H.** No maker publishes tongue dimensions. A bayan maker's patent
+  (RU2233009, Table 3) gives the slot per note, F3 35.4 mm, F4 27.8, F5
+  20.5, with widths and plate thicknesses. Its F4 is shorter than
+  Ziegenhals's, so makers scale differently. The patent's octave ratios
+  are applied to the measured F4, and that is **assumed**:
+  * L (F3, 177.5 Hz): length ×1.27, width ×1.25, set ×1.27;
+  * H (F5, 710 Hz): length ×0.74, width ×0.79, set ×0.74, plate
+    ×2.2/2.7.
+
+  The profile is re-derived for each frequency; the cell is kept the
+  same. Whether a real 16′ reed carries a tip weight is not settled.
+
+**Predictions** (written before building it, revised with the above
+before any test ran):
+1. M alone is unchanged: every earlier milestone's test passes.
+2. M and M+ beat at 3.67 Hz, M and M− at 3.14 Hz, within 5 %, at 300 Pa.
+   The reeds' sounding frequencies keep their modes' detuning, all being
+   ~6.5 cents below their modes.
+3. In the musette, M− and M+ beat at the sum, 6.81 Hz, within 5 %.
+4. Two ranks sound ~3 dB above one and three ~4.8 dB, within 1 dB, on the
+   long-term level: incoherent reeds add their powers, and nothing shares
+   the air yet.
+5. L and H speak at 300 Pa, an octave below and above M within 15 cents.
+   Each sounds below its own mode like M, by about as much: the minimal
+   model's offset depends little on scale.
+
+**Status (2026-09-30): built (0.5.0); all met but one half**
+(`tests/milestone_4.rs`).
+1. **Met.** Every earlier test passes; Clarinet opens M alone, and the
+   closed ranks stay exactly at rest.
+2. **Met.** At 300 Pa M+ sounds +3.667 Hz above M and M− −3.146 Hz below,
+   against 3.666 and −3.143 asked of the modes.
+3. **Met.** M− against M+: 6.813 Hz.
+4. **Met.** Celeste +3.01 dB, Musette +4.77 dB over Clarinet; Master
+   +5.94 dB.
+5. **Half met.** L sounds −9.6 cents from M's octave and H +2.4, within 15.
+   But L sits −16.4 cents below its own mode and H −4.4, against M's
+   −6.8: the offset does grow with scale.
+
+A real reed is tuned where it sounds, by a tuner at a playing pressure,
+not by its mode. The model sets the mode, so the larger reed comes out
+flat. Tuning each reed as a tuner does -- its mode moved until it sounds
+in tune at a stated pressure -- is the fix. It waits for a measured tuning
+pressure, which nothing read so far gives.
+
 ## 5. One bellows for every reed
 
 A compliant reservoir fed by the player's intent and drained by every open reed

@@ -58,11 +58,14 @@ please say so: the ledger is meant to be accurate.
 | J. Alberdi, K. Baraiazarra, J. M. López, J. Orobengoa, accordion builders, personal communications to R. Llanos-Vázquez (2005-2015), as reported in his thesis | "The smaller the clearance, the faster the response" (p46); low reeds set slightly higher to speak sooner (p153) | ROADMAP 2b predictions | As reported |
 | J. Braasch, C. Ahrens, "Attack transients of free reed pipes in comparison to striking reed pipes and diapason pipes", *Acta Acustica united with Acustica* 86 (2000) 662-670 | The −50 dB to −5 dB attack-time definition Llanos-Vázquez uses and RF-Musette measures with | `rf-musette-analysis` | As cited by Llanos-Vázquez |
 | Harmonikas.cz, reed plate specifications (maker's web page) | Machined clearances: 0.03 mm at the rivet, 0.04 mm at the tip | `parameters.rs` | Web page |
+| F. Hergert, "Targeted detuning aiming for sensory pleasantness -- a case study of pipe organs and accordions", *Acta Acustica* 8 (2024) 33 | The tremolo: a Borsini Super Star LMMMH's builder's lines, M+ +4.1 Hz at A4 and +1.4 Hz per octave, M− −3.7 Hz and −1.8 Hz per octave (Fig. 6, read off), the default and shape of the Tremolo parameter; dry to wet 0.5-7 Hz at A4; musette ratios 1:1 or 1:2 | `parameters.rs`; `milestone_4.rs` | In full, from the Internet Archive's copy of the open HTML (the publisher's site sits behind a captcha), figures read off by a research agent |
+| F. Hergert, "'Celeste' ranks in pipe organs and accordions: tonal timbre and consonance of detuned unison intervals", Forum Acusticum, Torino (2023) | Violin is true + sharp, musette flat + true + sharp; the dry-to-wet range at A4 | `parameters.rs` | In full (by the research survey) |
+| Roland Corporation, *FR-3x Owner's Manual* | The 14 treble registers and the reeds each opens, drawn as dots (p. 27), taken as drawn | `parameters.rs` (`REGISTERS`) | The page, rendered at 400 dpi and read by a research agent |
+| Tula bayan reed-plate patent RU2233009C1 (Google Patents) | The slot's length, root and tip widths and plate thickness per note (Table 3: F3, F4, F5 slots 35.4, 27.8, 20.5 mm), whose octave ratios scale the measured F4 into the L and H reeds, assumed | `parameters.rs` (`rank_design`) | Table read off rendered pages by a research agent |
 
 ## Not yet used in code
 
 Read for the milestones ahead and credited in [RESEARCH.md](RESEARCH.md):
-F. Hergert on detuned unisons (Forum Acusticum 2023; *Acta Acustica* 8, 2024);
 V. G. Porvenkov on optimum beat rates (1979); G. Richter on cassotto and
 grille resonances (IfM Zwota, 1989); J. Ramos, E. Calcagno, P. Riera et al.
 on the Bandoneon 2.0 measurements (NIME 2022, 2023; *Computer Music Journal*

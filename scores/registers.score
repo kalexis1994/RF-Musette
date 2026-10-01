@@ -1,0 +1,27 @@
+# Milestone 4: the F4 through the registers, at a steady push of about
+# 400 Pa (CC 11 at 80), pulling. Each register is played as a held note,
+# then the same note while switching, as a player changes register mid-note.
+0 bellows 80
+0 register clarinet
+0 1800 65 100
+2000 register celeste
+2000 1800 65 100
+4000 register musette
+4000 1800 65 100
+6000 register tremolo
+6000 1800 65 100
+8000 register bassoon
+8000 1800 65 100
+10000 register piccolo
+10000 1800 65 100
+12000 register oboe
+12000 1800 65 100
+14000 register bandoneon
+14000 1800 65 100
+16000 register master
+16000 1800 65 100
+# One held note through clarinet, musette and master.
+18500 register clarinet
+18500 4500 65 100
+20000 register musette
+21500 register master

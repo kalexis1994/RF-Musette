@@ -64,7 +64,7 @@ fn the_other_reed_stays_at_rest() {
         let mut engine = engine(direction);
         engine.note_on(REED_KEY, 1.0);
         render(&mut engine, 0.5);
-        let (_, state) = engine.reed(idle).unwrap();
+        let (_, state) = engine.reed(parameters::RANK_MIDDLE, idle).unwrap();
         assert_eq!(*state, ReedState::default(), "direction {direction}");
     }
 }

@@ -267,3 +267,34 @@ target builds.
 **Render for listening.** `scores/bellows-reversal.score`: the F4 held at
 ~400 Pa while the bellows turns three times, then four notes on alternating
 directions.
+
+## 2026-09-30 -- Milestone 4: ranks, tremolo and registers (0.5.0)
+
+**Built.** Key 65 has five ranks (L, M−, M, M+, H), each a plate of two
+reeds with its own cell, behind the key's one pallet. M is the measured
+F4. M± are the same tongue at the Borsini's beats (Hergert 2024, Fig. 6),
+scaled to `tremolo` (index 25, 4.1 Hz at A4). L and H are the F4 scaled by
+a bayan maker's slot ratios (RU2233009), assumed. `register` (index 26)
+opens ranks as Roland's FR-3x draws its 14 registers; Clarinet (M) is the
+default. The state grows to 27 values (228 bytes).
+
+**Tests** (`tests/milestone_4.rs`, 300 Pa):
+* sounding beats M+ +3.667 Hz and M− −3.146 Hz, against 3.666 and −3.143
+  asked of the modes, and M−/M+ 6.813 Hz;
+* levels over Clarinet: Celeste +3.01 dB, Musette +4.77 dB, Master
+  +5.94 dB;
+* L −9.6 and H +2.4 cents from M's octaves, L −16.4 and H −4.4 cents from
+  their modes against M's −6.8 (the half not met);
+* Clarinet's closed ranks stay exactly at rest.
+
+**Package.** PLUGIN_PACKAGE_VALID 0.5.0, parameters=27, PLUGIN_SMOKE_OK,
+state_bytes=228; wasm 69553 → 58735 bytes optimised.
+
+**Cost, rough** (a whole 30 s lab render, process and file included):
+458 ns per host sample with Clarinet and 840 with Master, native x86_64.
+
+**Checks.** All workspace tests pass; fmt and clippy clean; the wasm
+target builds.
+
+**Render for listening.** `scores/registers.score`: the F4 through nine
+registers, then one held note switched Clarinet → Musette → Master.

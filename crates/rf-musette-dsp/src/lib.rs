@@ -57,18 +57,37 @@ pub enum EngineError {
     SampleRate,
 }
 
+/// One rank's plate for the key: its reed's model, and its two reeds,
+/// [`PULL_REED`] and [`PUSH_REED`] -- the same design, each with its own
+/// state. On an instrument a plate's reeds share one cell; here each keeps
+/// its own copy of it, which differs only while both still move, through a
+/// reversal (docs/MODEL.md).
+struct Rank {
+    /// `None` where the rank has no reed yet.
+    model: Option<ReedModel>,
+    states: [ReedState; 2],
+    /// Its register is open: the bellows reaches it.
+    open: bool,
+}
+
+impl Rank {
+    fn is_still(&self) -> bool {
+        self.states
+            .iter()
+            .all(|state| *state == ReedState::default())
+    }
+}
+
 pub struct Engine {
     sample_rate: f32,
     parameters: Parameters,
     /// The tongue's profile, solved from its mode ratio; kept, because
-    /// solving it takes milliseconds and the ratio rarely moves.
+    /// solving it takes milliseconds and the ratio rarely moves. The 8′
+    /// ranks share it.
     mode: TongueMode,
-    model: ReedModel,
-    /// The plate's two reeds, [`PULL_REED`] and [`PUSH_REED`]: the same
-    /// design, each with its own state. On an instrument they share one
-    /// cell; here each keeps its own copy of it, which differs only while
-    /// both still move, through a reversal (docs/MODEL.md).
-    states: [ReedState; 2],
+    /// The key's ranks, [`parameters::RANK_LOW`] .. [`parameters::RANK_HIGH`],
+    /// all behind its one pallet.
+    ranks: [Rank; parameters::RANKS],
     pallet: Pallet,
     pallet_design: PalletDesign,
     /// The bellows' pressure, Pa, without its sign.
@@ -90,13 +109,16 @@ impl Engine {
         }
         let parameters = Parameters::default();
         let mode = TongueMode::with_ratio(parameters.reed_design().mode_ratio);
-        let model = ReedModel::with_mode(parameters.reed_design(), &mode);
-        Ok(Self {
+        let ranks = core::array::from_fn(|_| Rank {
+            model: None,
+            states: [ReedState::default(); 2],
+            open: false,
+        });
+        let mut engine = Self {
             sample_rate,
             parameters,
             mode,
-            model,
-            states: [ReedState::default(); 2],
+            ranks,
             pallet: Pallet::default(),
             pallet_design: parameters.pallet_design(),
             supply: 0.0,
@@ -105,7 +127,9 @@ impl Engine {
             dirty: false,
             held: [false; KEYS],
             bellows: Bellows::new(),
-        })
+        };
+        engine.rebuild();
+        Ok(engine)
     }
 
     pub fn sample_rate(&self) -> f32 {
@@ -132,10 +156,7 @@ impl Engine {
         // already turned.
         if index == parameters::BELLOWS_DIRECTION
             && self.held_count() == 0
-            && self
-                .states
-                .iter()
-                .all(|state| *state == ReedState::default())
+            && self.ranks.iter().all(Rank::is_still)
         {
             self.turn = self.parameters.direction();
         }
@@ -194,10 +215,12 @@ impl Engine {
         &mut self.bellows
     }
 
-    /// One of the plate's reeds as it stands ([`PULL_REED`] or
-    /// [`PUSH_REED`]), for measurement.
-    pub fn reed(&self, which: usize) -> Option<(&ReedModel, &ReedState)> {
-        Some((&self.model, self.states.get(which)?))
+    /// One reed as it stands: of `rank` ([`parameters::RANK_LOW`] ..
+    /// [`parameters::RANK_HIGH`]), the plate's [`PULL_REED`] or
+    /// [`PUSH_REED`], for measurement. `None` where the rank has no reed.
+    pub fn reed(&self, rank: usize, which: usize) -> Option<(&ReedModel, &ReedState)> {
+        let rank = self.ranks.get(rank)?;
+        Some((rank.model.as_ref()?, rank.states.get(which)?))
     }
 
     /// The bellows' pressure, Pa: below zero pulling, above pushing.
@@ -210,7 +233,9 @@ impl Engine {
     /// turn it.
     pub fn reset(&mut self) {
         self.held = [false; KEYS];
-        self.states = [ReedState::default(); 2];
+        for rank in self.ranks.iter_mut() {
+            rank.states = [ReedState::default(); 2];
+        }
         self.pallet = Pallet::default();
         self.supply = 0.0;
         self.turn = self.parameters.direction();
@@ -222,7 +247,14 @@ impl Engine {
         if design.mode_ratio != self.mode.ratio_asked {
             self.mode = TongueMode::with_ratio(design.mode_ratio);
         }
-        self.model = ReedModel::with_mode(design, &self.mode);
+        let open = self.parameters.open_ranks();
+        for (index, rank) in self.ranks.iter_mut().enumerate() {
+            rank.model = self
+                .parameters
+                .rank_design(index)
+                .map(|design| ReedModel::with_mode(design, &self.mode));
+            rank.open = open[index] && rank.model.is_some();
+        }
         self.pallet_design = self.parameters.pallet_design();
         if self.decimator.factor() != self.parameters.oversampling() {
             self.decimator = Decimator::new(self.parameters.oversampling());
@@ -246,7 +278,7 @@ impl Engine {
         let direction = self.parameters.direction();
         let turning = 2.0 * h / self.parameters.reversal_time();
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
-        let hole_area = self.model.design.tone_hole_area;
+        let hole_area = self.parameters.reed_design().tone_hole_area;
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
             if self.pallet.is_closed() && self.at_rest() {
@@ -263,25 +295,32 @@ impl Engine {
                 let signed = self.turn * self.supply;
                 self.pallet.advance(&self.pallet_design, h);
                 let area = self.pallet.area(&self.pallet_design, hole_area);
-                // Each reed is blown only from its own side; the other's
-                // valve is shut, and its reed sees nothing of the bellows.
-                // The flow through the hole is inward on pull and outward
-                // on push; what radiates is the outward flow's rate.
+                // Each reed is blown only from its own side, and only while
+                // its rank's register is open; the other's valve is shut,
+                // and its reed sees nothing of the bellows. The flow through
+                // the hole is inward on pull and outward on push; what
+                // radiates is the outward flow's rate.
                 let mut outward = 0.0;
-                for (which, state) in self.states.iter_mut().enumerate() {
-                    let (blow, sign) = if which == PULL_REED {
-                        ((-signed).max(0.0), -1.0)
-                    } else {
-                        (signed.max(0.0), 1.0)
-                    };
-                    if blow == 0.0 && *state == ReedState::default() {
+                for rank in self.ranks.iter_mut() {
+                    let Some(model) = &rank.model else {
                         continue;
-                    }
-                    outward += sign * reed::step(&self.model, state, blow, area, h);
-                    // An unblown reed rings down; once it is negligible it
-                    // stops exactly, and is no longer computed.
-                    if blow == 0.0 && state.energy(&self.model) < 1.0e-12 {
-                        *state = ReedState::default();
+                    };
+                    for (which, state) in rank.states.iter_mut().enumerate() {
+                        let (side, sign) = if which == PULL_REED {
+                            ((-signed).max(0.0), -1.0)
+                        } else {
+                            (signed.max(0.0), 1.0)
+                        };
+                        let blow = if rank.open { side } else { 0.0 };
+                        if blow == 0.0 && *state == ReedState::default() {
+                            continue;
+                        }
+                        outward += sign * reed::step(model, state, blow, area, h);
+                        // An unblown reed rings down; once it is negligible
+                        // it stops exactly, and is no longer computed.
+                        if blow == 0.0 && state.energy(model) < 1.0e-12 {
+                            *state = ReedState::default();
+                        }
                     }
                 }
                 *slot = (RADIATION * outward) as f32;
@@ -290,22 +329,23 @@ impl Engine {
         }
     }
 
-    /// True once both reeds have stopped and the filter has emptied. A
+    /// True once every reed has stopped and the filter has emptied. A
     /// reed's state is zeroed exactly once its energy is negligible, so the
     /// silence that follows is exact too.
     fn at_rest(&mut self) -> bool {
-        let still = self
-            .states
-            .iter()
-            .all(|state| *state == ReedState::default());
-        if self.decimator.is_quiet() && still {
+        if self.decimator.is_quiet() && self.ranks.iter().all(Rank::is_still) {
             return true;
         }
         // A sounding F4 reed stores a few millijoules; 1e-12 J is about
         // 98 dB below it.
-        for state in self.states.iter_mut() {
-            if state.energy(&self.model) < 1.0e-12 {
-                *state = ReedState::default();
+        for rank in self.ranks.iter_mut() {
+            let Some(model) = &rank.model else {
+                continue;
+            };
+            for state in rank.states.iter_mut() {
+                if state.energy(model) < 1.0e-12 {
+                    *state = ReedState::default();
+                }
             }
         }
         false

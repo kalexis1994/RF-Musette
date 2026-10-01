@@ -38,10 +38,82 @@ impl Work {
     }
 }
 
+/// How the escape area grows with the lift.
+#[derive(Clone, Copy)]
+enum Area {
+    /// The shipping model's: the curtain, hard-capped at the slot's area.
+    Shipping,
+    /// The curtain and the slot in series, as valve engineering measured
+    /// it (Schwerzler & Hamilton, ICEC 1972, eq. 9; Park et al., Energies
+    /// 16, 2023, eq. 2): α A_eff = 1/√(1/(C_c A_curtain)² + 1/(C_p A_slot)²),
+    /// with C_c the model's contraction and C_p the port's coefficient.
+    Series { port: f64 },
+}
+
+/// The escape area, m², at displacement `zeta` from rest, for the model's
+/// contraction α to multiply.
+struct Section {
+    model: ReedModel,
+    curtain: Vec<f64>,
+    area: Area,
+}
+
+const LIFT_LOW: f64 = -12.0e-3;
+const LIFT_HIGH: f64 = 12.0e-3;
+const LIFT_POINTS: usize = 4096;
+
+impl Section {
+    fn new(model: &ReedModel, area: Area) -> Self {
+        let mode = TongueMode::with_ratio(model.design.mode_ratio);
+        let mut uncapped = model.clone();
+        uncapped.slot_area = f64::INFINITY;
+        let curtain = (0..LIFT_POINTS)
+            .map(|i| {
+                let y = LIFT_LOW + (LIFT_HIGH - LIFT_LOW) * i as f64 / (LIFT_POINTS - 1) as f64;
+                uncapped.section_at(y, &mode)
+            })
+            .collect();
+        Self {
+            model: model.clone(),
+            curtain,
+            area,
+        }
+    }
+
+    fn at(&self, zeta: f64) -> f64 {
+        match self.area {
+            Area::Shipping => self.model.section(zeta),
+            Area::Series { port } => {
+                let y = zeta - self.model.design.set;
+                let step = (LIFT_HIGH - LIFT_LOW) / (LIFT_POINTS - 1) as f64;
+                let position = ((y - LIFT_LOW) / step).clamp(0.0, (LIFT_POINTS - 2) as f64);
+                let i = position as usize;
+                let f = position - i as f64;
+                let curtain = self.curtain[i] + (self.curtain[i + 1] - self.curtain[i]) * f;
+                // In the model's own terms: the port's coefficient over α.
+                let slot = port / self.model.design.contraction * self.model.slot_area;
+                1.0 / (1.0 / (curtain * curtain) + 1.0 / (slot * slot)).sqrt()
+            }
+        }
+    }
+}
+
 /// The air's work on a tongue swung at `amplitude` about `mean` (m from
 /// rest) at `frequency`, per cycle, J, once the air has settled.
 fn work(design: ReedDesign, supply: f64, mean: f64, amplitude: f64, frequency: f64) -> Work {
+    work_with(design, supply, mean, amplitude, frequency, Area::Shipping)
+}
+
+fn work_with(
+    design: ReedDesign,
+    supply: f64,
+    mean: f64,
+    amplitude: f64,
+    frequency: f64,
+    area: Area,
+) -> Work {
     let model = ReedModel::new(design);
+    let section = Section::new(&model, area);
     let d = model.design;
     let s_r = model.effective_area;
     let omega = 2.0 * PI * frequency;
@@ -51,7 +123,7 @@ fn work(design: ReedDesign, supply: f64, mean: f64, amplitude: f64, frequency: f
     };
     let jet_pressure = |t: f64, u: f64| {
         let (zeta, w) = tongue(t);
-        let v = (u - s_r * w) / (d.contraction * model.section(zeta));
+        let v = (u - s_r * w) / (d.contraction * section.at(zeta));
         0.5 * RHO * v * v.abs()
     };
     // State: flow onto the reed u, hole flow a, cell pressure p.
@@ -67,7 +139,7 @@ fn work(design: ReedDesign, supply: f64, mean: f64, amplitude: f64, frequency: f
     let period = RATE / frequency;
     let settle = (40.0 * period) as usize;
     let measure = (10.0 * period).round() as usize;
-    let flow = d.contraction * model.section(mean) * (2.0 * supply / RHO).sqrt();
+    let flow = d.contraction * section.at(mean) * (2.0 * supply / RHO).sqrt();
     let mut s = [flow, flow, supply];
     let mut out = Work {
         above: 0.0,
@@ -345,5 +417,67 @@ fn which_term_feeds_it() {
                 w.dissipated * 1e6
             );
         }
+    }
+}
+
+/// Where the balance crosses 1 for an escape-area law, scanning the swing
+/// upward from small: the swing a free reed settles at, or `None` if it
+/// does not start.
+fn settled(design: ReedDesign, supply: f64, area: Area) -> Option<f64> {
+    let model = ReedModel::new(design);
+    let frequency = design.frequency * 2f64.powf(-6.5 / 1200.0);
+    let mean = model.mu * supply / (model.omega * model.omega);
+    let mut previous: Option<(f64, f64)> = None;
+    for i in 1..=96 {
+        let a = 0.125e-3 * i as f64;
+        let w = work_with(design, supply, mean, a, frequency, area);
+        let ratio = w.total() / w.dissipated;
+        match previous {
+            None if ratio < 1.0 => return None,
+            Some((a0, r0)) if ratio < 1.0 => {
+                return Some(a0 + (a - a0) * (r0 - 1.0) / (r0 - ratio));
+            }
+            _ => previous = Some((a, ratio)),
+        }
+    }
+    None
+}
+
+/// Milestone 2c: the curtain and the slot in series, against the shipping
+/// hard cap.
+#[test]
+#[ignore = "experiment: prints, asserts nothing"]
+fn the_series_area_against_the_cap() {
+    let design = Parameters::default().reed_design();
+    let model = ReedModel::new(design);
+    let shipping = Section::new(&model, Area::Shipping);
+    let series = Section::new(&model, Area::Series { port: 0.707 });
+    println!("escape area, mm² (lift from flat, negative above the plate):");
+    for y_mm in [-0.5, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -8.0] {
+        let zeta = y_mm * 1e-3 + design.set;
+        println!(
+            "  {y_mm:>5} mm: cap {:>6.1}, series {:>6.1}",
+            shipping.at(zeta) * 1e6,
+            series.at(zeta) * 1e6
+        );
+    }
+    let laws = [
+        ("cap", Area::Shipping),
+        ("series C_p 0.707", Area::Series { port: 0.707 }),
+        ("series C_p 0.85", Area::Series { port: 0.85 }),
+    ];
+    for (label, area) in laws {
+        let swings: Vec<Option<f64>> = [100.0, 300.0, 600.0, 900.0, 1500.0, 3000.0]
+            .iter()
+            .map(|p| settled(design, *p, area).map(|a| a * 1e3))
+            .collect();
+        let ratio = match (swings[1], swings[5]) {
+            (Some(a), Some(b)) => b / a,
+            _ => f64::NAN,
+        };
+        println!(
+            "{label:>17}: swing at 0.1/0.3/0.6/0.9/1.5/3 kPa {:.2?} mm | 3 kPa over 0.3 kPa {ratio:.2}",
+            swings
+        );
     }
 }

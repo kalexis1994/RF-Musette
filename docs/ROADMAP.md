@@ -380,6 +380,62 @@ flow physics, the same for any pressure -- which is exactly why it would
 pin the swing independently of pressure. The model now takes the
 area as the lift times the edges, hard-capped at the slot's area.
 
+**What valve engineering measured.** Compressor reed and plate valves --
+a plate lifted over a port -- are the same flow, and their literature
+measured it:
+* Ferreira & Driessen, ICEC 1986, circular port, measured;
+* Lin, Pan & Shu, ICEC 1994, slot passages, measured;
+* Tsui, Oliver & Cohen, ICEC 1972, a 2-D slot valve in water;
+* Schwerzler & Hamilton, ICEC 1972, analytical against measurement;
+* Park et al., *Energies* 16, 2023, 380 CFD cases.
+
+All agree on the form. The effective area is the curtain (lift × edges)
+and the port in series, A_eff = 1/√(1/(C_c A_curtain)² + 1/(C_p A_port)²),
+with C_c 0.59-0.70 and C_p 0.70-0.85. It saturates gradually: where the
+curtain equals the port, A_eff is only ~0.45-0.5 of the port, and ~0.7-0.85
+of it only once the curtain is 1.5-2× the port. The model's hard cap at the
+slot's area is the corner this replaces. Taken here with C_c = 0.61 (the
+model's contraction; Tsui's free-streamline value is 0.611) and C_p = 0.707
+(Park's fit), small openings are unchanged, so the onset, growth and bend
+are untouched by construction.
+
+**Predictions** (written before building it, 2026-09-30), on the energy
+balance:
+1. The swing settles lower at every pressure, ~3.5-4.5 mm at 300 Pa (the
+   area's slope is already down ~20 % at 2 mm of lift and ~50 % at 4).
+2. Alone it does not meet the target: estimated ~7-9 mm at 3 kPa, a
+   swing still ~2× that at 0.3 kPa, because the feed at 3 kPa outruns the
+   damping ~8× at small swings and the area's slope falls that far only
+   past ~9 mm of lift.
+
+**Result (2026-09-30): the area law is right, and is not the limit.**
+Measured by the energy balance (`the_series_area_against_the_cap`):
+
+| Escape area | 0.1 kPa | 0.3 | 0.6 | 0.9 | 1.5 | 3 kPa |
+| --- | --- | --- | --- | --- | --- | --- |
+| Cap (shipping) | 1.58 mm | 4.93 | 6.99 | 8.12 | 9.51 | 10.9 |
+| Series, C_p 0.707 | 1.55 | 4.72 | 6.78 | 7.98 | 9.60 | > 12 |
+| Series, C_p 0.85 | 1.56 | 4.79 | 6.92 | 8.19 | 9.96 | > 12 |
+
+* Prediction 1 failed: the swing barely moves (4.93 → 4.72 mm at 300 Pa).
+* Prediction 2 held: it does not meet the target.
+
+The reason is in the balance. Past ~3.7 mm of travel (set 0.5 + plate 3 +
+tip 0.23) the tip comes through the plate, and what then takes the energy
+back is the same mechanism as the feed above it -- upstream inertia times a
+gap area opening, now on the far side. The series law shrinks both: less
+feed above, less loss beyond. In this model's class the swing settles
+where the loss beyond nearly balances the feed above. The feed outruns the
+damping more as the pressure rises, so that balance needs ever more travel
+beyond the plate, and the swing grows with pressure.
+
+So what pins a real reed's swing must make the far side, or the
+large-lift side, act differently from the near side. That is not an area,
+and not anything in the quasi-steady, lumped picture. It is where St.
+Hilaire & Vaidya's finite-amplitude potential flow would have to come in.
+The series area is kept as the better-measured law, to be built when
+something else limits the swing.
+
 **Where 2c stands.** Tried and not the limit: the tongue's drag in the air,
 the tip coming through the plate (a measured reed never does), and the mean
 moving toward the plate. What is left is the one thing all three leave

@@ -851,6 +851,66 @@ The cassotto's resonance (0.8–1 kHz, Richter 1989) and its high-frequency loss
 as a filter. No published transfer function exists: the body is derived from
 geometry where it can be and voiced where it cannot.
 
+**What is measured (2026-09-30).**
+* **Richter** (IfM Zwota, Demusa report 1989, read in full): the long
+  cassotto shaft resonates at 800 Hz-1 kHz, "in an acoustically favourable
+  formant region", little different between makers. A closed grille
+  (Weltmeister "Stella") resonates near 500 Hz.
+* **Llanos-Vázquez's thesis** (read in full):
+  * E4 at mf, the spectral centroid of an 8′ voice is 1389 Hz inside the
+    cassotto and 2013 Hz outside (Table 4.16, p189): a ratio of 0.69.
+    The 16′ inside is 1078 Hz.
+  * "El cassotto no tiene ningún efecto sobre la duración total de los
+    ataques ... actúa sobre el sonido generado por la lengüeta, pero no
+    actúa sobre la lengüeta misma" (p174).
+  * Each key lifts two pallets, one for the pair of blocks inside the
+    cassotto and one for the pair outside (p51).
+* **Which ranks sit inside:** on Llanos's Pigini Sirius, the 16′ and one
+  8′; a double cassotto keeps bassoon (16′) and clarinet (8′) in two
+  chambers (Wikipedia, "Cassotto"). Here: L and M.
+* **Not published:** a cassotto's inner dimensions (only whole-instrument
+  sizes are listed), and any measured transfer function of a cassotto or
+  a body.
+
+**The model.** The cassotto is a box its reed blocks sound into, with a
+narrow way out: below the box's own standing waves, a Helmholtz resonator.
+Its transfer from the flow the blocks send in to the flow that leaves is
+H(s) = ω₀²/(s² + (ω₀/Q) s + ω₀²): a lift around ω₀ and −12 dB per octave
+above, the "attenuating higher frequencies and reinforcing lower ones" of
+the descriptions.
+* **ω₀:** Richter's resonance, 900 Hz, the middle of his range
+  (measured).
+* **Q:** assumed, 2, voiced by ear. Wood, felt and a slot that is not a
+  neck make a low one; nothing measures it.
+
+It acts on the sound of L and M only, never on the reeds (Llanos, p174).
+The grille and body wait for a measurement: Richter's one grille
+resonance is not a transfer function.
+
+**Predictions** (written before building it, 2026-09-30):
+1. With the cassotto off (default until heard), every earlier result is
+   unchanged.
+2. On, M's spectral centroid at mf (~400 Pa in a still bellows) falls to
+   0.4-0.8 of its centroid outside: Llanos measured 0.69 on E4.
+3. On, the finger attack's duration (−50 → −5 dB of the first harmonic)
+   moves by less than 10 %: the filter acts on the sound, not the reed.
+
+**Status (2026-10-01): built (0.7.0); all three met** (`tests/milestone_6.rs`,
+M alone, the arm pushing for ~400 Pa).
+1. **Met.** With the cassotto off, the default, every earlier test passes.
+2. **Met.** M's centroid falls from 1693 Hz to 959 Hz, a ratio of 0.57;
+   Llanos measured 2013 and 1389 Hz on his E4, 0.69. The model's own
+   centroid outside, 1693 Hz, is of the order of his.
+3. **Met.** The finger attack is 320 ms inside and out (+0.0 %).
+
+Measuring it found a trap: a pulse-train sound crosses its mean several
+times a period, so zero crossings read the third harmonic (1060 Hz). The
+fundamental is taken from the spectrum's peak near the reed instead.
+
+The grille and the body are not built: Richter's one grille resonance
+(~500 Hz, one model) is not a transfer function, and nothing else is
+measured.
+
 ## 7. The whole treble compass, and what it costs
 
 Every key of a 41-key treble, every rank, and a full-register chord inside the

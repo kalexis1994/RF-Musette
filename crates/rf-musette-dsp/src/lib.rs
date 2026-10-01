@@ -14,6 +14,7 @@
 #![no_std]
 
 mod bellows;
+pub mod cassotto;
 mod decimator;
 pub mod math;
 pub mod pallet;
@@ -98,6 +99,8 @@ pub struct Engine {
     wind: wind::Wind,
     /// The air the reeds drew in the last step, m³/s.
     draw: f64,
+    /// The cassotto L and M sound into, when the instrument has one.
+    cassotto: cassotto::Cassotto,
     /// The bellows' pressure, Pa, without its sign.
     supply: f64,
     /// Which way the bellows moves: -1 pulling, +1 pushing, and in between
@@ -132,6 +135,7 @@ impl Engine {
             ask: 0.0,
             wind: wind::Wind::default(),
             draw: 0.0,
+            cassotto: cassotto::Cassotto::default(),
             supply: 0.0,
             turn: parameters.direction(),
             decimator: Decimator::new(parameters.oversampling()),
@@ -184,6 +188,9 @@ impl Engine {
                 | parameters::ARM_SPEED
                 | parameters::BELLOWS_LEAK
                 | parameters::AIR_VALVE
+                | parameters::CASSOTTO
+                | parameters::CASSOTTO_RESONANCE
+                | parameters::CASSOTTO_Q
         ) {
             self.dirty = true;
         }
@@ -260,6 +267,7 @@ impl Engine {
         self.ask = 0.0;
         self.wind = wind::Wind::default();
         self.draw = 0.0;
+        self.cassotto.reset();
         self.supply = 0.0;
         self.turn = self.parameters.direction();
         self.decimator.reset();
@@ -305,12 +313,18 @@ impl Engine {
         // The bellows' air, when the intent is the arm's push; otherwise the
         // intent is the pressure.
         let wind = self.parameters.wind_design();
+        // The cassotto L and M sound into, when there is one.
+        let cassotto = self
+            .parameters
+            .cassotto()
+            .map(|(resonance, q)| cassotto::CassottoTuning::new(resonance, q, h));
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
             if self.pallet.is_closed() && self.at_rest() {
                 // The pallet is shut, nothing moves and nothing is left in
                 // the filter. The bellows keeps moving as asked, and only
                 // its leaks and the air button spend its air.
+                self.cassotto.reset();
                 self.ask = target;
                 self.draw = 0.0;
                 self.supply = match &wind {
@@ -345,11 +359,18 @@ impl Engine {
                 // the hole is inward on pull and outward on push; what
                 // radiates is the outward flow's rate.
                 let mut outward = 0.0;
+                // What L and M send into the cassotto, when there is one.
+                let mut boxed = 0.0;
                 // The air every reed's hole passes, drawn from the bellows.
                 let mut drawn = 0.0;
-                for rank in self.ranks.iter_mut() {
+                for (index, rank) in self.ranks.iter_mut().enumerate() {
                     let Some(model) = &rank.model else {
                         continue;
+                    };
+                    let into = if cassotto.is_some() && Parameters::in_cassotto(index) {
+                        &mut boxed
+                    } else {
+                        &mut outward
                     };
                     for (which, state) in rank.states.iter_mut().enumerate() {
                         let (side, sign) = if which == PULL_REED {
@@ -361,7 +382,7 @@ impl Engine {
                         if blow == 0.0 && *state == ReedState::default() {
                             continue;
                         }
-                        outward += sign * reed::step(model, state, blow, area, h);
+                        *into += sign * reed::step(model, state, blow, area, h);
                         drawn += state.hole_flow;
                         // An unblown reed rings down; once it is negligible
                         // it stops exactly, and is no longer computed.
@@ -371,6 +392,9 @@ impl Engine {
                     }
                 }
                 self.draw = drawn;
+                if let Some(tuning) = &cassotto {
+                    outward += self.cassotto.process(tuning, boxed);
+                }
                 *slot = (RADIATION * outward) as f32;
             }
             *sample = self.decimator.decimate(&chunk[..factor]) * gain;

@@ -82,8 +82,11 @@ pub const BELLOWS_VOLUME: usize = 29;
 pub const ARM_SPEED: usize = 30;
 pub const BELLOWS_LEAK: usize = 31;
 pub const AIR_VALVE: usize = 32;
+pub const CASSOTTO: usize = 33;
+pub const CASSOTTO_RESONANCE: usize = 34;
+pub const CASSOTTO_Q: usize = 35;
 
-pub const COUNT: usize = 33;
+pub const COUNT: usize = 36;
 
 /// [`BELLOWS_RESPONSE`]'s values.
 pub const ARM: f64 = 0.0;
@@ -468,6 +471,32 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Linear,
         "How far the air button is pressed: it vents the bellows through an orifice of up to 400 mm² (assumed), so the bellows moves without sounding (Llanos et al. 2002; McMahan 2016).",
     ),
+    choice(
+        "cassotto",
+        "Cassotto",
+        PAGE_CELL,
+        &[(0, "Off"), (1, "On")],
+        0,
+        "Whether the 16′ and the true 8′ sound into a cassotto, as on Llanos-Vázquez's Pigini Sirius (thesis 2015, p51) and in a double cassotto (bassoon and clarinet chambers). A choice of instrument; off until heard.",
+    ),
+    spec(
+        "cassotto_resonance",
+        "Cassotto Resonance",
+        PAGE_CELL,
+        "Hz",
+        (500.0, 1500.0, 900.0, 1.0),
+        Taper::Logarithmic,
+        "Measured: the cassotto shaft's resonance, 800 Hz-1 kHz and little different between makers (Richter, IfM Zwota, Demusa report 1989); the middle of that range.",
+    ),
+    spec(
+        "cassotto_q",
+        "Cassotto Q",
+        PAGE_CELL,
+        "",
+        (0.5, 10.0, 2.0, 0.01),
+        Taper::Logarithmic,
+        "Assumed, voiced by ear: how sharp the cassotto's resonance is. Wood, felt and a slot that is no neck make it low; nothing measures it. Against Llanos-Vázquez's E4 at mf, whose 8′ centroid falls from 2013 Hz outside the cassotto to 1389 inside (thesis, Table 4.16).",
+    ),
 ];
 
 /// The air button's opening when fully pressed, m²: assumed.
@@ -613,6 +642,18 @@ impl Parameters {
             arm_speed: self.values[ARM_SPEED],
             vent: self.values[BELLOWS_LEAK] * 1.0e-6 + self.values[AIR_VALVE] * AIR_VALVE_AREA,
         })
+    }
+
+    /// The cassotto's resonance, Hz, and Q, when the instrument has one.
+    pub fn cassotto(&self) -> Option<(f64, f64)> {
+        (self.values[CASSOTTO] == 1.0)
+            .then(|| (self.values[CASSOTTO_RESONANCE], self.values[CASSOTTO_Q]))
+    }
+
+    /// Whether a rank sounds into the cassotto: L and M, as on the Pigini
+    /// Sirius Llanos-Vázquez measured.
+    pub fn in_cassotto(rank: usize) -> bool {
+        matches!(rank, RANK_LOW | RANK_MIDDLE)
     }
 
     /// Which ranks the register lets the bellows reach.

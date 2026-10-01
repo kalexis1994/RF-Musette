@@ -6,7 +6,8 @@ stated rather than hidden; each constant says where its value came from. The
 tests hold the model to what this document claims -- it is allowed to be
 approximate, not to drift from what is written here.
 
-**Status (0.6.0, in progress): one key, five ranks, one bellows.** Key 65, F4, behind
+**Status (0.7.0, in progress): one key, five ranks, one bellows, a
+cassotto.** Key 65, F4, behind
 the pallet it lifts, with five plates: L (16′), M− M M+ (the 8′ tremolo
 and musette) and H (4′), each with a reed for each way the bellows moves.
 The registers open them. The M reed is the F4 the IfM Zwota measured.
@@ -155,6 +156,29 @@ the pressure itself, as before, for a digital accordion that measures it.
 Measured on F4 (ROADMAP 5):
 * M alone holds 4.0 % below the push, Master 13.6 %;
 * the air button fully open takes the pressure down 29 %.
+
+### The cassotto (tested; Q assumed)
+
+    H(s) = ω₀² / (s² + (ω₀/Q) s + ω₀²)
+
+When the instrument has one (Cassotto "On"), L and M sound into a box with
+a narrow way out. Below its standing waves that is a Helmholtz resonator:
+unity at low frequency, a lift around ω₀, −12 dB per octave above.
+* **ω₀:** Richter's measured shaft resonance, 800 Hz-1 kHz (IfM Zwota
+  1989), 900 Hz by default.
+* **Q:** assumed, 2.
+
+It filters the flow those ranks radiate and nothing else: the reeds do not
+feel it, as Llanos-Vázquez found (thesis, p174). Discretised as a
+topology-preserving state-variable filter at the oversampled rate.
+
+Measured on M at mf:
+* the spectral centroid falls from 1693 Hz to 959 Hz (0.57), against
+  Llanos's 2013 and 1389 Hz on E4 (0.69);
+* the attack does not move.
+
+The grille and the body are not modelled: no transfer function is
+published.
 
 ### The swing limit (voiced: the one term that is not derived)
 
@@ -323,6 +347,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Tremolo | 4.1 Hz at A4 (M+), lines' shape | Measured (one instrument), a style to voice by taste | A Borsini Super Star LMMMH (Hergert 2024, Fig. 6) |
 | Registers | Roland FR-3x's 14 | Measured as a maker draws them | FR-3x Owner's Manual p. 27 |
 | L, H geometry | F4 × slot ratios 1.27 / 0.74 (length), 1.25 / 0.79 (width) | Assumed | A bayan maker's slots, RU2233009 Table 3 |
+| Cassotto | off; L and M when on | A choice of instrument | Pigini Sirius (Llanos p51); double cassotto (bassoon, clarinet) |
+| Cassotto resonance | 900 Hz | Measured range 800-1000 Hz | Richter, IfM Zwota 1989 |
+| Cassotto Q | 2 | Assumed, to be voiced | Unmeasured |
 | Bellows response | Arm | Decided | The intent is the push (Stiff: the pressure) |
 | Bellows area, volume | 600 cm², 12 L | Assumed, to be voiced | A full-size accordion's order; unmeasured |
 | Arm speed v_max, Hill's k | 1 m/s, 0.25 | Assumed; k from Hill 1938 | No arm-on-bellows measurement |
@@ -349,6 +376,7 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Tremolo beats at 300 Pa | M+ +3.667, M− −3.146, M−/M+ 6.813 Hz | asked 3.666, −3.143 (Borsini lines at 355 Hz) | Met |
 | Ranks together, bellows stiff | Celeste +3.01, Musette +4.77, Master +5.94 dB over Clarinet | powers add | Met |
 | One bellows, the arm pushing for 300 Pa | Clarinet 288.1 Pa (−4.0 %), Master 259.3 Pa (−13.6 %), +4.98 dB over Clarinet | more reeds draw the pressure down (McMahan; no measurement) | Met (as predicted) |
+| Cassotto, M at mf | centroid 1693 → 959 Hz (0.57); attack unchanged | 2013 → 1389 Hz (0.69, Llanos E4); attack unchanged (p174) | Met |
 | Air button fully open, note held | −29 % pressure, −2.9 dB | the bellows moves without sounding | Weaker than predicted (assumed arm and vent) |
 | L, H against M's octaves | −9.6, +2.4 cents | in tune, as a tuner sets them | L flat: set by its mode |
 | Push against pull | the same samples, opposite polarity | attacks independent of direction (Llanos); push thresholds ×10 on an artificial chamber (Cottingham 2016, preliminary) | Met for the instrument; the rig's difference is out of reach |

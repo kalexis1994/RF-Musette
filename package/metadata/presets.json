@@ -4,6 +4,6 @@
   "presets": [{
     "id": "research", "name": "Research", "bank": "research",
     "category": "Accordion", "order": 0, "tags": ["default"],
-    "description": "Milestone 5: the F4 key with five ranks -- L, M−, M, M+, H -- opened by the 14 registers, a reed for each way the bellows moves (CC 80), and one bellows the arm pushes, which gives way as more reeds draw air. The M reed is the F4 the IfM Zwota measured. Every other key is silent."
+    "description": "Milestone 6: the F4 key with five ranks -- L, M−, M, M+, H -- opened by the 14 registers, a reed for each way the bellows moves (CC 80), one bellows the arm pushes, which gives way as more reeds draw air, and a cassotto for L and M (off by default). The M reed is the F4 the IfM Zwota measured. Every other key is silent."
   }]
 }

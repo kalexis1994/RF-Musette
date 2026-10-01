@@ -845,6 +845,79 @@
       "order": 13,
       "page": "model_air",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "cassotto",
+      "index": 33,
+      "kind": {
+        "choices": [
+          {
+            "name": "Off",
+            "value": 0
+          },
+          {
+            "name": "On",
+            "value": 1
+          }
+        ],
+        "default": 0,
+        "type": "enum"
+      },
+      "name": "Cassotto",
+      "order": 7,
+      "page": "model_cell",
+      "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "cassotto_resonance",
+      "index": 34,
+      "kind": {
+        "default": 900.0,
+        "maximum": 1500.0,
+        "minimum": 500.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "Hz"
+      },
+      "name": "Cassotto Resonance",
+      "order": 8,
+      "page": "model_cell",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "cassotto_q",
+      "index": 35,
+      "kind": {
+        "default": 2.0,
+        "maximum": 10.0,
+        "minimum": 0.5,
+        "step": 0.01,
+        "taper": "logarithmic",
+        "type": "float"
+      },
+      "name": "Cassotto Q",
+      "order": 9,
+      "page": "model_cell",
+      "suggested_control": "knob"
     }
   ],
   "schema_version": 1

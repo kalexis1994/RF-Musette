@@ -334,3 +334,28 @@ state_bytes=276; wasm 72796 → 61573 bytes optimised.
 **Render for listening.** `scores/one-bellows.score`, rendered Stiff then
 Arm and joined (×0.48): Clarinet → Master on a held note, then the air
 button pressed and let go.
+
+## 2026-10-01 -- Milestone 6: the cassotto (0.7.0)
+
+**Built.** `cassotto.rs`: a Helmholtz resonator, H(s) = ω₀²/(s² + (ω₀/Q)s +
+ω₀²), stepped as a topology-preserving state-variable filter at the
+oversampled rate. Its unit test checks gain 1 at 50 Hz, Q at resonance and
+~1/15 two octaves above. L and M radiate through it when Cassotto is on
+(index 33, off by default); resonance 900 Hz (index 34, Richter's measured
+800-1000 Hz); Q 2 (index 35, assumed). The state grows to 36 values.
+
+**Tests** (`tests/milestone_6.rs`, M alone, the arm pushing for ~400 Pa):
+* the centroid outside 1693 Hz, inside 959 Hz, a ratio of 0.57, against
+  Llanos's E4 2013 → 1389 Hz (0.69);
+* the finger attack 320 ms either way.
+
+The fundamental is read from the spectrum's peak near the reed's mode:
+zero crossings of the pulse-train sound read its third harmonic, 1060 Hz,
+which a first version of these tests fell into.
+
+**Package.** PLUGIN_PACKAGE_VALID 0.7.0, parameters=36, PLUGIN_SMOKE_OK.
+
+**Checks.** All workspace tests pass; fmt and clippy clean; wasm builds.
+
+**Render for listening.** `scores/cassotto.score`, off then on, joined and
+scaled ×0.668: Clarinet, Bassoon, Bandoneon, Musette.

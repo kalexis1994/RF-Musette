@@ -1,0 +1,12 @@
+# Milestone 6: the registers whose reeds sit in the cassotto (L and M),
+# the arm pushing steadily (CC 11 at 80), pulling. Render it twice, with
+# `--set cassotto=0` and `=1`, to hear the box.
+0 bellows 80
+0 register clarinet
+0 1800 65 100
+2000 register bassoon
+2000 1800 65 100
+4000 register bandoneon
+4000 1800 65 100
+6000 register musette
+6000 1800 65 100

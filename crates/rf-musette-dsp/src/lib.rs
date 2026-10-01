@@ -50,6 +50,18 @@ const RADIATION: f64 = reed::AIR_DENSITY / (4.0 * core::f64::consts::PI);
 /// is milestone 5.
 const SUPPLY_SMOOTHING_SECONDS: f64 = 0.001;
 
+/// The MIDI channels of the bass side, counted from 0, as Roland's
+/// V-Accordions send them (FR-3x Owner's Manual, p. 57): the bass buttons
+/// on channel 2, the chord buttons on channel 3. Every other channel plays
+/// the treble.
+pub const BASS_CHANNEL: u8 = 1;
+pub const CHORD_CHANNEL: u8 = 2;
+
+/// Where the bass side's keys sit among the engine's: after the treble's.
+const BASS_START: usize = compass::KEYS;
+/// The treble's keys and the bass side's.
+const ALL_KEYS: usize = compass::KEYS + compass::BASS_KEYS;
+
 /// The plate's reed that sounds when the bellows pulls: inside the cell.
 pub const PULL_REED: usize = 0;
 /// The one that sounds when it pushes: on the bellows side.
@@ -83,9 +95,15 @@ impl Rank {
     }
 }
 
-/// A key of the compass: its pallet and its ranks' plates behind it.
+/// A key of the compass, or a pitch class of the bass side: its pallets and
+/// its ranks' plates behind them.
 struct Key {
+    /// The treble key's pallet, or the bass button's: on the bass side it
+    /// opens the pitch class on every rank.
     pallet: Pallet,
+    /// On the bass side, what the chord buttons holding the pitch class
+    /// open: its reeds on the chord ranks. Shut on the treble.
+    chord: Pallet,
     ranks: [Rank; parameters::RANKS],
     /// Its reeds' models are out of date: built again before it next sounds,
     /// or a few at a time while nothing asks.
@@ -97,9 +115,9 @@ impl Key {
         self.ranks.iter().all(Rank::is_still)
     }
 
-    /// Nothing to compute: the pallet shut and every reed at rest.
+    /// Nothing to compute: the pallets shut and every reed at rest.
     fn is_idle(&self) -> bool {
-        self.pallet.is_closed() && self.is_still()
+        self.pallet.is_closed() && self.chord.is_closed() && self.is_still()
     }
 }
 
@@ -115,8 +133,10 @@ pub struct Engine {
     /// shares it.
     mode: TongueMode,
     /// The compass, F3-A6: each key's pallet and its ranks,
-    /// [`parameters::RANK_LOW`] .. [`parameters::RANK_HIGH`].
-    keys: [Key; compass::KEYS],
+    /// [`parameters::RANK_LOW`] .. [`parameters::RANK_HIGH`]; then the bass
+    /// side's pitch classes, C-B, with their ranks [`parameters::BASS_16`]
+    /// .. [`parameters::BASS_2`].
+    keys: [Key; ALL_KEYS],
     pallet_design: PalletDesign,
     /// What the intent asks, Pa: the pressure the push would make in a
     /// still bellows, guarded against steps.
@@ -136,6 +156,9 @@ pub struct Engine {
     /// A reed parameter moved: rebuild before the next sample.
     dirty: bool,
     held: [bool; KEYS],
+    /// The notes held on the bass and chord channels.
+    bass_held: [bool; KEYS],
+    chord_held: [bool; KEYS],
     bellows: Bellows,
 }
 
@@ -148,6 +171,7 @@ impl Engine {
         let mode = TongueMode::with_ratio(parameters.reed_design().mode_ratio);
         let keys = core::array::from_fn(|_| Key {
             pallet: Pallet::default(),
+            chord: Pallet::default(),
             ranks: core::array::from_fn(|_| Rank {
                 model: None,
                 states: [ReedState::default(); 2],
@@ -170,6 +194,8 @@ impl Engine {
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
             held: [false; KEYS],
+            bass_held: [false; KEYS],
+            chord_held: [false; KEYS],
             bellows: Bellows::new(),
         };
         engine.rebuild();
@@ -199,7 +225,7 @@ impl Engine {
         // to turn cannot be heard: a loaded program or a fresh engine starts
         // already turned.
         if index == parameters::BELLOWS_DIRECTION
-            && self.held_count() == 0
+            && !self.anything_held()
             && self.keys.iter().all(Key::is_still)
         {
             self.turn = self.parameters.direction();
@@ -223,6 +249,7 @@ impl Engine {
                 | parameters::CASSOTTO_RESONANCE
                 | parameters::CASSOTTO_Q
                 | parameters::ATTACK_KICK
+                | parameters::BASS_REGISTER
         ) {
             self.dirty = true;
         }
@@ -257,6 +284,87 @@ impl Engine {
         }
     }
 
+    /// A note on MIDI `channel` (0-15): the bass buttons on
+    /// [`BASS_CHANNEL`], the chords on [`CHORD_CHANNEL`], the treble on every
+    /// other.
+    pub fn channel_note_on(&mut self, channel: u8, key: u8, velocity: f32) {
+        match channel {
+            BASS_CHANNEL => self.bass_on(key, velocity),
+            CHORD_CHANNEL => self.chord_on(key, velocity),
+            _ => self.note_on(key, velocity),
+        }
+    }
+
+    pub fn channel_note_off(&mut self, channel: u8, key: u8) {
+        match channel {
+            BASS_CHANNEL => self.bass_off(key),
+            CHORD_CHANNEL => self.chord_off(key),
+            _ => self.note_off(key),
+        }
+    }
+
+    /// A bass button goes down: the one of `key`'s pitch class, whatever its
+    /// octave (a V-Accordion sends C3-B3). Velocity reaches the sound
+    /// through the bellows only, as on the treble.
+    pub fn bass_on(&mut self, key: u8, velocity: f32) {
+        if self.hold(key, true, true) {
+            self.bellows.strike(velocity);
+        }
+    }
+
+    pub fn bass_off(&mut self, key: u8) {
+        self.hold(key, true, false);
+    }
+
+    /// A chord note: `key`'s pitch class sounds on the chord ranks. A
+    /// V-Accordion's chord button sends its three; a keyboard player's left
+    /// hand sends what it holds.
+    pub fn chord_on(&mut self, key: u8, velocity: f32) {
+        if self.hold(key, false, true) {
+            self.bellows.strike(velocity);
+        }
+    }
+
+    pub fn chord_off(&mut self, key: u8) {
+        self.hold(key, false, false);
+    }
+
+    /// Holds or lets go of a note on the bass or chord channel, and opens or
+    /// shuts its pitch class's pallet while any octave of it is held. False
+    /// for a key outside MIDI.
+    fn hold(&mut self, key: u8, bass: bool, down: bool) -> bool {
+        let held = if bass {
+            &mut self.bass_held
+        } else {
+            &mut self.chord_held
+        };
+        let Some(slot) = held.get_mut(usize::from(key)) else {
+            return false;
+        };
+        *slot = down;
+        let pitch_class = usize::from(key) % compass::BASS_KEYS;
+        let any = held
+            .iter()
+            .skip(pitch_class)
+            .step_by(compass::BASS_KEYS)
+            .any(|held| *held);
+        let depth = if any { 1.0 } else { 0.0 };
+        let key = &mut self.keys[BASS_START + pitch_class];
+        if bass {
+            key.pallet.press(depth);
+        } else {
+            key.chord.press(depth);
+        }
+        true
+    }
+
+    /// Whether any key, bass button or chord note is held.
+    fn anything_held(&self) -> bool {
+        self.held_count() > 0
+            || self.bass_held.iter().any(|held| *held)
+            || self.chord_held.iter().any(|held| *held)
+    }
+
     pub fn is_held(&self, key: u8) -> bool {
         self.held.get(usize::from(key)).copied().unwrap_or(false)
     }
@@ -282,6 +390,21 @@ impl Engine {
         Some((rank.model.as_ref()?, rank.states.get(which)?))
     }
 
+    /// One bass-side reed as it stands: `pitch_class`'s (0 = C) on `rank`
+    /// ([`parameters::BASS_16`] .. [`parameters::BASS_2`]), for measurement.
+    pub fn bass_reed(
+        &self,
+        pitch_class: usize,
+        rank: usize,
+        which: usize,
+    ) -> Option<(&ReedModel, &ReedState)> {
+        if pitch_class >= compass::BASS_KEYS {
+            return None;
+        }
+        let rank = self.keys[BASS_START + pitch_class].ranks.get(rank)?;
+        Some((rank.model.as_ref()?, rank.states.get(which)?))
+    }
+
     /// The bellows' pressure the reeds see, Pa: below zero pulling, above
     /// pushing.
     pub fn supply(&self) -> f64 {
@@ -293,8 +416,11 @@ impl Engine {
     /// turn it.
     pub fn reset(&mut self) {
         self.held = [false; KEYS];
+        self.bass_held = [false; KEYS];
+        self.chord_held = [false; KEYS];
         for key in self.keys.iter_mut() {
             key.pallet = Pallet::default();
+            key.chord = Pallet::default();
             for rank in key.ranks.iter_mut() {
                 rank.states = [ReedState::default(); 2];
                 rank.started = [0.0; 2];
@@ -311,10 +437,12 @@ impl Engine {
 
     /// Builds one key's reeds from the parameters, tuned as the compass says.
     fn build_key(&mut self, index: usize) {
-        let note = compass::FIRST_KEY + index as u8;
         for (rank, slot) in self.keys[index].ranks.iter_mut().enumerate() {
-            slot.model = compass::design(&self.parameters, note, rank)
-                .map(|design| ReedModel::with_mode(design, &self.mode));
+            let design = match index.checked_sub(BASS_START) {
+                Some(pitch_class) => compass::bass_design(&self.parameters, pitch_class, rank),
+                None => compass::design(&self.parameters, compass::FIRST_KEY + index as u8, rank),
+            };
+            slot.model = design.map(|design| ReedModel::with_mode(design, &self.mode));
         }
         self.keys[index].stale = false;
     }
@@ -322,7 +450,7 @@ impl Engine {
     /// Brings stale keys up to date: every key in use now, and a few others.
     fn build_stale(&mut self) {
         let mut spare = BUILDS_PER_BLOCK;
-        for index in 0..compass::KEYS {
+        for index in 0..ALL_KEYS {
             if !self.keys[index].stale {
                 continue;
             }
@@ -407,8 +535,9 @@ impl Engine {
         let turning = 2.0 * h / self.parameters.reversal_time();
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
         let kick = self.parameters.get(parameters::ATTACK_KICK).unwrap_or(0.0);
-        // The ranks the register lets the bellows reach.
+        // The ranks the registers let the bellows reach, on either side.
         let open = self.parameters.open_ranks();
+        let open_bass = self.parameters.open_bass_ranks();
         // The bellows' air, when the intent is the arm's push; otherwise the
         // intent is the pressure.
         let wind = self.parameters.wind_design();
@@ -457,12 +586,13 @@ impl Engine {
                 let mut boxed = 0.0;
                 // The air every reed's hole passes, drawn from the bellows.
                 let mut drawn = 0.0;
-                for key in self.keys.iter_mut() {
+                for (number, key) in self.keys.iter_mut().enumerate() {
                     if key.is_idle() {
                         continue;
                     }
+                    let bass = number >= BASS_START;
                     key.pallet.advance(&self.pallet_design, h);
-                    let down = key.pallet.target > 0.0;
+                    key.chord.advance(&self.pallet_design, h);
                     for (index, rank) in key.ranks.iter_mut().enumerate() {
                         let Some(model) = &rank.model else {
                             continue;
@@ -470,10 +600,22 @@ impl Engine {
                         // Each rank's cell has its own hole under the key's
                         // pallet, whose curtain grows with the holes it
                         // covers: each rank sees about its own (MODEL.md).
-                        let area = key
-                            .pallet
-                            .area(&self.pallet_design, model.design.tone_hole_area);
-                        let into = if cassotto.is_some() && Parameters::in_cassotto(index) {
+                        // On the bass side a chord rank's hole is under the
+                        // chord pallet too, and passes what the wider of the
+                        // two lets through.
+                        let hole = model.design.tone_hole_area;
+                        let chorded = bass && Parameters::is_chord_rank(index);
+                        let mut area = key.pallet.area(&self.pallet_design, hole);
+                        let mut down = key.pallet.target > 0.0;
+                        if chorded {
+                            area = area.max(key.chord.area(&self.pallet_design, hole));
+                            down |= key.chord.target > 0.0;
+                        }
+                        let opened = if bass { open_bass[index] } else { open[index] };
+                        // The bass side has no cassotto (Llanos-Vázquez,
+                        // thesis 2015).
+                        let boxed_here = !bass && Parameters::in_cassotto(index);
+                        let into = if cassotto.is_some() && boxed_here {
                             &mut boxed
                         } else {
                             &mut outward
@@ -486,7 +628,7 @@ impl Engine {
                             } else {
                                 (signed.max(0.0), 1.0)
                             };
-                            let blow = if open[index] { side } else { 0.0 };
+                            let blow = if opened { side } else { 0.0 };
                             Self::start_into_frame(model, state, given, down, blow, kick);
                             if blow == 0.0 && *state == ReedState::default() {
                                 continue;
@@ -599,7 +741,7 @@ mod tests {
     /// The whole treble lives inside the engine, which never allocates: it
     /// must fit, with room, the 1 MiB stack a WebAssembly module starts with.
     #[test]
-    fn a_whole_treble_fits_the_stack() {
+    fn a_whole_instrument_fits_the_stack() {
         let bytes = core::mem::size_of::<Engine>();
         std::println!("Engine: {} KiB", bytes / 1024);
         assert!(bytes < 384 * 1024, "{bytes} bytes");

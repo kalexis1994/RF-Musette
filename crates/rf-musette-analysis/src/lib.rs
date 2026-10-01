@@ -403,8 +403,132 @@ pub fn tune(
 /// its target.
 pub fn tune_reed(parameters: &rf_musette_dsp::Parameters, key: u8, rank: usize) -> Option<f64> {
     use rf_musette_dsp::compass::{target, untuned};
-    let aim = target(parameters, key, rank);
-    let mut design = untuned(parameters, key, rank)?;
+    tune_design(
+        untuned(parameters, key, rank)?,
+        target(parameters, key, rank),
+    )
+}
+
+/// The bass side's tuning table, as [`tune`] makes the treble's: for every
+/// bass-side rank and pitch class, the cents its reed's mode must sit above
+/// its target.
+pub fn tune_bass(
+    parameters: &rf_musette_dsp::Parameters,
+) -> [[Option<f64>; rf_musette_dsp::compass::BASS_KEYS]; rf_musette_dsp::parameters::BASS_RANKS] {
+    use rf_musette_dsp::compass::{BASS_KEYS, bass_target, bass_untuned};
+    let mut table = [[None; BASS_KEYS]; rf_musette_dsp::parameters::BASS_RANKS];
+    for (rank, row) in table.iter_mut().enumerate() {
+        for (pitch_class, cell) in row.iter_mut().enumerate() {
+            *cell = bass_untuned(parameters, pitch_class, rank).and_then(|design| {
+                tune_design(design, bass_target(parameters, pitch_class, rank)?)
+            });
+        }
+    }
+    table
+}
+
+/// Whether `design`, its mode on `aim`, holds a tone from rest at each of
+/// `pressures`.
+pub fn holds(mut design: ReedDesign, aim: f64, pressures: &[f64]) -> bool {
+    design.frequency = aim;
+    pressures
+        .iter()
+        .all(|pressure| sounding(design, *pressure).is_some())
+}
+
+/// The least tip load, over the unloaded tongue's modal mass, that lets a
+/// low reed hold a tone at 50 Pa, at 300 Pa and at the bellows' ceiling --
+/// found as a maker finds it, by trying (docs/ROADMAP.md, milestone 8). Only
+/// a reed softer than the softest unloaded one that speaks across the range
+/// is tried; every other carries none. `None` if no load up to fifty times
+/// the stiffness makes it speak.
+pub fn load_reed(
+    parameters: &rf_musette_dsp::Parameters,
+    bare: ReedDesign,
+    aim: f64,
+) -> Option<f64> {
+    use rf_musette_dsp::compass::{load_for, yield_stiffening};
+    let mut design = bare;
+    design.frequency = aim;
+    let start = yield_stiffening(parameters, &design);
+    if start <= 1.0 {
+        return Some(0.0);
+    }
+    let ceiling = parameters
+        .get(rf_musette_dsp::parameters::BELLOWS_CEILING)
+        .unwrap_or(1000.0);
+    let pressures = [50.0, TUNING_PRESSURE, ceiling];
+    let speaks = |stiffening: f64| {
+        let mut loaded = design;
+        loaded.tip_load = load_for(stiffening);
+        holds(loaded, aim, &pressures)
+    };
+    // Raise the stiffening by a quarter from the yield rule's until the
+    // reed speaks, then halve the bracket six times.
+    let (mut low, mut high) = (1.0, start);
+    while !speaks(high) {
+        low = high;
+        high *= 1.25;
+        if high > 50.0 {
+            return None;
+        }
+    }
+    for _ in 0..6 {
+        let middle = (low * high).sqrt();
+        if speaks(middle) {
+            high = middle;
+        } else {
+            low = middle;
+        }
+    }
+    Some(load_for(high))
+}
+
+/// Both of a reed's finishing tables, as `rf-musette-lab tune` writes them:
+/// each treble reed's load and cents, then each bass-side reed's.
+#[allow(clippy::type_complexity)]
+pub fn voice(
+    parameters: &rf_musette_dsp::Parameters,
+) -> (
+    [[Option<(f64, f64)>; rf_musette_dsp::compass::KEYS]; rf_musette_dsp::parameters::RANKS],
+    [[Option<(f64, f64)>; rf_musette_dsp::compass::BASS_KEYS];
+        rf_musette_dsp::parameters::BASS_RANKS],
+) {
+    use rf_musette_dsp::compass::{
+        BASS_KEYS, FIRST_KEY, KEYS, bare, bass_bare, bass_target, target,
+    };
+    let finish = |bare: ReedDesign, aim: f64| {
+        let load = load_reed(parameters, bare, aim)?;
+        let cents = tune_design(
+            ReedDesign {
+                tip_load: load,
+                ..bare
+            },
+            aim,
+        )?;
+        Some((load, cents))
+    };
+    let mut treble = [[None; KEYS]; rf_musette_dsp::parameters::RANKS];
+    for (rank, row) in treble.iter_mut().enumerate() {
+        for (index, cell) in row.iter_mut().enumerate() {
+            let key = FIRST_KEY + index as u8;
+            *cell = bare(parameters, key, rank)
+                .and_then(|design| finish(design, target(parameters, key, rank)));
+        }
+    }
+    let mut bass = [[None; BASS_KEYS]; rf_musette_dsp::parameters::BASS_RANKS];
+    for (rank, row) in bass.iter_mut().enumerate() {
+        for (pitch_class, cell) in row.iter_mut().enumerate() {
+            *cell = bass_bare(parameters, pitch_class, rank)
+                .and_then(|design| finish(design, bass_target(parameters, pitch_class, rank)?));
+        }
+    }
+    (treble, bass)
+}
+
+/// The cents `design`'s mode must sit above `aim` for it to sound on `aim`
+/// at its [`tuning_pressure`].
+pub fn tune_design(mut design: ReedDesign, aim: f64) -> Option<f64> {
     design.frequency = aim;
     let pressure = tuning_pressure(design)?;
     let mut correction = 0.0;

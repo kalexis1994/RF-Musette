@@ -117,6 +117,13 @@ pub struct ReedDesign {
     /// κ of the voiced swing limit (see [`step`]); 0 leaves the model as
     /// derived.
     pub swing_limit: f64,
+    /// A load riveted at the tongue's tip, as makers weight bass reeds
+    /// (Llanos-Vázquez, thesis 2015, Table 3.1), over the modal mass of the
+    /// same tongue unloaded. The tongue is then thicker for the same
+    /// frequency, and stiffer. Taken on the unloaded mode's shape
+    /// (Rayleigh): (f/f′)² = 1 + M/M_r, Llanos's Eq. 2.18, whose measured
+    /// slopes are a little smaller (p137).
+    pub tip_load: f64,
 }
 
 /// Speed of sound, m/s (20 °C).
@@ -157,14 +164,39 @@ impl ReedModel {
     }
 
     pub fn with_mode(design: ReedDesign, mode: &TongueMode) -> Self {
-        let root_thickness = mode.root_thickness(
+        let unloaded = mode.root_thickness(
             design.frequency,
             design.length,
             design.modulus,
             design.density,
         );
-        let modal_mass =
-            design.density * design.width * root_thickness * design.length * mode.mass_integral;
+        // The tongue's own modal mass per unit of root thickness, a: with a
+        // tip load M the frequency asks a·c·h³ = ω²(a·h + M), c·h² being the
+        // unloaded tongue's ω². Newton from the unloaded thickness, where
+        // the cubic is negative and from where it only rises.
+        let per_thickness = design.density * design.width * design.length * mode.mass_integral;
+        let tip_mass = design.tip_load * per_thickness * unloaded;
+        let root_thickness = if tip_mass > 0.0 {
+            let omega = 2.0 * core::f64::consts::PI * design.frequency;
+            let omega2 = omega * omega;
+            let c = omega2 / (unloaded * unloaded);
+            let mass = tip_mass / per_thickness;
+            let mut h = unloaded;
+            for _ in 0..50 {
+                let f = c * h * h * h - omega2 * (h + mass);
+                let slope = 3.0 * c * h * h - omega2;
+                let next = h - f / slope;
+                if (next - h).abs() <= 1e-12 * h {
+                    h = next;
+                    break;
+                }
+                h = next;
+            }
+            h
+        } else {
+            unloaded
+        };
+        let modal_mass = per_thickness * root_thickness + tip_mass;
         let effective_area = design.width * design.length * mode.shape_integral;
         let slot_area =
             (design.length + design.tip_clearance) * (design.width + 2.0 * design.side_clearance);

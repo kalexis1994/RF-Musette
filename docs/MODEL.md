@@ -408,6 +408,8 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Bend, pallet part-way open (300 Pa) | down to −16.0 cents before silence, never up | 15-35 cents (Elejalde-García 2021) | Met |
 | Choking: cell resonance at 1.3, 1.0, 0.95, 0.9 of the reed | onset 35, 119, 217, 356 Pa | "far above normal" at or just below (Tonon; Cottingham ICA 2019) | Met in shape (see VALIDATION) |
 | Closing the pallet | exact silence; −121 dB near the host's Nyquist | -- | Met |
+| Bass-side ranks and their octaves | 16′ C2-B2, 8′ C3-B3, 8-4′ F♯3-F4, 4′ C4-B4, 2′ C5-B5 | Assumed | Wikipedia (unreferenced), agreeing with Roland's footages |
+| Low reeds' tip loads | the least that lets a reed hold a tone at 50 Pa, 300 Pa and 1 kPa: 0.001-0.25 of the tongue's mass on the 16′, C2 the heaviest; none above B2 | Derived by search, on an assumed rule | Makers load low reeds (Llanos, Table 3.1, p222) |
 | Finger attack, −50 → −5 dB | with the voiced start, F4 85 ms (100 Pa), 99 ms (400 Pa), F3-A5 53-106 ms, D♯6-A6 22-13 ms; as derived 249/730 ms | 50-110 ms mf, 60-140 ms p, no trend (Llanos 2014) | Met to A5, by a voiced term; too fast above |
 | The start at the air's arrival, C4 | arm and key together 112 ms (was 303); key held, then the air 92 ms (was 212); through a reversal −5 dB ~240 ms after the turn begins (was ~410) | as the finger attack | Met |
 | Swing against pressure | κ 0.5: 3.7, 4.8, 5.2, 5.5, 5.65 mm at 0.3, 0.6, 0.9, 1.5, 3 kPa (κ 0: 4.9 → 11 mm) | within 3 % from 0.3 to 1.2 kPa, 12 % lower at 2.9 kPa (Cottingham, Lilly & Reed 1999, Fig. 2) | Met from 0.6 kPa (+19 % to 3 kPa), by the voiced term; still climbing at 0.3 kPa |
@@ -416,7 +418,13 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | One bellows, the arm pushing for 300 Pa | Clarinet 287.8 Pa (−4.1 %), Master 252.2 Pa (−15.9 %), +5.50 dB over Clarinet: the arm costs 0.82 dB | more reeds draw the pressure down (McMahan; no measurement) | Met (as predicted) |
 | Tuning across the compass, at 300 Pa | all 205 reeds within ±2 cents (worst −0.01); M within ±15 cents at 100 and 600 Pa | in tune where a tuner tunes | Met |
 | Thresholds across the compass | M: 13 Pa (F3) → 48 (C5) → 170 (A6); H at F♯7-A7 350-440 Pa | lower treble 40-70 Pa, top piccolos 100-250 Pa (a tuner) | Low ends met; the top 4′ too high |
-| A four-note Master chord, native | 4.6 µs per sample, 22 % of a core | -- | Measured; the Pi not yet |
+| A four-note Master chord, native | 4.6 µs per sample, 22 % of a core; 5.3 µs with the bass side's keys walked too | -- | Measured; the Pi not yet |
+| Both hands, native: a bass, a chord, a four-note Master | 7.5 µs per sample, 36 % of a core | under 12 µs | Met; the Pi not yet |
+| The bass side, tuned at 300 Pa | all 60 reeds within ±2 cents (worst +0.00) | in tune where a tuner tunes | Met |
+| The low reeds across the bellows' range | loaded, every reed below 300 Hz holds from 50 Pa to 1 kPa; none chokes at 1 kPa (unloaded, the 16′ below B2 choked from 400-800 Pa) | a reed speaks across a player's range | Met, by a load found as a maker finds it |
+| 16′ C2 length | 64.6 mm | 52 mm at 62.5-87.5 Hz, loaded (Llanos, Table 3.1) | Not met |
+| 16′ thresholds, C2-B2 | 54 → 9 Pa | -- (predicted under 20) | Not met for C2-E2 |
+| 16′ C2 finger attack at 400 Pa | 467 ms | 50-140 ms (Llanos 2014, A2) | Not met |
 | Cassotto, M at mf | centroid 1693 → 959 Hz (0.57); attack unchanged | 2013 → 1389 Hz (0.69, Llanos E4); attack unchanged (p174) | Met |
 | Air button fully open, note held | −29 % pressure, −2.9 dB | the bellows moves without sounding | Weaker than predicted (assumed arm and vent) |
 | L, H against M's octaves | −9.6, +2.4 cents | in tune, as a tuner sets them | L flat: set by its mode |

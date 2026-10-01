@@ -108,6 +108,53 @@ fn a_seven_bit_origin_takes_the_byte_path_exactly() {
     assert!(upscaled.engine().unwrap().is_held(60));
 }
 
+/// Milestone 8, prediction 6: the channel picks the side, as a V-Accordion
+/// sends it -- the bass buttons on 2, the chords on 3, the treble on 1.
+#[test]
+fn the_channel_picks_the_side() {
+    use rf_musette_dsp::PULL_REED;
+    use rf_musette_dsp::parameters::{BASS_4, BASS_16};
+    // A reed not yet built has not moved either.
+    let moves = |plugin: &MusetteProcessor, pitch_class: usize, rank: usize| {
+        plugin
+            .engine()
+            .unwrap()
+            .bass_reed(pitch_class, rank, PULL_REED)
+            .is_some_and(|(_, state)| state.zeta != 0.0 || state.velocity != 0.0)
+    };
+    let mut plugin = prepared();
+    run(&mut plugin, &[midi(0, [0x91, 48, 100])], &[]);
+    run(&mut plugin, &[], &[]);
+    assert!(moves(&plugin, 0, BASS_16), "the C bass button");
+    assert!(!plugin.engine().unwrap().is_held(48), "not the treble");
+
+    let mut plugin = prepared();
+    run(&mut plugin, &[midi(0, [0x92, 52, 100])], &[]);
+    run(&mut plugin, &[], &[]);
+    assert!(moves(&plugin, 4, BASS_4), "E on the chord ranks");
+    assert!(!moves(&plugin, 4, BASS_16), "and not on the bass ranks");
+
+    let mut plugin = prepared();
+    run(&mut plugin, &[midi(0, [0x90, 60, 100])], &[]);
+    assert!(plugin.engine().unwrap().is_held(60), "the treble");
+    assert!(!moves(&plugin, 0, BASS_16));
+
+    // The same at MIDI 2.0 width.
+    let mut plugin = prepared();
+    let note = MidiEvent2 {
+        frame: 0,
+        kind: MIDI2_KIND_NOTE_ON,
+        channel: 1,
+        index: 43,
+        flags: 0,
+        value: 0x8000,
+        extra: 0,
+    };
+    run(&mut plugin, &[], &[note]);
+    run(&mut plugin, &[], &[]);
+    assert!(moves(&plugin, 7, BASS_16), "the G bass button");
+}
+
 #[test]
 fn the_direction_switch_turns_the_bellows_as_a_saved_parameter() {
     let direction = parameters::BELLOWS_DIRECTION as u32;

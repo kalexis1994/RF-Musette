@@ -4,6 +4,6 @@
   "presets": [{
     "id": "research", "name": "Research", "bank": "research",
     "category": "Accordion", "order": 0, "tags": ["default"],
-    "description": "Milestone 7: the whole treble, F3-A6, five ranks per key -- L, M−, M, M+, H -- tuned to A440, opened by the 14 registers, a reed for each way the bellows moves (CC 80), one bellows the arm pushes, and a cassotto for L and M (off by default). Every reed is scaled from the F4 the IfM Zwota measured."
+    "description": "Milestone 8: both hands. The treble, F3-A6, five ranks per key -- L, M−, M, M+, H -- opened by the 14 registers; the Stradella bass, twelve pitch classes on 16′, 8′, 8-4′, 4′ and 2′, opened by the 7 bass registers, its bass buttons on MIDI channel 2 and its chords on 3. All tuned to A440, a reed for each way the bellows moves (CC 80), one bellows the arm pushes, a cassotto for L and M (off by default). Every reed is scaled from the F4 the IfM Zwota measured."
   }]
 }

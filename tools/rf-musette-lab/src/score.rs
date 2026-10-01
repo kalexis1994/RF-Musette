@@ -3,9 +3,11 @@
 //! ```text
 //! # comments and blank lines are ignored
 //! 0     2000  69  100     # onset_ms duration_ms note velocity
+//! 0     2000  48  100  2  # ... and a MIDI channel 1..16: 2 bass, 3 chords
 //! 500   bellows 90        # onset_ms bellows 0..127 (Expression, CC 11)
 //! 1500  direction push    # onset_ms direction pull|push (CC 80)
 //! 3000  register musette  # onset_ms register NAME (as the parameter names it)
+//! 3000  bass-register 2'  # onset_ms bass-register NAME
 //! 4000  air 1             # onset_ms air 0..1 (the air button, how far pressed)
 //! ```
 //!
@@ -16,12 +18,16 @@ use std::error::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
+    /// A note on a MIDI channel, counted from 0: the treble on 0, the bass
+    /// buttons on 1, the chords on 2 (Roland's V-Accordions).
     NoteOn {
         note: u8,
         velocity: u8,
+        channel: u8,
     },
     NoteOff {
         note: u8,
+        channel: u8,
     },
     Bellows {
         value: u8,
@@ -32,6 +38,10 @@ pub enum Action {
     },
     /// A register switch: the register parameter's value.
     Register {
+        value: u32,
+    },
+    /// A bass register switch: the bass register parameter's value.
+    BassRegister {
         value: u32,
     },
     /// The air button, pressed this far (0..=1).
@@ -93,8 +103,14 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
                     action: Action::Air { opening },
                 });
             }
-            [_, "register", name] => {
-                let spec = &rf_musette_dsp::PARAMETER_SPECS[rf_musette_dsp::parameters::REGISTER];
+            [_, which @ ("register" | "bass-register"), name] => {
+                let bass = *which == "bass-register";
+                let index = if bass {
+                    rf_musette_dsp::parameters::BASS_REGISTER
+                } else {
+                    rf_musette_dsp::parameters::REGISTER
+                };
+                let spec = &rf_musette_dsp::PARAMETER_SPECS[index];
                 let Some((value, _)) = spec
                     .choices
                     .iter()
@@ -102,12 +118,17 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
                 else {
                     return Err(fail("no such register").into());
                 };
+                let value = *value;
                 events.push(Event {
                     at_ms,
-                    action: Action::Register { value: *value },
+                    action: if bass {
+                        Action::BassRegister { value }
+                    } else {
+                        Action::Register { value }
+                    },
                 });
             }
-            [_, duration, note, velocity] => {
+            [_, duration, note, velocity, rest @ ..] if rest.len() <= 1 => {
                 let duration: f64 = duration.parse().map_err(|_| fail("bad duration"))?;
                 let note: u8 = note.parse().map_err(|_| fail("bad note"))?;
                 let velocity: u8 = velocity.parse().map_err(|_| fail("bad velocity"))?;
@@ -117,18 +138,32 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
                 if note > 127 || !(1..=127).contains(&velocity) {
                     return Err(fail("note is 0..127 and velocity 1..127").into());
                 }
+                let channel = match rest.first() {
+                    Some(channel) => {
+                        let channel: u8 = channel.parse().map_err(|_| fail("bad channel"))?;
+                        if !(1..=16).contains(&channel) {
+                            return Err(fail("channel is 1..16").into());
+                        }
+                        channel - 1
+                    }
+                    None => 0,
+                };
                 events.push(Event {
                     at_ms,
-                    action: Action::NoteOn { note, velocity },
+                    action: Action::NoteOn {
+                        note,
+                        velocity,
+                        channel,
+                    },
                 });
                 events.push(Event {
                     at_ms: at_ms + duration,
-                    action: Action::NoteOff { note },
+                    action: Action::NoteOff { note, channel },
                 });
             }
             _ => {
                 return Err(fail(
-                    "expected `onset duration note velocity`, `onset bellows value`, `onset direction pull|push`, `onset register NAME` or `onset air 0..1`",
+                    "expected `onset duration note velocity [channel]`, `onset bellows value`, `onset direction pull|push`, `onset register NAME`, `onset bass-register NAME` or `onset air 0..1`",
                 )
                 .into());
             }
@@ -148,6 +183,7 @@ fn rank(action: &Action) -> u8 {
         Action::Bellows { .. }
         | Action::Direction { .. }
         | Action::Register { .. }
+        | Action::BassRegister { .. }
         | Action::Air { .. } => 1,
         Action::NoteOn { .. } => 2,
     }
@@ -167,7 +203,8 @@ mod tests {
                     at_ms: 0.0,
                     action: Action::NoteOn {
                         note: 69,
-                        velocity: 100
+                        velocity: 100,
+                        channel: 0
                     }
                 },
                 Event {
@@ -176,7 +213,10 @@ mod tests {
                 },
                 Event {
                     at_ms: 500.0,
-                    action: Action::NoteOff { note: 69 }
+                    action: Action::NoteOff {
+                        note: 69,
+                        channel: 0
+                    }
                 },
             ]
         );
@@ -185,12 +225,19 @@ mod tests {
     #[test]
     fn a_repeated_note_is_let_go_before_it_is_struck_again() {
         let events = parse("0 500 69 100\n500 500 69 100\n").unwrap();
-        assert_eq!(events[1].action, Action::NoteOff { note: 69 });
+        assert_eq!(
+            events[1].action,
+            Action::NoteOff {
+                note: 69,
+                channel: 0
+            }
+        );
         assert_eq!(
             events[2].action,
             Action::NoteOn {
                 note: 69,
-                velocity: 100
+                velocity: 100,
+                channel: 0
             }
         );
     }
@@ -219,6 +266,31 @@ mod tests {
         assert_eq!(events[0].action, Action::Register { value: 8 });
         assert_eq!(events[1].action, Action::Register { value: 6 });
         assert!(parse("0 register kazoo").is_err());
+    }
+
+    #[test]
+    fn a_channel_picks_the_side() {
+        let events = parse("0 500 48 100 2\n0 500 52 100 3\n").unwrap();
+        assert_eq!(
+            events[0].action,
+            Action::NoteOn {
+                note: 48,
+                velocity: 100,
+                channel: 1
+            }
+        );
+        assert_eq!(
+            events[1].action,
+            Action::NoteOn {
+                note: 52,
+                velocity: 100,
+                channel: 2
+            }
+        );
+        assert!(parse("0 500 48 100 17").is_err());
+        assert!(parse("0 500 48 100 2 9").is_err());
+        let events = parse("0 bass-register 2'").unwrap();
+        assert_eq!(events[0].action, Action::BassRegister { value: 0 });
     }
 
     #[test]

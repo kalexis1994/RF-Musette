@@ -1249,6 +1249,221 @@ On "Frère Jacques" the first note now speaks like the others. Above
 
 Bass and chord buttons on octave-wrapped ranks.
 
+**What is known (2026-10-01).** No measured study of a Stradella bass was
+found; the sources are descriptive, and two of them agree:
+* Roland's FR-3x and FR-8x manuals give five bass-side ranks: 16′, 8′,
+  "8-4′", 4′ and 2′.
+  * In the FR-8x's Bass Edit, 16′ and 8′ sound for the bass buttons only.
+  * 8-4′, 4′ and 2′ sound for the chords, or for the chords and the basses.
+  * Seven bass registers: 2′; 4′; 8-4′; 16′/8′/8-4′/4′/2′; 8′/4′/2′;
+    16′/8′/8-4′; 16′/2′. One register serves the bass and chord rows
+    alike.
+* Wikipedia ("Stradella bass system", unreferenced) gives five sets, each
+  one octave wide:
+  * bass C2-B2;
+  * tenor C3-B3;
+  * contralto F♯3-F4;
+  * alto C4-B4;
+  * soprano C5-B5.
+
+  The contralto, wrapping from below 4′ into it, is Roland's "8-4′".
+* A bass button sounds one pitch class, a chord button three. The fifth is
+  left out of the seventh and diminished chords (Wikipedia; Roland FR-1x,
+  p53).
+* MIDI (FR-3x, pp57-59, 52): the treble is on channel 1, the bass buttons
+  on 2 and the chords on 3. The bass buttons send one octave, C3 = 48.
+* The reeds: Llanos-Vázquez measured left-hand bass reeds 52 mm long at
+  62.5-87.5 Hz, tip-loaded (thesis, Table 3.1). The left hand's low reeds
+  are longer and less loaded than the right hand's (p222).
+
+**The model, assumed where the sources are only descriptive:**
+* Twelve bass "keys", one per pitch class, each with the five ranks above.
+* On each rank a pitch class has one reed, wrapped into that rank's
+  octave. A pitch class's reed is shared: the bass button and every chord
+  that holds the pitch class open the same reed, as the Stradella
+  mechanism does. A reed opened by two buttons sounds once.
+* A bass button opens its pitch class on every open rank. A chord button
+  opens its three pitch classes on the open chord ranks (8-4′, 4′, 2′)
+  only.
+* Each reed is the treble's model: the measured F4 scaled by the slot
+  ratios carried on down, its profile derived for its frequency, tuned at
+  300 Pa by the generated table. No tip loads, which Llanos's "less loaded"
+  allows for the first build.
+* The bass registers are Roland's seven; the default is 4, all five ranks.
+* MIDI:
+  * channel 2: bass buttons, any octave of a pitch class being that
+    button;
+  * channel 3: each note sounds its pitch class on the chord ranks, so a
+    V-Accordion's chord and a keyboard player's left-hand chord both work;
+  * every other channel plays the treble as before.
+
+  Most players have a MIDI keyboard, not a V-Accordion. Many keyboards can
+  send a split zone on another channel, and that path is the one built
+  first. A keyboard split inside the instrument is milestone 8b, once the
+  bass can be heard.
+
+**Predictions** (written before building it, 2026-10-01):
+1. Every bass-side reed, 60 of them, is in tune within ±2 cents at 300 Pa
+   once tuned, and sounds at 300 Pa.
+2. The geometry carried down lands on the measured left-hand reeds: the
+   16′ C2's tongue is 47-57 mm long (Llanos: 52 mm at 62.5-87.5 Hz).
+3. A bass button sounds its pitch class on each open rank at that rank's
+   octave, and nothing else. In register 4, C sounds C2, C3, C4 (twice,
+   8-4′ and 4′) and C5.
+4. A chord button sounds its pitch classes on the chord ranks only:
+   * C major C-E-G;
+   * C7 C-E-B♭, without the fifth;
+   * C dim C-E♭-A, without the fifth.
+5. C bass and F major held together blow the 4′ C reed once: its state is
+   the same as with F major alone.
+6. Through the plugin: a note on channel 2 plays its bass button, on 3 its
+   chord pitch class, on 1 the treble, and the earlier contracts hold.
+7. The 16′ reeds' thresholds are under 20 Pa. Large, slow reeds speak
+   easily.
+8. A bass button's finger attack at 400 Pa is 50-140 ms on the 16′ C2
+   (Llanos measured A2, a bass note, in that range).
+9. The engine still fits its stack test, under 384 KiB, and a bass,
+   a chord and a four-note Master chord together (34 reeds) cost under
+   12 µs per sample natively.
+
+**First measurement (2026-10-01): the 16′ C2 does not speak.**
+`tests/bass_diagnosis.rs` measured the slots carried down:
+* The 16′ runs from 64.6 mm (C2) to 51.7 mm (B2). The 8′ C3 is 50.7 mm.
+* Thresholds are 4-8 Pa, and every reed but C2 sounds at 300 Pa.
+* C2 starts, then stops by 2 s. At 300 Pa its tongue sits 2.2 mm into the
+  slot, 2.5 times its set, and its swing dies there.
+
+In this model a tongue's static yield under a pressure goes as
+1/(L·f³): its thickness is set by its frequency (h ∝ f L²), so its
+stiffness falls with f³. From F3 down to C2 that is ×13. A tongue made long
+enough for 65 Hz is too soft for the bellows. Prediction 2 is therefore
+already in doubt: C2 is 64.6 mm, longer than the 47-57 asked.
+
+Real bass reeds carry a load riveted at the tip (Llanos, Table 3.1:
+52 mm at 62.5-87.5 Hz, loaded). For the same frequency, a loaded tongue is
+thicker and its stiffness grows as h³.
+
+**The load, derived from a rule:**
+* Each bass-side reed whose static yield ζ/set at a pressure exceeds that
+  of the treble's lowest reed (the 16′ of key F3, made for 87 Hz, which
+  sounds) is loaded just enough to yield no more than it does.
+* The rule is assumed: a maker loads the reeds that would otherwise give
+  way. The treble's lowest reed is the softest the model already plays.
+* The stiffness asked is r times the unloaded one, with
+  r = (L_ref² f_ref³ set_ref)/(L² f³ set). The tongue thickens by r^⅓, and
+  the load is M = M_r (r − r^⅓).
+
+**Predictions** (written before building it):
+10. Loaded so, every bass-side reed sounds at 300 Pa and tunes (1 above
+    then holds).
+11. The loads, as M over the whole tongue's mass, are 0-0.3. Llanos's
+    reed 3 carries 0.12, and the loads he added for his fits ran
+    0.05-0.8.
+
+**Built, then measured again: the rule asked too little.**
+* Loaded so, every bass-side reed sounds and tunes at 300 Pa (10 met;
+  loads 0.009-0.055, 11 met).
+* Through the engine, at 400 Pa, the 16′ C2 starts and dies, with the
+  start and without it.
+
+Which pressures each low reed holds a tone at, from rest, between 50 Pa
+and 1 kPa (`tests/bass_diagnosis.rs`):
+* The reference itself, the treble's 16′ of key F3, is silent from
+  600 Pa. The treble's lowest 16′ reeds have been choking at forte since
+  milestone 4, unseen: every test of them ran at 300 Pa.
+* The loaded 16′ C2-F♯2 stop above 400 Pa, G2-A♯2 above 600-800 Pa. Only
+  B2, unloaded, holds across the whole range, as every 8′ does.
+
+A player's range runs to the bellows' ceiling, 1 kPa. A maker who loads a
+reed so it speaks loads it for the whole range, not one pressure.
+
+**The rule, corrected (written before building it):**
+* The reference is the softest unloaded reed that holds a tone from
+  50 Pa to 1 kPa: the reed made for B2, 123.5 Hz, of the slots carried
+  down.
+* Every reed softer than it is loaded to yield no more than it does, on
+  either side. On the treble that loads the 16′ of the lowest keys, as
+  right-hand bass reeds are loaded, more than the left's (Llanos, p222).
+* The load is stored as M over the unloaded tongue's modal mass,
+  r − r^⅓, so the reed's model, which knows the tongue's profile, makes it
+  kilograms.
+
+**Predictions:**
+12. Every reed of both sides holds a tone at 50, 300 and 1000 Pa.
+13. The treble's tuning, retuned for its loaded 16′ reeds, again holds
+    ±2 cents (milestone 7's tests pass), and nothing else in the treble
+    moves.
+
+**Built and measured: 12 not met.** Yielding no more than B2 is not enough
+to speak like B2.
+* The loaded C2 and C♯2 hold to 600 Pa, D2-A2 to 800 Pa. The treble's
+  lowest 16′ reeds now hold to 800 Pa.
+* What chokes a reed is not its static yield alone. The lower its pitch,
+  the lower its Q and the slower its growth.
+* Through the engine the loaded C2 now sounds at 400 Pa. Its attack is
+  slow: −19 dB at 31 ms, rising 0.025 dB/ms. 7b's growth defect is worst
+  at the lowest pitch.
+
+**The load, as a maker finds it (written before building it):**
+* A maker loads a low reed and tries it until it speaks. So does the
+  laboratory: each reed's load is the least that lets it hold a tone at
+  50 Pa, at 300 Pa and at the bellows' ceiling, 1 kPa.
+* The search starts from the yield rule, raises the stiffening r by a
+  quarter until the reed holds, then halves the bracket six times.
+* `rf-musette-lab tune` writes the loads beside the cents, as generated
+  tables; the tuning is made on the loaded reeds.
+
+Prediction 12 stands as written for this build, and 13 with it.
+Prediction 8, the 16′ C2's attack at 400 Pa, is expected to fail by 7b's
+known defect; it is kept as written.
+
+**Status (2026-10-01): built (0.9.0).** Eight predictions met, five not met
+(`tests/milestone_8.rs`, `crates/rf-musette-plugin/tests/contracts.rs`).
+1. **Met.** Every bass-side reed sounds at 300 Pa, the worst at
+   +0.00 cents.
+2. **Not met.** The 16′ C2 is 64.6 mm, not 47-57. Llanos's reeds are
+   loaded and shorter; here the load stiffens a tongue the slots already
+   made long.
+3. **Met.** A bass button sounds its pitch class on every open rank and
+   nothing else. 8′/4′/2′ opens only those. Any octave of the note is the
+   same button.
+4. **Met.** A chord sounds its pitch classes on the 8-4′, 4′ and 2′ only
+   (C major, C7 and C dim as a V-Accordion sends them).
+5. **Met.** C bass with F major blows the 4′ C reed exactly as F major
+   alone does, sample for sample.
+6. **Met.** Channel 2 plays the bass buttons and 3 the chords, in MIDI 1.0
+   and 2.0; 1 the treble.
+7. **Not met for the loaded reeds.** 16′ thresholds run 54, 40, 31, 25, 20,
+   17, 14, 12, 11, 10, 9, 9 Pa from C2 to B2. The load that keeps C2-E2
+   speaking at 1 kPa also stiffens them.
+8. **Not met.** The 16′ C2 attacks in 467 ms. 7b's start is not enough
+   where the reed's own growth is slowest.
+9. **Met.** 357 KiB. Both hands, a bass, a chord and a four-note Master
+   chord, cost 7.5 µs per sample natively; the four-note chord alone is now
+   5.3 µs (was 4.6), the bass side's idle keys walked too.
+10. **Met** with the load search: every bass-side reed sounds and tunes.
+11. **Met.** The loads run 0.001-0.25 of the tongue's own mass, on the 16′
+    alone, C2 the heaviest.
+12. **Not met as written; the prediction was wrong to ask it.**
+    * No reed of either side chokes at 1 kPa any more. Every reed below
+      300 Hz speaks from 50 Pa to 1 kPa.
+    * Above ~600 Hz the reeds do not start at 50 Pa, as their thresholds
+      (milestone 7) say they should not.
+    * The top four 4′ still need more than 300 Pa (milestone 7's defect).
+13. **Met.** The treble, its 16′ of keys F3-B3 now loaded (0.007-0.99 of
+    their unloaded modal mass), tunes within ±2 cents again, and every
+    earlier test passes.
+
+Also changed: native tests run on 8 MiB threads, as the WebAssembly
+component does (`.cargo/config.toml`). One test keeps two 357 KiB engines.
+
+**Heard on "Frère Jacques" with a bass and chord accompaniment**
+(`scores/frere-jacques-bass.score`):
+* The chords sound at the melody's level.
+* Of a bass note, the 8′, 8-4′, 4′ and 2′ sound.
+* The 16′ stays 30 dB under its level for the whole 440 ms note: the slow
+  growth of the lowest reeds is now the bass side's first defect.
+
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.

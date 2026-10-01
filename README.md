@@ -3,11 +3,13 @@
 A physically modelled accordion for [RackForge](https://github.com/kalexis1994/rackforge):
 free reeds driven by a bellows, computed rather than recorded.
 
-> **Status: the whole treble (0.8.0).** 41 keys, F3-A6, each with five ranks
-> -- L, M−, M, M+, H -- tuned to A440 where they sound, a reed for each way
-> the bellows moves, one bellows the arm pushes, and a cassotto. Every reed is
-> scaled from the accordion F4 the IfM Zwota measured. The Stradella bass and
-> the product's interface are still to come. What it does and does not yet do
+> **Status: both hands (0.9.0).** The treble's 41 keys, F3-A6, each with
+> five ranks -- L, M−, M, M+, H -- and the Stradella bass's twelve pitch
+> classes on five ranks, 16′ to 2′, all tuned to A440 where they sound; a reed
+> for each way the bellows moves, one bellows the arm pushes, and a cassotto.
+> Every reed is scaled from the accordion F4 the IfM Zwota measured, the low
+> ones loaded at the tip so they speak across the bellows' range. The
+> product's interface is still to come. What it does and does not yet do
 > against measurements: [docs/MODEL.md](docs/MODEL.md).
 
 ## What it is meant to be
@@ -24,6 +26,12 @@ which is what digital accordions send. The push is the arm's: one bellows
 feeds every reed and gives way a little as more of them draw air (Bellows
 Response "Stiff" makes it the pressure itself, for a digital accordion that
 measures it). Which way the bellows moves, and so
+The bass side listens as a Roland V-Accordion sends it: the bass buttons on
+MIDI channel 2 (any octave of a note is its button), the chords on channel 3
+(each note sounds its pitch class on the chord ranks, so a keyboard's
+left-hand chord works too), the treble on every other channel. A keyboard
+whose split can send its lower zone on channels 2 or 3 plays both hands;
+Bass Register opens the bass ranks as Roland's seven bass registers do.
 which reed of each plate sounds, is the Bellows Direction parameter or CC 80
 as a switch (below 64 pull, 64 and above push), since no MIDI accordion
 sends it. The Register parameter opens the ranks as Roland's FR-3x draws its

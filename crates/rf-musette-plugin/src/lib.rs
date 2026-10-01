@@ -97,9 +97,12 @@ impl MusetteProcessor {
         let Some(engine) = &mut self.engine else {
             return;
         };
+        // The channel picks the side: the bass buttons on 2, the chords on
+        // 3, the treble on every other (Roland's V-Accordions).
+        let channel = status & 0x0f;
         match status & 0xf0 {
-            0x90 if value > 0 => engine.note_on(index, f32::from(value) / 127.0),
-            0x80 | 0x90 => engine.note_off(index),
+            0x90 if value > 0 => engine.channel_note_on(channel, index, f32::from(value) / 127.0),
+            0x80 | 0x90 => engine.channel_note_off(channel, index),
             0xb0 => match index {
                 CC_EXPRESSION => engine.bellows_mut().expression_msb(value),
                 CC_EXPRESSION_LSB => engine.bellows_mut().expression_lsb(value),
@@ -129,9 +132,9 @@ impl MusetteProcessor {
                     // Note Off, so the quietest wide note still opens its key.
                     (event.value & 0xffff) as f32 / 65535.0
                 };
-                engine.note_on(event.index, velocity);
+                engine.channel_note_on(event.channel, event.index, velocity);
             }
-            MIDI2_KIND_NOTE_OFF => engine.note_off(event.index),
+            MIDI2_KIND_NOTE_OFF => engine.channel_note_off(event.channel, event.index),
             MIDI2_KIND_CONTROL_CHANGE => {
                 let byte = (event.value >> 25) as u8;
                 match event.index {

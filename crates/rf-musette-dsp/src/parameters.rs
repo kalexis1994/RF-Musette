@@ -88,8 +88,9 @@ pub const CASSOTTO_Q: usize = 35;
 pub const PITCH_A4: usize = 36;
 pub const Q_SLOPE: usize = 37;
 pub const ATTACK_KICK: usize = 38;
+pub const BASS_REGISTER: usize = 39;
 
-pub const COUNT: usize = 39;
+pub const COUNT: usize = 40;
 
 /// The pressure below which the air is too weak to push a tongue into its
 /// frame at a key's opening, Pa: half the start is reached here. Assumed, of
@@ -110,6 +111,16 @@ pub const RANK_MIDDLE: usize = 2;
 pub const RANK_SHARP: usize = 3;
 pub const RANK_HIGH: usize = 4;
 pub const RANKS: usize = 5;
+
+/// The bass side's ranks, in the order the engine keeps them (Roland's
+/// footages, FR-8x Owner's Manual p. 75).
+pub const BASS_16: usize = 0;
+pub const BASS_8: usize = 1;
+/// The contralto, wrapping from below the 4′ into it: Roland's "8-4′".
+pub const BASS_8_4: usize = 2;
+pub const BASS_4: usize = 3;
+pub const BASS_2: usize = 4;
+pub const BASS_RANKS: usize = 5;
 
 /// [`BELLOWS_DIRECTION`]'s values.
 pub const PULL: f64 = 0.0;
@@ -532,6 +543,22 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Linear,
         "Voiced, standing on a measurement: when a key opens, each reed the bellows blows starts this many times its set into the frame, scaled by P/(P + 20 Pa). Cottingham (ICA 2019): the motion of a free reed \"begins with an initial displacement of the reed tongue into the reed frame\". At 1 the finger attack meets Llanos-Vázquez et al.'s measured 50-140 ms at p and mf, which nothing derived in the model reaches (docs/ROADMAP.md, 7b). At 0 the start is as derived.",
     ),
+    choice(
+        "bass_register",
+        "Bass Register",
+        PAGE_REED,
+        &[
+            (0, "2'"),
+            (1, "4'"),
+            (2, "8-4'"),
+            (3, "16'/8'/8-4'/4'/2'"),
+            (4, "8'/4'/2'"),
+            (5, "16'/8'/8-4'"),
+            (6, "16'/2'"),
+        ],
+        3,
+        "As a maker gives them: the 7 bass registers of Roland's FR-3x (Owner's Manual, pp. 30, 72), one for the bass and chord rows alike. The bass buttons sound every open rank, the chord buttons the open 8-4', 4' and 2' (FR-8x, p. 75). The default opens all five.",
+    ),
 ];
 
 /// The air button's opening when fully pressed, m²: assumed.
@@ -554,6 +581,18 @@ const REGISTERS: [[bool; RANKS]; 14] = [
     [false, false, true, false, false], // Clarinet
     [false, false, true, true, false],  // Celeste
     [false, false, false, false, true], // Piccolo
+];
+
+/// Which bass-side ranks each [`BASS_REGISTER`] opens, in the order of its
+/// choices: 16′, 8′, 8-4′, 4′, 2′ (Roland FR-3x Owner's Manual, p. 30).
+const BASS_REGISTERS: [[bool; BASS_RANKS]; 7] = [
+    [false, false, false, false, true], // 2'
+    [false, false, false, true, false], // 4'
+    [false, false, true, false, false], // 8-4'
+    [true, true, true, true, true],     // 16'/8'/8-4'/4'/2'
+    [false, true, false, true, true],   // 8'/4'/2'
+    [true, true, true, false, false],   // 16'/8'/8-4'
+    [true, false, false, false, true],  // 16'/2'
 ];
 
 /// One engine's parameter values, in the units of [`SPECS`].
@@ -619,6 +658,8 @@ impl Parameters {
             tone_hole_depth: v[TONE_HOLE_DEPTH] * mm,
             end_correction: v[END_CORRECTION],
             swing_limit: v[SWING_LIMIT],
+            // The measured F4 carries no load.
+            tip_load: 0.0,
         }
     }
 
@@ -698,6 +739,18 @@ impl Parameters {
     /// Which ranks the register lets the bellows reach.
     pub fn open_ranks(&self) -> [bool; RANKS] {
         REGISTERS[self.values[REGISTER] as usize]
+    }
+
+    /// Which bass-side ranks the bass register lets the bellows reach.
+    pub fn open_bass_ranks(&self) -> [bool; BASS_RANKS] {
+        BASS_REGISTERS[self.values[BASS_REGISTER] as usize]
+    }
+
+    /// Whether a bass-side rank sounds for the chord buttons: the 8-4′, 4′
+    /// and 2′ (Roland FR-8x Owner's Manual, p. 75). The 16′ and 8′ sound for
+    /// the bass buttons only.
+    pub fn is_chord_rank(rank: usize) -> bool {
+        matches!(rank, BASS_8_4 | BASS_4 | BASS_2)
     }
 
     /// The design of one rank's reed for this key ([`RANK_LOW`] ..

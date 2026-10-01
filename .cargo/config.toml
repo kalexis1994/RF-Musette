@@ -5,9 +5,15 @@
 # docs/PLUGIN_DEVELOPMENT.md.
 #
 # The larger shadow stack is RackForge's convention for a processor built
-# by value: the engine carries the whole treble (41 keys, 410 reeds, ~271
-# KiB) and is moved a few times as it is built, which overflowed the default
-# 1 MiB (milestone 7).
+# by value: the engine carries the whole instrument (the treble's 41 keys and
+# the bass side's 12 pitch classes, 530 reeds, ~357 KiB) and is moved a few
+# times as it is built, which overflowed the default 1 MiB (milestone 7).
 
 [target.wasm32-unknown-unknown]
 rustflags = ["-C", "target-feature=+simd128", "-C", "link-arg=-zstack-size=8388608"]
+
+# Native tests get the same 8 MiB: a test that keeps two engines, built by
+# value, overflowed the test harness's 2 MiB threads once the bass side was
+# added (milestone 8).
+[env]
+RUST_MIN_STACK = "8388608"

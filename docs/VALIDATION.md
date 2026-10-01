@@ -474,3 +474,47 @@ Through a reversal (diagnosis): ~240 ms after the turn begins (was ~410).
 
 **Render for listening.** `renders/frere-jacques-k2.wav`: the first note
 speaks like the others (−26 dB above 600 Hz at 100 ms; was silent).
+
+## 2026-10-01 -- Milestone 8: the Stradella bass (0.9.0)
+
+**Built.**
+* The bass side: twelve pitch classes, five ranks, 16′, 8′, 8-4′, 4′, 2′,
+  each one octave wide, a pitch class's reed shared by its bass button and
+  every chord that holds it.
+* A bass pallet opens every rank; a chord pallet opens the 8-4′, 4′ and 2′.
+* Roland's seven bass registers (`bass_register`, index 39; the state
+  grows to 40 values).
+* MIDI as a V-Accordion sends it: channel 2 the bass buttons, 3 the chords,
+  every other the treble.
+* Every reed carries the least tip load that lets it speak from 50 Pa to
+  1 kPa (`tip_load`, found by `rf-musette-lab tune` and written beside the
+  cents). The treble's 16′ of keys F3-B3 is loaded too: unloaded it choked
+  above 400-800 Pa, unseen since milestone 4.
+
+**Measured first** (`tests/bass_diagnosis.rs`):
+* the slots carried down, unloaded, make a C2 that is silent at 300 Pa,
+  its tongue held 2.2 mm into the slot;
+* yielding no more than B2 is not enough to speak like B2.
+
+**Tests** (`tests/milestone_8.rs`, the plugin's contracts):
+* the 60 reeds in tune at 300 Pa;
+* a bass button on every open rank, a chord on the chord ranks only;
+* a shared reed sounds once, sample for sample;
+* the channels, in MIDI 1.0 and 2.0;
+* no reed chokes at 1 kPa;
+* the load and tuning tables current.
+
+Not met, kept as ignored tests:
+* the 16′ C2 is 64.6 mm long (Llanos: 52 mm);
+* the loaded 16′ start at up to 54 Pa;
+* the 16′ C2 attacks in 467 ms;
+* the high reeds do not start at 50 Pa, which they should not.
+
+**Checks.** Every earlier test passes; the treble retuned within ±2 cents.
+Native tests run on 8 MiB threads; fmt and clippy clean.
+
+**Cost.** Both hands, 7.5 µs per sample natively; 357 KiB.
+
+**Render for listening.** `scores/frere-jacques-bass.score`: the tune in
+Clarinet over C bass, C major, G counter-bass, C major in every bar. The
+16′ stays 30 dB under its level through each 440 ms bass note.

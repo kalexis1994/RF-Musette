@@ -228,8 +228,12 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
         engine.render(&mut samples[cursor..at]);
         cursor = at;
         match event.action {
-            Action::NoteOn { note, velocity } => engine.note_on(note, f32::from(velocity) / 127.0),
-            Action::NoteOff { note } => engine.note_off(note),
+            Action::NoteOn {
+                note,
+                velocity,
+                channel,
+            } => engine.channel_note_on(channel, note, f32::from(velocity) / 127.0),
+            Action::NoteOff { note, channel } => engine.channel_note_off(channel, note),
             Action::Bellows { value } => engine.bellows_mut().expression_msb(value),
             Action::Direction { push } => {
                 let way = if push {
@@ -241,6 +245,9 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
             }
             Action::Register { value } => {
                 engine.set_parameter(parameters::REGISTER, f64::from(value));
+            }
+            Action::BassRegister { value } => {
+                engine.set_parameter(parameters::BASS_REGISTER, f64::from(value));
             }
             Action::Air { opening } => {
                 engine.set_parameter(parameters::AIR_VALVE, opening);

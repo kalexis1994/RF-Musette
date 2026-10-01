@@ -985,6 +985,54 @@
       "order": 13,
       "page": "model_reed",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "bass_register",
+      "index": 39,
+      "kind": {
+        "choices": [
+          {
+            "name": "2'",
+            "value": 0
+          },
+          {
+            "name": "4'",
+            "value": 1
+          },
+          {
+            "name": "8-4'",
+            "value": 2
+          },
+          {
+            "name": "16'/8'/8-4'/4'/2'",
+            "value": 3
+          },
+          {
+            "name": "8'/4'/2'",
+            "value": 4
+          },
+          {
+            "name": "16'/8'/8-4'",
+            "value": 5
+          },
+          {
+            "name": "16'/2'",
+            "value": 6
+          }
+        ],
+        "default": 3,
+        "type": "enum"
+      },
+      "name": "Bass Register",
+      "order": 14,
+      "page": "model_reed",
+      "suggested_control": "list"
     }
   ],
   "schema_version": 1

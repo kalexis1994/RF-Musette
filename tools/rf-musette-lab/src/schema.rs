@@ -1,8 +1,11 @@
 //! Writes `package/metadata/parameters.json` from the engine's own table,
 //! so the manifest can never describe a parameter the code does not have.
-//! The plugin's contract test reads the file back against the table.
+//! The plugin's contract test reads the file back against the table. Each
+//! page lists its parameters in the PLAY surface's order, so RackForge's
+//! own screens read the panel as the page does; the controller roles come
+//! from the engine's [`SEMANTIC_CONTROLS`].
 
-use rf_musette_dsp::parameters::{PAGES, SPECS, Taper};
+use rf_musette_dsp::parameters::{PAGES, SEMANTIC_CONTROLS, SPECS, Taper};
 use serde_json::{Value, json};
 use std::{error::Error, fs};
 
@@ -12,14 +15,10 @@ pub fn document() -> Value {
         .enumerate()
         .map(|(order, (id, name))| json!({ "id": id, "name": name, "order": order }))
         .collect();
-    let mut orders = std::collections::HashMap::new();
     let parameters: Vec<Value> = SPECS
         .iter()
         .enumerate()
         .map(|(index, spec)| {
-            let order = orders.entry(spec.page).or_insert(0);
-            let this = *order;
-            *order += 1;
             let kind = if spec.choices.is_empty() {
                 let mut kind = json!({
                     "type": "float",
@@ -52,19 +51,42 @@ pub fn document() -> Value {
                 "id": spec.id,
                 "name": spec.name,
                 "page": spec.page,
-                "order": this,
+                "order": panel_order(spec.id),
                 "kind": kind,
                 "flags": {
                     "automatable": true,
                     "modulatable": false,
                     "read_only": false,
-                    "advanced": spec.page != "output",
+                    "advanced": spec.page != PAGES[0].0,
                 },
                 "suggested_control": if spec.choices.is_empty() { "knob" } else { "list" },
             })
         })
         .collect();
-    json!({ "schema_version": 1, "pages": pages, "parameters": parameters })
+    let semantic_controls: Vec<Value> = SEMANTIC_CONTROLS
+        .iter()
+        .map(|(role, index)| json!({ "role": role, "parameter_index": index }))
+        .collect();
+    // Schema 2: the first that carries controller roles.
+    json!({
+        "schema_version": 2,
+        "pages": pages,
+        "parameters": parameters,
+        "semantic_controls": semantic_controls,
+    })
+}
+
+/// Where the parameter sits on its panel page, counting through its groups.
+fn panel_order(id: &str) -> usize {
+    rf_musette_ui::panel::PAGES
+        .iter()
+        .find_map(|page| {
+            page.groups
+                .iter()
+                .flat_map(|group| group.parameters.iter())
+                .position(|placed| *placed == id)
+        })
+        .unwrap_or_else(|| panic!("{id} is not on the panel"))
 }
 
 pub fn write() -> Result<(), Box<dyn Error>> {

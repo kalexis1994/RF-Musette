@@ -1,23 +1,23 @@
 {
   "pages": [
     {
-      "id": "output",
-      "name": "Output",
+      "id": "play",
+      "name": "Play",
       "order": 0
     },
     {
-      "id": "model_reed",
-      "name": "Model · Reed",
+      "id": "reed",
+      "name": "Reed",
       "order": 1
     },
     {
-      "id": "model_cell",
-      "name": "Model · Cell & Pallet",
+      "id": "cell",
+      "name": "Cell & Pallet",
       "order": 2
     },
     {
-      "id": "model_air",
-      "name": "Model · Air & Bellows",
+      "id": "air",
+      "name": "Air & Bellows",
       "order": 3
     }
   ],
@@ -41,8 +41,8 @@
         "unit": "x"
       },
       "name": "Output Gain",
-      "order": 0,
-      "page": "output",
+      "order": 9,
+      "page": "play",
       "suggested_control": "knob"
     },
     {
@@ -65,7 +65,7 @@
       },
       "name": "Reed Frequency",
       "order": 0,
-      "page": "model_reed",
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -87,7 +87,7 @@
       },
       "name": "Reed Q",
       "order": 1,
-      "page": "model_reed",
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -109,8 +109,8 @@
         "unit": "mm"
       },
       "name": "Tongue Length",
-      "order": 2,
-      "page": "model_reed",
+      "order": 4,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -132,8 +132,8 @@
         "unit": "mm"
       },
       "name": "Tongue Width",
-      "order": 3,
-      "page": "model_reed",
+      "order": 5,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -154,8 +154,8 @@
         "type": "float"
       },
       "name": "Tongue Mode Ratio",
-      "order": 4,
-      "page": "model_reed",
+      "order": 3,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -177,8 +177,8 @@
         "unit": "mm"
       },
       "name": "Tongue Set",
-      "order": 5,
-      "page": "model_reed",
+      "order": 6,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -200,8 +200,8 @@
         "unit": "mm"
       },
       "name": "Plate Thickness",
-      "order": 6,
-      "page": "model_reed",
+      "order": 7,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -223,8 +223,8 @@
         "unit": "mm"
       },
       "name": "Side Clearance",
-      "order": 7,
-      "page": "model_reed",
+      "order": 8,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -246,8 +246,8 @@
         "unit": "mm"
       },
       "name": "Tip Clearance",
-      "order": 8,
-      "page": "model_reed",
+      "order": 9,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -269,7 +269,7 @@
       },
       "name": "Jet Contraction",
       "order": 0,
-      "page": "model_air",
+      "page": "air",
       "suggested_control": "knob"
     },
     {
@@ -292,7 +292,7 @@
       },
       "name": "Near-Field Inertance",
       "order": 1,
-      "page": "model_air",
+      "page": "air",
       "suggested_control": "knob"
     },
     {
@@ -314,8 +314,8 @@
         "unit": "Pa"
       },
       "name": "Bellows Ceiling",
-      "order": 2,
-      "page": "model_air",
+      "order": 4,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
@@ -336,8 +336,8 @@
         "type": "float"
       },
       "name": "Bellows Curve",
-      "order": 3,
-      "page": "model_air",
+      "order": 5,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
@@ -368,8 +368,8 @@
         "type": "enum"
       },
       "name": "Oversampling",
-      "order": 4,
-      "page": "model_air",
+      "order": 11,
+      "page": "air",
       "suggested_control": "list"
     },
     {
@@ -392,7 +392,7 @@
       },
       "name": "Cell Volume",
       "order": 0,
-      "page": "model_cell",
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -415,7 +415,7 @@
       },
       "name": "Tone Hole Area",
       "order": 1,
-      "page": "model_cell",
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -438,7 +438,7 @@
       },
       "name": "Tone Hole Depth",
       "order": 2,
-      "page": "model_cell",
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -460,7 +460,7 @@
       },
       "name": "End Correction",
       "order": 3,
-      "page": "model_cell",
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -483,7 +483,7 @@
       },
       "name": "Pallet Lift",
       "order": 4,
-      "page": "model_cell",
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -506,7 +506,7 @@
       },
       "name": "Pallet Opening Time",
       "order": 5,
-      "page": "model_cell",
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -529,7 +529,7 @@
       },
       "name": "Pallet Closing Time",
       "order": 6,
-      "page": "model_cell",
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -550,13 +550,13 @@
         "type": "float"
       },
       "name": "Swing Limit",
-      "order": 5,
-      "page": "model_air",
+      "order": 2,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -578,8 +578,8 @@
         "type": "enum"
       },
       "name": "Bellows Direction",
-      "order": 6,
-      "page": "model_air",
+      "order": 4,
+      "page": "play",
       "suggested_control": "list"
     },
     {
@@ -601,13 +601,13 @@
         "unit": "ms"
       },
       "name": "Reversal Time",
-      "order": 7,
-      "page": "model_air",
+      "order": 10,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -624,13 +624,13 @@
         "unit": "Hz"
       },
       "name": "Tremolo",
-      "order": 9,
-      "page": "model_reed",
+      "order": 10,
+      "page": "play",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -700,8 +700,8 @@
         "type": "enum"
       },
       "name": "Register",
-      "order": 10,
-      "page": "model_reed",
+      "order": 0,
+      "page": "play",
       "suggested_control": "list"
     },
     {
@@ -728,8 +728,8 @@
         "type": "enum"
       },
       "name": "Bellows Response",
-      "order": 8,
-      "page": "model_air",
+      "order": 3,
+      "page": "air",
       "suggested_control": "list"
     },
     {
@@ -751,8 +751,8 @@
         "unit": "cm²"
       },
       "name": "Bellows Area",
-      "order": 9,
-      "page": "model_air",
+      "order": 6,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
@@ -774,8 +774,8 @@
         "unit": "L"
       },
       "name": "Bellows Volume",
-      "order": 10,
-      "page": "model_air",
+      "order": 7,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
@@ -797,8 +797,8 @@
         "unit": "m/s"
       },
       "name": "Arm Speed",
-      "order": 11,
-      "page": "model_air",
+      "order": 8,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
@@ -820,13 +820,13 @@
         "unit": "mm²"
       },
       "name": "Bellows Leak",
-      "order": 12,
-      "page": "model_air",
+      "order": 9,
+      "page": "air",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -842,13 +842,13 @@
         "type": "float"
       },
       "name": "Air Valve",
-      "order": 13,
-      "page": "model_air",
+      "order": 5,
+      "page": "play",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -870,8 +870,8 @@
         "type": "enum"
       },
       "name": "Cassotto",
-      "order": 7,
-      "page": "model_cell",
+      "order": 11,
+      "page": "play",
       "suggested_control": "list"
     },
     {
@@ -893,8 +893,8 @@
         "unit": "Hz"
       },
       "name": "Cassotto Resonance",
-      "order": 8,
-      "page": "model_cell",
+      "order": 7,
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
@@ -915,13 +915,13 @@
         "type": "float"
       },
       "name": "Cassotto Q",
-      "order": 9,
-      "page": "model_cell",
+      "order": 8,
+      "page": "cell",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -938,8 +938,8 @@
         "unit": "Hz"
       },
       "name": "Pitch A4",
-      "order": 11,
-      "page": "model_reed",
+      "order": 12,
+      "page": "play",
       "suggested_control": "knob"
     },
     {
@@ -960,8 +960,8 @@
         "type": "float"
       },
       "name": "Q Slope",
-      "order": 12,
-      "page": "model_reed",
+      "order": 2,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
@@ -982,13 +982,13 @@
         "type": "float"
       },
       "name": "Attack Kick",
-      "order": 13,
-      "page": "model_reed",
+      "order": 10,
+      "page": "reed",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -1030,8 +1030,8 @@
         "type": "enum"
       },
       "name": "Bass Register",
-      "order": 14,
-      "page": "model_reed",
+      "order": 1,
+      "page": "play",
       "suggested_control": "list"
     },
     {
@@ -1058,8 +1058,8 @@
         "type": "enum"
       },
       "name": "Left Hand",
-      "order": 1,
-      "page": "output",
+      "order": 2,
+      "page": "play",
       "suggested_control": "list"
     },
     {
@@ -1081,13 +1081,13 @@
         "unit": "note"
       },
       "name": "Split Point",
-      "order": 2,
-      "page": "output",
+      "order": 3,
+      "page": "play",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -1104,13 +1104,13 @@
         "unit": "ms"
       },
       "name": "Bellows Smoothing",
-      "order": 14,
-      "page": "model_air",
+      "order": 8,
+      "page": "play",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -1132,13 +1132,13 @@
         "type": "enum"
       },
       "name": "Auto Reverse",
-      "order": 15,
-      "page": "model_air",
+      "order": 6,
+      "page": "play",
       "suggested_control": "list"
     },
     {
       "flags": {
-        "advanced": true,
+        "advanced": false,
         "automatable": true,
         "modulatable": false,
         "read_only": false
@@ -1155,10 +1155,24 @@
         "unit": "L"
       },
       "name": "Bellows Travel",
-      "order": 16,
-      "page": "model_air",
+      "order": 7,
+      "page": "play",
       "suggested_control": "knob"
     }
   ],
-  "schema_version": 1
+  "schema_version": 2,
+  "semantic_controls": [
+    {
+      "parameter_index": 20,
+      "role": "synth.envelope.amp.attack"
+    },
+    {
+      "parameter_index": 21,
+      "role": "synth.envelope.amp.release"
+    },
+    {
+      "parameter_index": 25,
+      "role": "synth.lfo.rate"
+    }
+  ]
 }

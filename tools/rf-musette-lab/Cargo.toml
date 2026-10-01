@@ -9,6 +9,8 @@ publish.workspace = true
 [dependencies]
 rf-musette-dsp.workspace = true
 rf-musette-analysis.workspace = true
+# The panel map gives the schema its pages' order.
+rf-musette-ui.workspace = true
 serde_json.workspace = true
 
 [lints]

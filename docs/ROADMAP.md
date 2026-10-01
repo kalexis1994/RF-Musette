@@ -1891,3 +1891,96 @@ R_p = max(ρ|a₀|/(2α²A_p²), √(ρΔp/2)/(αA_p)), with Δp = P − p_cell.
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.
+
+## 9a. The PLAY surface
+
+RackForge hosts a plugin's own web page in a sandboxed frame and talks to
+it over `rackforge.plugin.web@1` (RackForge `docs/WEB_PLUGIN_API.md`). RF-5's
+surface is the model (`rackforge-plugin-rf-5`, `docs/UI_ARCHITECTURE.md`): a
+Rust WebAssembly client of that bridge, a static panel map that a test holds
+to the parameter table, RackForge's own program selector and save dialog in
+the page, and knobs that drag by pointer capture with a native range input
+under them for the keyboard. RF-Musette takes that architecture, not RF-5's
+look.
+
+One surface, PLAY. RackForge keeps CONFIG for a workflow apart from playing
+(files, tapes); an instrument with nothing to load has none.
+
+The front page is what an accordionist reaches for: the treble's 14 registers
+and the bass side's 7 as a row of switches, each with the symbol Roland prints
+for it (FR-3x Owner's Manual pp. 27, 30) -- a circle cut in three for the
+treble, L under, M−, M, M+ across, H over; cut in four for the bass, 2′, 4′,
+8′, 16′ downward and the 8-4′ at the rim; then the left hand, the bellows (its
+direction, the air button, Auto Reverse and its travel, the smoothing) and the
+voice (gain, tremolo, cassotto, A4). The model's three pages follow, as
+knobs.
+
+**Predictions, as tests:**
+
+1. Every public parameter appears on the panel exactly once.
+2. The register symbols are drawn from the engine's own register tables, not
+   a copy: each has as many dots as its register opens ranks, where Roland
+   draws them.
+3. A knob follows its parameter's taper: on a logarithmic one equal travel is
+   an equal ratio and the middle is the geometric mean; value to position and
+   back returns within one step; an arrow key always moves at least one
+   step.
+4. In the preview host (`tools/ui-preview.html`) the page says `ready`, reads
+   the parameters, sends a set for a turned knob and a chosen register,
+   follows a `parameter_changed` from outside, and logs no error.
+5. The air button opens the air valve while held and closes it on release,
+   also when the pointer is cancelled or the page loses it.
+
+**Controllers.** RackForge maps a hardware controller's knobs by meaning,
+not by number (RackForge `docs/MIDI_PARAMETER_LINKS.md`, Control Profile
+v1): a controller package names what a knob is for -- most of the 64
+bundled ones give knobs and faders `synth.envelope.amp.attack`, `decay`,
+`sustain`, `release`, `synth.filter.cutoff`, `resonance`, `envelope.amount`
+and `synth.lfo.rate` -- and a plugin names which of its parameters answers to
+each role. A role is published only where the accordion has the thing it
+names, as RF-5 does (its `docs/RACKFORGE_CONTROL_MAPPING.md`): the attack is
+the pallet opening (the finger attack, Llanos 2015 p164), the release its
+closing, the LFO rate the tremolo's beat. The rest stay unbound, and every
+control on the panel can still be linked by hand from RackForge's menu.
+
+RackForge's LITTLE screen shows a plugin's parameters by the schema's pages,
+in the schema's order; the schema takes the panel's pages and order, so the
+registers and the bellows come first there too.
+
+6. The parameter schema passes RackForge's own validator, at schema 2, with
+   the attack, release and LFO-rate roles on Pallet Opening Time, Pallet
+   Closing Time and Tremolo, and no role on a control that is not what the
+   role names.
+7. Every parameter's schema page is its panel page, and within a page the
+   schema's order is the panel's.
+
+**Status (2026-10-01): built (0.10.0); all seven met.**
+1. **Met.** `panel.rs` places the 45 parameters once each (a test).
+2. **Met.** The 14 treble and 7 bass symbols come from `register_ranks` and
+   `bass_register_ranks`, the engine's tables; dots counted and placed as
+   Roland draws them, no two alike (tests).
+3. **Met.** On every logarithmic knob the middle is the geometric mean
+   within a step and the first and last quarters of travel multiply alike
+   within 5 %; every knob returns its value within a step; an arrow moves at
+   least one step everywhere and stops at the ends (tests).
+4. **Met** in the preview host: `ready` answered, one `plugin.parameters`,
+   a set for a register (bass register 4), a dragged gain (1.67, 2.31) and a
+   toggle (Auto Reverse); a register and the gain set from outside shown
+   with nothing sent back; arrows and pages on a knob (4.10 → 4.25, 4.40,
+   2.90, 15.00 Hz); the model pages; at 375 px no sideways scroll; the stage
+   light; no error logged.
+5. **Met** in the preview host: the air button sends 1 while held and 0 on
+   release, on a cancelled pointer and on the page losing focus.
+6. **Met.** RackForge's own `ParameterSchema::validate` takes the schema at
+   version 2, with the three roles on Pallet Opening Time, Pallet Closing
+   Time and Tremolo and none on a level (contract test); `rackforge-core
+   inspect` and `smoke` pass the package with its `web_ui` surface.
+7. **Met.** Every parameter's schema page is its panel page, and the schema's
+   order the panel's (a test; the schema is written from the panel map).
+
+Not yet heard in RackForge Desktop by the player: the surface was driven in
+the preview host, not in the Desktop frame.
+
+Not in 9a: a live bellows gauge (it needs read-only meter parameters, which
+RackForge polls like the rest), the branding (schema 3 artwork) and the
+factory programs.

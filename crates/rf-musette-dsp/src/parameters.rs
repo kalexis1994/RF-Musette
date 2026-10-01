@@ -37,16 +37,19 @@ pub struct ParameterSpec {
     pub source: &'static str,
 }
 
-pub const PAGE_OUTPUT: &str = "output";
-pub const PAGE_REED: &str = "model_reed";
-pub const PAGE_CELL: &str = "model_cell";
-pub const PAGE_AIR: &str = "model_air";
+/// The pages are the PLAY surface's (`crates/rf-musette-ui`, `panel.rs`),
+/// so RackForge's own screens group the parameters as the panel does: what
+/// a player reaches for first, then the model.
+pub const PAGE_PLAY: &str = "play";
+pub const PAGE_REED: &str = "reed";
+pub const PAGE_CELL: &str = "cell";
+pub const PAGE_AIR: &str = "air";
 
 pub const PAGES: [(&str, &str); 4] = [
-    (PAGE_OUTPUT, "Output"),
-    (PAGE_REED, "Model · Reed"),
-    (PAGE_CELL, "Model · Cell & Pallet"),
-    (PAGE_AIR, "Model · Air & Bellows"),
+    (PAGE_PLAY, "Play"),
+    (PAGE_REED, "Reed"),
+    (PAGE_CELL, "Cell & Pallet"),
+    (PAGE_AIR, "Air & Bellows"),
 ];
 
 pub const GAIN: usize = 0;
@@ -190,7 +193,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     spec(
         "gain",
         "Output Gain",
-        PAGE_OUTPUT,
+        PAGE_PLAY,
         "x",
         (0.0, 4.0, 1.0, 0.01),
         Taper::Linear,
@@ -396,7 +399,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     choice(
         "bellows_direction",
         "Bellows Direction",
-        PAGE_AIR,
+        PAGE_PLAY,
         &[(0, "Pull"), (1, "Push")],
         0,
         "Decided 2026-09-30: which way the bellows moves, and so which reed of the plate sounds -- on pull the one inside the cell, on push the one on the bellows side. No MIDI accordion sends it (Roland FR-1x and Brendan Vavra's both send only CC 11), so it is this parameter, or CC 80 as a switch: below 64 pull, 64 and above push.",
@@ -413,7 +416,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     spec(
         "tremolo",
         "Tremolo",
-        PAGE_REED,
+        PAGE_PLAY,
         "Hz",
         (0.0, 15.0, 4.1, 0.01),
         Taper::Linear,
@@ -422,7 +425,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     choice(
         "register",
         "Register",
-        PAGE_REED,
+        PAGE_PLAY,
         &[
             (0, "Bassoon"),
             (1, "Bandoneon"),
@@ -489,7 +492,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     spec(
         "air_valve",
         "Air Valve",
-        PAGE_AIR,
+        PAGE_PLAY,
         "",
         (0.0, 1.0, 0.0, 0.001),
         Taper::Linear,
@@ -498,7 +501,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     choice(
         "cassotto",
         "Cassotto",
-        PAGE_CELL,
+        PAGE_PLAY,
         &[(0, "Off"), (1, "On")],
         0,
         "Whether the 16′ and the true 8′ sound into a cassotto, as on Llanos-Vázquez's Pigini Sirius (thesis 2015, p51) and in a double cassotto (bassoon and clarinet chambers). A choice of instrument; off until heard.",
@@ -524,7 +527,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     spec(
         "pitch_a4",
         "Pitch A4",
-        PAGE_REED,
+        PAGE_PLAY,
         "Hz",
         (415.0, 466.0, 440.0, 0.1),
         Taper::Linear,
@@ -551,7 +554,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     choice(
         "bass_register",
         "Bass Register",
-        PAGE_REED,
+        PAGE_PLAY,
         &[
             (0, "2'"),
             (1, "4'"),
@@ -567,7 +570,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     choice(
         "left_hand",
         "Left Hand",
-        PAGE_OUTPUT,
+        PAGE_PLAY,
         &[(0, "Off"), (1, "On")],
         1,
         "Decided 2026-10-01, for a MIDI keyboard on one channel: under the Split Point the octave just below it plays the chord ranks, each key its pitch class, and everything lower the bass buttons. Channels 2 and 3 play the bass and chords as a V-Accordion sends them either way. On by default: under F3 the treble has no reeds.",
@@ -575,7 +578,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     spec(
         "split_point",
         "Split Point",
-        PAGE_OUTPUT,
+        PAGE_PLAY,
         "note",
         (24.0, 96.0, 53.0, 1.0),
         Taper::Linear,
@@ -584,7 +587,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     spec(
         "bellows_smoothing",
         "Bellows Smoothing",
-        PAGE_AIR,
+        PAGE_PLAY,
         "ms",
         (0.0, 1000.0, 150.0, 1.0),
         Taper::Linear,
@@ -593,7 +596,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     choice(
         "auto_reverse",
         "Auto Reverse",
-        PAGE_AIR,
+        PAGE_PLAY,
         &[(0, "Off"), (1, "On")],
         0,
         "Decided 2026-10-01 (milestone 8g): whether the bellows runs out and turns on its own, as a player turns it -- at a gap between notes once 70 % of its travel is spent, or when all of it is. Off, the bellows never runs out. Setting Bellows Direction takes the bellows back.",
@@ -601,7 +604,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
     spec(
         "bellows_travel",
         "Bellows Travel",
-        PAGE_AIR,
+        PAGE_PLAY,
         "L",
         (2.0, 40.0, 12.0, 0.1),
         Taper::Logarithmic,
@@ -642,6 +645,33 @@ const BASS_REGISTERS: [[bool; BASS_RANKS]; 7] = [
     [true, true, true, false, false],   // 16'/8'/8-4'
     [true, false, false, false, true],  // 16'/2'
 ];
+
+/// Which ranks a [`REGISTER`] value opens, L to H: the panel draws its
+/// symbols from this, not from a copy.
+pub fn register_ranks(register: usize) -> Option<[bool; RANKS]> {
+    REGISTERS.get(register).copied()
+}
+
+/// The RackForge Control Profile v1 roles the instrument answers to: a
+/// controller's knob published with a role turns the parameter named here
+/// (RackForge `docs/MIDI_PARAMETER_LINKS.md`). A role is given only where the
+/// accordion has the thing it names; `docs/RACKFORGE_CONTROL_MAPPING.md`
+/// says why each other role is left unbound.
+pub const SEMANTIC_CONTROLS: [(&str, usize); 3] = [
+    // A key's attack is its pallet opening: the finger attack, about 0.05 s
+    // played normally (Llanos-Vázquez 2015, p164).
+    ("synth.envelope.amp.attack", PALLET_OPENING),
+    // Its release, the pallet closing.
+    ("synth.envelope.amp.release", PALLET_CLOSING),
+    // The tremolo is a beat, M− against M+, heard as a periodic swell: its
+    // rate is what an LFO rate names.
+    ("synth.lfo.rate", TREMOLO),
+];
+
+/// Which bass-side ranks a [`BASS_REGISTER`] value opens, 16′ to 2′.
+pub fn bass_register_ranks(register: usize) -> Option<[bool; BASS_RANKS]> {
+    BASS_REGISTERS.get(register).copied()
+}
 
 /// Where a note sounds: the treble's keys, the bass buttons, or the chord
 /// ranks.

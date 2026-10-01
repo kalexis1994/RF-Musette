@@ -647,3 +647,27 @@ Bernoulli's orifice at the drop across it; settled, as before.
 tune's onset peaks above 8 kHz −28 dB; F4's steady peak unchanged.
 
 **Checks.** Every earlier test passes; the tables current.
+
+## 2026-10-01 -- Milestone 9a: the PLAY surface and the controller roles (0.10.0)
+
+**Built.** `crates/rf-musette-ui`, a Rust WebAssembly client of RackForge's
+`rackforge.plugin.web@1` bridge after RF-5's: the registers as switches with
+Roland's symbols drawn from the engine's tables, the bass and left hand, the
+bellows with an air button held open, the voice, and the model on three
+pages of knobs that follow their tapers. The package declares it as its PLAY
+surface. The parameter schema moves to version 2, takes the panel's pages
+and order, and publishes three Control Profile v1 roles: attack on Pallet
+Opening Time, release on Pallet Closing Time, LFO rate on Tremolo.
+
+**Checked.** The UI crate's 15 tests (panel map, schema pages, tapers,
+arrows, readouts, symbols); the plugin's contract tests, among them
+RackForge's own schema validator on the generated file and the PLAY page's
+assets; `rackforge-core inspect` and `smoke` on the package; clippy with
+`-D warnings` natively and for wasm32. In the preview host
+(`tools/ui-preview.html`): `ready`, the snapshot, sets from a register, a
+dragged knob, a toggle and the keys, values set from outside shown and not
+echoed, the air valve shut on release, cancel and blur, a phone's width and
+the stage light, no error logged.
+
+**Not checked.** The surface in RackForge Desktop's own frame, and a
+controller's knobs on real hardware.

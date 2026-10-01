@@ -4,11 +4,12 @@ members = [
     "crates/rf-musette-dsp",
     "crates/rf-musette-analysis",
     "crates/rf-musette-plugin",
+    "crates/rf-musette-ui",
     "tools/rf-musette-lab",
 ]
 
 [workspace.package]
-version = "0.9.6"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.98"
 license = "GPL-3.0-only"
@@ -17,9 +18,12 @@ publish = false
 [workspace.dependencies]
 rf-musette-dsp = { path = "crates/rf-musette-dsp" }
 rf-musette-analysis = { path = "crates/rf-musette-analysis" }
+rf-musette-ui = { path = "crates/rf-musette-ui" }
 serde_json = "1.0"
 # Development checkout, deliberately explicit. See docs/DEVELOPMENT.md.
 rackforge-plugin-sdk = { path = "../rackforge/crates/rackforge-plugin-sdk" }
+# RackForge's own schema validator and controller roles, for the contract tests.
+rackforge-plugin-api = { path = "../rackforge/crates/rackforge-plugin-api" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RF-Musette UI Preview Host</title>
+    <style>
+      html, body, iframe { width: 100%; min-height: 100%; margin: 0; border: 0; background: #101010; }
+      iframe { position: fixed; inset: 0; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <iframe id="surface" title="RF-Musette surface"></iframe>
+    <script type="module">
+      // A stand-in for RackForge around the PLAY page, after RF-5's: it
+      // answers `ready` with a context, serves `plugin.parameters` from the
+      // package's own schema, echoes every set as `parameter_changed`, and
+      // keeps what the page asked (window.__requests) and what failed
+      // (window.__consoleErrors). Serve the repository root over HTTP and
+      // open tools/ui-preview.html; ?lighting=stage draws the stage light.
+      // window.__hostSet(index, value) changes a value from outside, as a
+      // MIDI link would.
+      const protocol = "rackforge.plugin.web@1";
+      const query = new URLSearchParams(location.search);
+      const lighting = query.get("lighting") === "stage" ? "stage" : "day";
+      const frame = document.querySelector("#surface");
+      const [schema, catalog] = await Promise.all([
+        fetch("../package/metadata/parameters.json").then((response) => response.json()),
+        fetch("../package/metadata/presets.json").then((response) => response.json()),
+      ]);
+      const sounds = catalog.presets.map((preset) => ({
+        id: preset.id,
+        name: preset.name,
+        bank: preset.bank,
+        editable: false,
+      }));
+      const banks = catalog.banks;
+      const values = new Map(schema.parameters.map((parameter) => [parameter.index, parameter.kind.default]));
+      let selectedSoundId = sounds[0]?.id ?? "";
+      window.__consoleErrors = [];
+      window.__requests = [];
+      window.addEventListener("error", (event) => window.__consoleErrors.push(String(event.message)));
+
+      // RackForge injects its plugin kit into every plugin frame; the
+      // preview does the same with a copy of the host's build, from
+      // ../rackforge/web/dist/rackforge-plugin-kit/ into
+      // tools/rackforge-plugin-kit/ (all its files; not committed).
+      frame.addEventListener("load", () => {
+        frame.contentWindow.addEventListener("error", (event) => window.__consoleErrors.push(String(event.message)));
+        for (const name of ["program-select", "program-save"]) {
+          const script = frame.contentDocument.createElement("script");
+          script.type = "module";
+          script.src = new URL(`rackforge-plugin-kit/${name}.js?v=${Date.now()}`, location.href).href;
+          frame.contentDocument.head.append(script);
+        }
+      });
+      frame.src = `../package/web/play.html?v=${Date.now()}`;
+
+      const send = (message) => frame.contentWindow.postMessage(message, location.origin);
+      const sendContext = () => send({
+        protocol,
+        kind: "context",
+        surface: "play",
+        instance: { selected_sound_id: selectedSoundId, sounds, banks },
+        host: { active_mode: "play", master_level: 1000, master_pan: 0, lighting },
+      });
+      const respond = (requestId, result) => send({ protocol, kind: "response", request_id: requestId, ok: true, result });
+      const reject = (requestId, error) => send({ protocol, kind: "response", request_id: requestId, ok: false, error });
+      window.__hostSet = (index, value) => {
+        values.set(index, value);
+        send({ protocol, kind: "parameter_changed", parameter_index: index, value });
+      };
+
+      window.addEventListener("message", (event) => {
+        if (event.source !== frame.contentWindow || event.origin !== location.origin) return;
+        const message = event.data;
+        if (!message || message.protocol !== protocol) return;
+        if (message.kind === "ready") {
+          window.__ready = true;
+          sendContext();
+          return;
+        }
+        if (message.kind !== "request") return;
+        const params = message.params ?? {};
+        window.__requests.push({ method: message.method, params });
+        if (message.method === "plugin.parameters") {
+          respond(message.request_id, {
+            schema,
+            values: schema.parameters.map((parameter) => ({ index: parameter.index, value: values.get(parameter.index) })),
+          });
+        } else if (message.method === "plugin.set_parameter") {
+          values.set(params.parameter_index, params.value);
+          respond(message.request_id, {});
+          send({ protocol, kind: "parameter_changed", parameter_index: params.parameter_index, value: params.value });
+        } else if (message.method === "plugin.select_sound") {
+          selectedSoundId = params.sound_id;
+          respond(message.request_id, {});
+          sendContext();
+        } else {
+          reject(message.request_id, `The preview host does not handle ${message.method}.`);
+        }
+      });
+    </script>
+  </body>
+</html>

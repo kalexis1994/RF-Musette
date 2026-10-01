@@ -7,6 +7,7 @@ mod schema;
 mod score;
 mod tune;
 mod wav;
+mod web;
 
 use rf_musette_dsp::{Engine, PARAMETER_SPECS, REED_KEY, SAMPLE_RATES, parameters};
 use score::Action;
@@ -23,7 +24,8 @@ Usage:
   rf-musette-lab inspect PATH.wav
   rf-musette-lab schema
   rf-musette-lab tune               tunes the treble, writes the tuning table
-  rf-musette-lab package
+  rf-musette-lab web-ui             builds the PLAY surface into package/web
+  rf-musette-lab package            builds the web UI and the component, validates, packs
   rf-musette-lab audition [--prepare-only]
 Render options:
   --score PATH      A score: `onset_ms duration_ms note velocity` per line,
@@ -76,6 +78,7 @@ fn dispatch(arguments: &[String]) -> Result<(), Box<dyn Error>> {
         "inspect" => inspect(&single_path(rest)?),
         "schema" => schema::write(),
         "tune" => tune::write(),
+        "web-ui" => web::build(),
         "package" => package::build(),
         "audition" => audition::run(rest),
         "help" | "--help" | "-h" => {

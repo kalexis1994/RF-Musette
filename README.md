@@ -3,14 +3,17 @@
 A physically modelled accordion for [RackForge](https://github.com/kalexis1994/rackforge):
 free reeds driven by a bellows, computed rather than recorded.
 
-> **Status: both hands (0.9.0).** The treble's 41 keys, F3-A6, each with
+> **Status: both hands, and a face to play them (0.10.0).** The treble's 41 keys, F3-A6, each with
 > five ranks -- L, M−, M, M+, H -- and the Stradella bass's twelve pitch
 > classes on five ranks, 16′ to 2′, all tuned to A440 where they sound; a reed
 > for each way the bellows moves, one bellows the arm pushes, and a cassotto.
 > Every reed is scaled from the accordion F4 the IfM Zwota measured, the low
-> ones loaded at the tip so they speak across the bellows' range. The
-> product's interface is still to come. What it does and does not yet do
-> against measurements: [docs/MODEL.md](docs/MODEL.md).
+> ones loaded at the tip so they speak across the bellows' range. RackForge
+> shows its own PLAY surface: the registers as an accordion's switches, the
+> bellows, the voice and the model's pages; a controller's attack, release
+> and LFO-rate knobs reach it by meaning. Branding and factory programs are
+> still to come. What it does and does not yet do against measurements:
+> [docs/MODEL.md](docs/MODEL.md).
 
 ## What it is meant to be
 
@@ -31,19 +34,36 @@ own, at a gap between notes once 70 % is spent, as a player turns it. The push i
 feeds every reed and gives way a little as more of them draw air (Bellows
 Response "Stiff" makes it the pressure itself, for a digital accordion that
 measures it). Which way the bellows moves, and so
+which reed of each plate sounds, is the Bellows Direction parameter or CC 80
+as a switch (below 64 pull, 64 and above push), since no MIDI accordion
+sends it. The Register parameter opens the ranks as Roland's FR-3x draws its
+14 treble registers, from Clarinet (M alone) to Master; Tremolo sets the
+musette's beat; Cassotto puts the 16′ and the true 8′ in a tone chamber.
+
 The bass side listens as a Roland V-Accordion sends it: the bass buttons on
 MIDI channel 2 (any octave of a note is its button), the chords on channel 3
 (each note sounds its pitch class on the chord ranks, so a keyboard's
 left-hand chord works too), the treble on every other channel. On one
 keyboard, Left Hand (on by default) splits it at the Split Point (F3): the
 octave just below plays the chords, each key its note on the chord ranks,
-and everything lower the bass buttons;
-Bass Register opens the bass ranks as Roland's seven bass registers do.
-which reed of each plate sounds, is the Bellows Direction parameter or CC 80
-as a switch (below 64 pull, 64 and above push), since no MIDI accordion
-sends it. The Register parameter opens the ranks as Roland's FR-3x draws its
-14 treble registers, from Clarinet (M alone) to Master; Tremolo sets the
-musette's beat; Cassotto puts the 16′ and the true 8′ in a tone chamber.
+and everything lower the bass buttons; Bass Register opens the bass ranks as
+Roland's seven bass registers do.
+
+## Playing it in RackForge
+
+RackForge shows RF-Musette's own PLAY surface (`crates/rf-musette-ui`, Rust
+built to WebAssembly). Its first page is what an accordionist reaches for:
+the 14 treble registers and the 7 bass registers as ivory switches, each
+with the symbol Roland prints for it; the left hand and its split; the
+bellows -- its direction, the air button (open while held), Auto Reverse and
+its travel, the smoothing; and the voice. The model's parameters follow on
+three pages of knobs, each with where its value comes from as its tooltip.
+
+A controller's knobs reach it by meaning: where a controller package gives a
+knob the attack, release or LFO-rate role, it turns the pallet's opening and
+closing and the tremolo's beat. Everything else can be linked by hand from
+RackForge's menu on any control. Why each role is or is not published:
+[docs/RACKFORGE_CONTROL_MAPPING.md](docs/RACKFORGE_CONTROL_MAPPING.md).
 
 ## How it is judged
 
@@ -64,6 +84,7 @@ behind it is [docs/RESEARCH.md](docs/RESEARCH.md).
 | [docs/VALIDATION.md](docs/VALIDATION.md) | Dated validation receipts |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Toolchain, commands, layout |
 | [docs/AUDITION.md](docs/AUDITION.md) | Build, install and launch in RackForge Desktop |
+| [docs/RACKFORGE_CONTROL_MAPPING.md](docs/RACKFORGE_CONTROL_MAPPING.md) | Which controller roles RF-Musette answers to, and why |
 
 ## Credits
 

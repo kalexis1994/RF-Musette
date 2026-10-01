@@ -1,0 +1,44 @@
+[package]
+name = "rf-musette-ui"
+description = "RF-Musette's PLAY surface: a Rust WebAssembly client of RackForge's plugin web bridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The panel reads the engine's own parameter and register tables.
+rf-musette-dsp.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json.workspace = true
+serde-wasm-bindgen = "0.6"
+# Pinned: tools/build-web-ui runs the wasm-bindgen CLI, whose version must
+# match this crate's exactly.
+wasm-bindgen = "=0.2.127"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "DomTokenList",
+    "Element",
+    "Event",
+    "EventTarget",
+    "HtmlElement",
+    "HtmlInputElement",
+    "KeyboardEvent",
+    "Location",
+    "MessageEvent",
+    "MouseEvent",
+    "Node",
+    "NodeList",
+    "PointerEvent",
+    "Window",
+] }
+
+[lints]
+workspace = true

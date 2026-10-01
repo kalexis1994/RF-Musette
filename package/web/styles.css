@@ -1,0 +1,588 @@
+/* RF-Musette's PLAY surface: the face of a piano accordion -- red pearloid
+   celluloid, a chrome grille, ivory register tabs, bakelite knobs. Every
+   material is drawn here; the package carries no images or fonts. */
+
+:root {
+  --body: #7a1420;
+  --body-deep: #4a0b13;
+  --pearl: rgba(255, 214, 200, 0.16);
+  --pearl-strong: rgba(255, 228, 214, 0.28);
+  --ink: #f4e9d4;
+  --ink-muted: rgba(244, 233, 212, 0.66);
+  --ivory: #f1e8d4;
+  --ivory-shade: #d6c8aa;
+  --ivory-ink: #2b2420;
+  --chrome-light: #f2f4f6;
+  --chrome-mid: #a9afb6;
+  --chrome-dark: #5d636a;
+  --lacquer: #141112;
+  --lamp: #ff5a3c;
+  --lamp-glow: rgba(255, 90, 60, 0.55);
+  --group: rgba(20, 4, 7, 0.32);
+  --group-line: rgba(244, 222, 190, 0.22);
+  --focus: #ffd27a;
+  color-scheme: dark;
+}
+
+:root[data-lighting="stage"] {
+  --body: #4c0d15;
+  --body-deep: #26060a;
+  --pearl: rgba(255, 200, 186, 0.09);
+  --pearl-strong: rgba(255, 214, 200, 0.15);
+  --ivory: #d9cfbb;
+  --ivory-shade: #b5a88e;
+  --chrome-light: #c9cdd2;
+  --chrome-mid: #858b92;
+  --chrome-dark: #44494f;
+  --group: rgba(0, 0, 0, 0.36);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--body-deep);
+  color: var(--ink);
+  font-family: "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.boot-message,
+.panel.loading p {
+  margin: 0;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--ink-muted);
+  letter-spacing: 0.08em;
+}
+
+/* The celluloid: a deep red with pearl swirled through it. */
+.musette {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 38% 22% at 18% 30%, var(--pearl-strong), transparent 70%),
+    radial-gradient(ellipse 30% 40% at 72% 62%, var(--pearl), transparent 70%),
+    radial-gradient(ellipse 50% 18% at 40% 85%, var(--pearl), transparent 70%),
+    radial-gradient(ellipse 22% 30% at 90% 15%, var(--pearl-strong), transparent 70%),
+    radial-gradient(ellipse 26% 16% at 55% 8%, var(--pearl), transparent 70%),
+    linear-gradient(160deg, var(--body) 0%, var(--body-deep) 100%);
+  padding: 0 0 24px;
+}
+
+/* The grille: chrome bars over black, the nameplate on it. */
+.grille {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 14px max(16px, 3vw);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      var(--chrome-light) 0 1px,
+      var(--chrome-mid) 1px 3px,
+      var(--chrome-dark) 3px 4px,
+      var(--lacquer) 4px 7px
+    );
+  border-bottom: 3px solid var(--chrome-mid);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.nameplate {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 18px 8px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--chrome-light), var(--chrome-mid) 55%, var(--chrome-dark));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 2px 6px rgba(0, 0, 0, 0.6);
+  color: var(--lacquer);
+}
+
+.nameplate .maker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.nameplate .script {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--body);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.program-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 320px;
+  max-width: 560px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(10, 8, 9, 0.88);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.program-selector-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+rf-program-select {
+  display: block;
+  --rf-ps-color: var(--ink);
+  --rf-ps-accent: var(--focus);
+  --rf-ps-height: 38px;
+  --rf-ps-surface: #1d1517;
+  --rf-ps-surface-color: var(--ink);
+  --rf-ps-border: rgba(244, 222, 190, 0.25);
+  --rf-ps-radius: 8px;
+}
+
+rf-program-save {
+  --rf-save-color: var(--ink);
+  --rf-save-accent: var(--focus);
+  --rf-save-surface: #24181a;
+  --rf-save-border: rgba(244, 222, 190, 0.3);
+  --rf-save-radius: 12px;
+  --rf-save-primary-background: var(--body);
+  --rf-save-primary-color: var(--ink);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+button:focus-visible,
+.knob:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.save-button,
+.retry-button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--ivory), var(--ivory-shade));
+  color: var(--ivory-ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #8b7e64, 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.save-button:active:not(.rackforge-context-press),
+.retry-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 #8b7e64, 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* The pages: chrome keys under the grille. */
+.pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px max(16px, 3vw) 4px;
+}
+
+.page-key {
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 17px;
+  background: linear-gradient(180deg, var(--chrome-light), var(--chrome-mid));
+  color: var(--lacquer);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+
+.page-key[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--lacquer), #2c2427);
+  color: var(--ink);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+/* The panel: groups set into the celluloid. */
+.panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  padding: 12px max(16px, 3vw) 0;
+}
+
+.panel.loading {
+  display: block;
+  text-align: center;
+}
+
+.panel.page-play .group-treble,
+.panel.page-play .group-bass {
+  grid-column: 1 / -1;
+}
+
+.group {
+  min-width: 0;
+  padding: 10px 14px 16px;
+  border: 1px solid var(--group-line);
+  border-radius: 14px;
+  background: var(--group);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.group h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px 18px;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 76px;
+  transition: opacity 160ms ease;
+}
+
+.control.idle {
+  opacity: 0.42;
+}
+
+.label {
+  max-width: 96px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+output {
+  min-height: 1.2em;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+/* Knobs: black bakelite on a cream scale. */
+.knob {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  touch-action: none;
+  cursor: ns-resize;
+}
+
+.knob-scale {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: var(--ink-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.knob-cap {
+  position: absolute;
+  inset: 11px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, #5a5254 0%, #231e20 42%, #0c0a0b 100%);
+  box-shadow:
+    0 0 0 2px var(--chrome-mid),
+    0 0 0 3px var(--chrome-dark),
+    0 4px 8px rgba(0, 0, 0, 0.65);
+  transform: rotate(var(--turn, 0deg));
+}
+
+.knob-pointer {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 3px;
+  height: 36%;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--ivory);
+}
+
+.knob-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ns-resize;
+}
+
+/* Off/On: an ivory rocker with its lamp. */
+.rocker {
+  position: relative;
+  width: 44px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--ivory) 0 50%, var(--ivory-shade) 50% 100%);
+  box-shadow: 0 2px 0 #8b7e64, 0 3px 6px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.rocker[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--ivory-shade) 0 50%, var(--ivory) 50% 100%);
+}
+
+.lamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: #4a1d17;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.rocker[aria-pressed="true"] .lamp {
+  background: var(--lamp);
+  box-shadow: 0 0 8px 2px var(--lamp-glow);
+}
+
+/* A few named values: an ivory row, the chosen one pressed in. */
+.choices {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 0 #8b7e64, 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.choice {
+  min-width: 52px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-left: 1px solid rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, var(--ivory), var(--ivory-shade));
+  color: var(--ivory-ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.choice:first-child {
+  border-left: 0;
+}
+
+.choice[aria-checked="true"] {
+  background: linear-gradient(180deg, #2a2225, var(--lacquer));
+  color: var(--ink);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+/* The registers: ivory tabs on a black lacquer rail, each with Roland's
+   symbol; the engaged one is pressed down and its lamp lit. */
+.register-control {
+  width: 100%;
+  align-items: stretch;
+}
+
+/* Seven to a row, as Roland numbers them in sevens; the treble's fourteen
+   in one row where the panel is wide enough. */
+.register-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 8px 10px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #252022, var(--lacquer));
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+@media (min-width: 1040px) {
+  .treble-register .register-row {
+    grid-template-columns: repeat(14, minmax(0, 1fr));
+  }
+}
+
+.register-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 2px 7px;
+  border: 0;
+  border-radius: 6px 6px 10px 10px;
+  background: linear-gradient(180deg, #fffaf0, var(--ivory) 40%, var(--ivory-shade));
+  color: var(--ivory-ink);
+  cursor: pointer;
+  box-shadow: 0 4px 0 #8b7e64, 0 5px 8px rgba(0, 0, 0, 0.6);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+
+.register-tab[aria-checked="true"] {
+  transform: translateY(3px);
+  background: linear-gradient(180deg, var(--ivory-shade), var(--ivory) 60%, var(--ivory-shade));
+  box-shadow: 0 1px 0 #8b7e64, 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.register-tab::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.register-tab[aria-checked="true"]::after {
+  background: var(--lamp);
+  box-shadow: 0 0 6px 1px var(--lamp-glow);
+}
+
+.register-symbol {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: var(--ivory-ink);
+  stroke-width: 1.6;
+}
+
+.register-symbol .reed {
+  fill: var(--ivory-ink);
+  stroke: none;
+}
+
+.tab-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.register-control output {
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+/* The air button: chrome, perforated, pressed in while held. */
+.air-button {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, var(--chrome-light), var(--chrome-mid) 55%, var(--chrome-dark));
+  box-shadow: 0 4px 0 #3c4046, 0 6px 10px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.air-cap {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.55) 1.6px, transparent 2px) 0 0 / 7px 7px;
+  opacity: 0.8;
+}
+
+.air-button[aria-pressed="true"] {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #3c4046, 0 2px 4px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+.bridge-error {
+  margin: 16px max(16px, 3vw) 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffb4a6;
+  font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .grille {
+    padding: 12px 16px;
+  }
+
+  .nameplate .script {
+    font-size: 24px;
+  }
+
+  .controls {
+    gap: 12px 10px;
+    justify-content: space-around;
+  }
+
+  .register-row {
+    gap: 4px;
+    padding: 6px 6px 8px;
+  }
+
+  .tab-name {
+    font-size: 9px;
+  }
+
+  .register-symbol {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .register-tab,
+  .control {
+    transition: none;
+  }
+}

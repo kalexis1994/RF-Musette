@@ -7,6 +7,13 @@ has no dependencies at all; the laboratory uses `serde_json` for its reports,
 and the plugin uses the public RackForge SDK from a sibling `rackforge`
 checkout through an explicit Cargo path.
 
+The PLAY surface (`crates/rf-musette-ui`) is Rust built for the browser with
+`wasm-bindgen`, pinned at 0.2.127; building it needs the matching CLI:
+
+```text
+cargo install --locked wasm-bindgen-cli --version 0.2.127
+```
+
 `.cargo/config.toml` is tracked, not ignored: it builds the component with
 `+simd128`, which the RackForge SDK requires of every plugin.
 
@@ -64,6 +71,36 @@ cargo fmt --all
 
 `tests/milestone_7.rs` fails if the table no longer matches a fresh tuning.
 
+## The PLAY surface
+
+```text
+cargo run --release -p rf-musette-lab -- web-ui
+```
+
+builds `crates/rf-musette-ui` for wasm32 and writes `package/web/app.js` and
+`app_bg.wasm` with the wasm-bindgen CLI. Both are committed, so a checkout
+shows the page without the tools; `package` and `audition` rebuild them
+first. `play.html` and `styles.css` are written by hand. The panel map is
+`crates/rf-musette-ui/src/panel.rs`: it places every parameter, a test holds
+it to the parameter table, and `rf-musette-lab schema` takes its pages and
+order. What the page can be tested on off the browser -- the map, the knobs'
+taper, the register symbols -- is plain Rust under `cargo test`.
+
+To see the page without RackForge, copy the host's plugin kit (the program
+selector and save dialog) next to the preview and serve the repository:
+
+```text
+xcopy /e /i ..\rackforge\web\dist\rackforge-plugin-kit tools\rackforge-plugin-kit
+python -m http.server 8141
+```
+
+then open `http://localhost:8141/tools/ui-preview.html` (`?lighting=stage`
+for the stage light). It plays RackForge's side of the bridge: the context,
+the parameters from the package's schema, each set echoed back. In the
+browser console, `__requests` lists what the page asked, `__consoleErrors`
+what failed, and `__hostSet(index, value)` changes a value from outside, as a
+MIDI link would.
+
 ## Package
 
 For the whole build, install and launch cycle use
@@ -92,14 +129,16 @@ archive only after both succeed. It never overwrites an existing archive.
 ```text
 crates/rf-musette-dsp/     the engine: no_std, no allocation, no dependencies
 crates/rf-musette-plugin/  SDK adapter, MIDI validation, bellows mapping, state
+crates/rf-musette-ui/      the PLAY surface: bridge client, panel map, knobs, symbols
 tools/rf-musette-lab/      rendering, scores, WAV, reports, packaging, audition
-package/                   RackForge manifest and metadata
+package/                   RackForge manifest, metadata and the built web/ surface
 docs/                      research, the model ledger, roadmap, receipts
 renders/                   ignored generated WAV and JSON
 dist/                      ignored distributable and validation output
 ```
 
-Unsafe Rust is forbidden across the workspace. The plugin's export macro
+Unsafe Rust is forbidden across the workspace, the PLAY surface included:
+its `wasm-bindgen` entry point compiles under the same rule. The plugin's export macro
 contains the SDK's own raw ABI implementation; every handwritten line here is
 safe Rust. Event lists are validated before anything is mutated, and an invalid
 block is silenced without a partial edit.

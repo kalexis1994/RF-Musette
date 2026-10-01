@@ -78,6 +78,8 @@ jobs:
       - name: Build RackForge's packager and inspector
         working-directory: rackforge
         run: cargo build --locked --release -p rackforge-store -p rackforge-core
+      - name: Install the wasm-bindgen CLI the PLAY surface pins
+        run: cargo install --locked wasm-bindgen-cli --version 0.2.127
       - name: Build, inspect, smoke-test and pack the plugin
         id: package
         shell: bash

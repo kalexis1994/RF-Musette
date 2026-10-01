@@ -329,6 +329,9 @@ pub struct ReedState {
     pub flow: f64,
     pub hole_flow: f64,
     pub cell_pressure: f64,
+    /// The pallet's curtain at the last step, m²: while it changes, the
+    /// pallet is moving (see [`step`]).
+    pub pallet: f64,
 }
 
 impl ReedState {
@@ -345,6 +348,7 @@ impl ReedState {
             flow,
             hole_flow: flow,
             cell_pressure: supply,
+            pallet: f64::INFINITY,
         }
     }
 
@@ -417,10 +421,25 @@ pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, pallet: f64, 
     //   h u - h a + 2C p                                 = 2C p₀
     // R_p is the pallet's curtain, an orifice linearised like the reed's own
     // jet: R_p = ρ |a₀| / (2 α² A_p²) ≥ 0. A closed pallet is a seal: the
-    // hole passes nothing, and its row becomes a = 0.
+    // hole passes nothing, and its row becomes a = 0. While the pallet moves,
+    // the linearisation lags a curtain that changes faster than the flow
+    // through it: as it first lifts, a₀ = 0 lets the hole pass for a step as
+    // if no pallet were there, and the flow bursts and collapses by turns,
+    // whose rate of change radiated as a click (docs/ROADMAP.md, 8h). So
+    // while it moves R_p is never less than Bernoulli's orifice at the drop
+    // across it, √(ρΔp/2)/(α A_p), which steady flow's linearisation equals.
+    // Settled, as before.
+    let moving = pallet != state.pallet;
+    state.pallet = pallet;
     let (b3, dh) = if pallet > 0.0 {
         let alpha_pallet = d.contraction * pallet;
-        let r_p = AIR_DENSITY * state.hole_flow.abs() / (2.0 * alpha_pallet * alpha_pallet);
+        let linearised = AIR_DENSITY * state.hole_flow.abs() / (2.0 * alpha_pallet * alpha_pallet);
+        let r_p = if moving {
+            let drop = (supply - state.cell_pressure).abs();
+            linearised.max(math::sqrt(0.5 * AIR_DENSITY * drop) / alpha_pallet)
+        } else {
+            linearised
+        };
         (
             2.0 * m_h * state.hole_flow + h * supply,
             2.0 * m_h + h * r_p,
@@ -516,6 +535,7 @@ mod tests {
             flow: 4.0e-5,
             hole_flow: -2.0e-5,
             cell_pressure: 150.0,
+            pallet: f64::INFINITY,
         };
         let mut state = start;
         let h = 1.0 / 96_000.0;

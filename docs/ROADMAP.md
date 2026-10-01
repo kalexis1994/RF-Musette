@@ -1832,6 +1832,62 @@ turn it itself.
 4. **Met.** After the turn the push reed swings 3.8 mm; every earlier test
    passes.
 
+## 8h. The click at a note's start
+
+The user (2026-10-01): "a fine click every time it plays, for many
+commits now ... it feels like a thin click that makes no sense."
+
+**Measured first** (`tests/click_diagnosis.rs`). F4 and the 16′ C2, the
+bellows stiff at 300 Pa:
+* 1 ms after the key, the output peaks at 0.046 (a tenth of the steady
+  tone's peak) whether the start (7b) is on or off.
+* Before the peak it rings, the sign alternating each sample and growing:
+  ~24 kHz.
+* The first 4 ms carry 20-30 dB more than the steady tone at 12-20 kHz.
+
+The cause is numerical. The pallet's curtain is linearised in each step
+about the hole's flow at the step's start, R_p = ρ|a₀|/(2α²A_p²).
+* As the pallet first lifts, a₀ = 0, so R_p = 0. For one step the hole
+  passes as if no pallet were there, however little it has lifted.
+* The air bursts into the cell; the next step's R_p is enormous and the
+  flow collapses.
+* The radiated sound is the flow's rate of change, so the burst is an
+  impulse, and the decimator's steep filter rings with it near 20 kHz.
+
+**The change:** the curtain never resists less than Bernoulli's orifice
+does at the pressure drop across it:
+R_p = max(ρ|a₀|/(2α²A_p²), √(ρΔp/2)/(αA_p)), with Δp = P − p_cell.
+* In steady flow the two are equal (a = αA√(2Δp/ρ)), so nothing settled
+  moves.
+* R_p stays ≥ 0, so the step stays passive.
+
+**Predictions** (written before building it, 2026-10-01):
+1. The onset no longer rings: no sign-alternating run before the first
+   peak, and the first 4 ms carry no more above 8 kHz than the steady tone
+   (within 6 dB).
+2. Nothing settled moves: every earlier test passes, the tuning tables
+   current.
+
+**Built, in three tries.**
+* As written, the floor at every step lowered the steady tone: F4's peak
+  0.445 → 0.363 (−1.8 dB). An oscillating hole's flow nears zero each
+  cycle, where the floor added resistance.
+* On the pallet's first lift alone, the steady tone held, but the onset
+  still rang (+18-22 dB at 12-20 kHz): the alternation runs through the
+  whole opening.
+* Built: the floor while the pallet moves, opening or closing. The reed
+  keeps the last step's curtain to know it (`ReedState::pallet`). Settled,
+  the step is as before.
+
+**Status (2026-10-01): built (0.9.6); both met.**
+1. **Met.** F4's onset no longer rings. Its brightest 5 ms are 13 dB under
+   the steady tone's (were 8 dB over), and at 8-20 kHz the first 4 ms sit
+   at −54 to −59 dB, under the steady tone. In "Frère Jacques" with the
+   bass, the onsets' peaks above 8 kHz fell 28 dB (median 0.31 → 0.013);
+   the level is unchanged (−11.05 → −10.99 dB).
+2. **Met.** F4's steady peak is 0.4449 as before. Every earlier test
+   passes, the tuning, load and duct tables current.
+
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.

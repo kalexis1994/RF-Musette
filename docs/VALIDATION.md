@@ -633,3 +633,17 @@ and 3.
 * the push reed sounds after the turn.
 
 **Checks.** Every earlier test passes; fmt and clippy clean.
+
+## 2026-10-01 -- Milestone 8h: the click at a note's start (0.9.6)
+
+**Measured** (`tests/click_diagnosis.rs`): the pallet's first lift
+linearised about zero flow passed for a step as if no pallet were there.
+The burst rang at ~24 kHz into every onset.
+
+**Built.** While the pallet moves, its curtain resists no less than
+Bernoulli's orifice at the drop across it; settled, as before.
+
+**Measured after:** F4's onset at 8-20 kHz under the steady tone; the
+tune's onset peaks above 8 kHz −28 dB; F4's steady peak unchanged.
+
+**Checks.** Every earlier test passes; the tables current.

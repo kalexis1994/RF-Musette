@@ -89,8 +89,10 @@ pub const PITCH_A4: usize = 36;
 pub const Q_SLOPE: usize = 37;
 pub const ATTACK_KICK: usize = 38;
 pub const BASS_REGISTER: usize = 39;
+pub const LEFT_HAND: usize = 40;
+pub const SPLIT_POINT: usize = 41;
 
-pub const COUNT: usize = 40;
+pub const COUNT: usize = 42;
 
 /// The pressure below which the air is too weak to push a tongue into its
 /// frame at a key's opening, Pa: half the start is reached here. Assumed, of
@@ -559,6 +561,23 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         3,
         "As a maker gives them: the 7 bass registers of Roland's FR-3x (Owner's Manual, pp. 30, 72), one for the bass and chord rows alike. The bass buttons sound every open rank, the chord buttons the open 8-4', 4' and 2' (FR-8x, p. 75). The default opens all five.",
     ),
+    choice(
+        "left_hand",
+        "Left Hand",
+        PAGE_OUTPUT,
+        &[(0, "Off"), (1, "On")],
+        1,
+        "Decided 2026-10-01, for a MIDI keyboard on one channel: under the Split Point the octave just below it plays the chord ranks, each key its pitch class, and everything lower the bass buttons. Channels 2 and 3 play the bass and chords as a V-Accordion sends them either way. On by default: under F3 the treble has no reeds.",
+    ),
+    spec(
+        "split_point",
+        "Split Point",
+        PAGE_OUTPUT,
+        "note",
+        (24.0, 96.0, 53.0, 1.0),
+        Taper::Linear,
+        "The lowest note the treble keeps when Left Hand is on, as a MIDI note: F3 (53), the treble's first key, by default. The octave below it plays the chords, the rest the bass buttons.",
+    ),
 ];
 
 /// The air button's opening when fully pressed, m²: assumed.
@@ -594,6 +613,15 @@ const BASS_REGISTERS: [[bool; BASS_RANKS]; 7] = [
     [true, true, true, false, false],   // 16'/8'/8-4'
     [true, false, false, false, true],  // 16'/2'
 ];
+
+/// Where a note sounds: the treble's keys, the bass buttons, or the chord
+/// ranks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Treble,
+    Bass,
+    Chord,
+}
 
 /// One engine's parameter values, in the units of [`SPECS`].
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -739,6 +767,21 @@ impl Parameters {
     /// Which ranks the register lets the bellows reach.
     pub fn open_ranks(&self) -> [bool; RANKS] {
         REGISTERS[self.values[REGISTER] as usize]
+    }
+
+    /// Where a note on a treble channel goes: the treble, or, with Left Hand
+    /// on, the chords in the octave under the split and the bass buttons
+    /// below it.
+    pub fn left_hand_side(&self, key: u8) -> Side {
+        let split = self.values[SPLIT_POINT];
+        let key = f64::from(key);
+        if self.values[LEFT_HAND] != 1.0 || key >= split {
+            Side::Treble
+        } else if key >= split - 12.0 {
+            Side::Chord
+        } else {
+            Side::Bass
+        }
     }
 
     /// Which bass-side ranks the bass register lets the bellows reach.

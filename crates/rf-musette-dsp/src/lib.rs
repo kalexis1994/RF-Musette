@@ -28,7 +28,7 @@ pub mod wind;
 pub use bellows::{Bellows, BellowsSource};
 pub use decimator::Decimator;
 use pallet::{Pallet, PalletDesign};
-pub use parameters::{COUNT as PARAMETER_COUNT, Parameters, SPECS as PARAMETER_SPECS};
+pub use parameters::{COUNT as PARAMETER_COUNT, Parameters, SPECS as PARAMETER_SPECS, Side};
 use reed::{ReedModel, ReedState};
 use tongue::TongueMode;
 
@@ -156,6 +156,9 @@ pub struct Engine {
     /// A reed parameter moved: rebuild before the next sample.
     dirty: bool,
     held: [bool; KEYS],
+    /// Where each note on a treble channel went when it was played, so it
+    /// is let go there whatever the split has become since.
+    played: [Side; KEYS],
     /// The notes held on the bass and chord channels.
     bass_held: [bool; KEYS],
     chord_held: [bool; KEYS],
@@ -194,6 +197,7 @@ impl Engine {
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
             held: [false; KEYS],
+            played: [Side::Treble; KEYS],
             bass_held: [false; KEYS],
             chord_held: [false; KEYS],
             bellows: Bellows::new(),
@@ -250,6 +254,8 @@ impl Engine {
                 | parameters::CASSOTTO_Q
                 | parameters::ATTACK_KICK
                 | parameters::BASS_REGISTER
+                | parameters::LEFT_HAND
+                | parameters::SPLIT_POINT
         ) {
             self.dirty = true;
         }
@@ -286,12 +292,23 @@ impl Engine {
 
     /// A note on MIDI `channel` (0-15): the bass buttons on
     /// [`BASS_CHANNEL`], the chords on [`CHORD_CHANNEL`], the treble on every
-    /// other.
+    /// other -- or, with Left Hand on, under the split, the chords and the
+    /// bass buttons (milestone 8b).
     pub fn channel_note_on(&mut self, channel: u8, key: u8, velocity: f32) {
         match channel {
             BASS_CHANNEL => self.bass_on(key, velocity),
             CHORD_CHANNEL => self.chord_on(key, velocity),
-            _ => self.note_on(key, velocity),
+            _ => {
+                let side = self.parameters.left_hand_side(key);
+                if let Some(played) = self.played.get_mut(usize::from(key)) {
+                    *played = side;
+                }
+                match side {
+                    Side::Treble => self.note_on(key, velocity),
+                    Side::Bass => self.bass_on(key, velocity),
+                    Side::Chord => self.chord_on(key, velocity),
+                }
+            }
         }
     }
 
@@ -299,7 +316,11 @@ impl Engine {
         match channel {
             BASS_CHANNEL => self.bass_off(key),
             CHORD_CHANNEL => self.chord_off(key),
-            _ => self.note_off(key),
+            _ => match self.played.get(usize::from(key)).copied() {
+                Some(Side::Bass) => self.bass_off(key),
+                Some(Side::Chord) => self.chord_off(key),
+                _ => self.note_off(key),
+            },
         }
     }
 

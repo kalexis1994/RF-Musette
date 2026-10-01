@@ -581,3 +581,21 @@ Now met, earlier marked not met:
 * Milestone 8's range test reads speaking honestly; the top-4′ defect
   shows from key 87.
 * Both hands 7.7 µs per sample; 357 KiB.
+
+## 2026-10-01 -- Milestone 8b: the left hand on one keyboard (0.9.3)
+
+**Built.**
+* On a treble channel, under the Split Point (F3), the octave plays the
+  chord ranks and everything lower the bass buttons.
+* `left_hand` and `split_point`, indices 40-41; the state grows to 42
+  values.
+* A note is let go where it was played.
+
+**Tests** (`tests/milestone_8b.rs`): the three zones; a held note through a
+moved split; Left Hand off silent; channels 2 and 3 unchanged.
+
+**Render.** `scores/frere-jacques-keyboard.score`, on channel 1 alone:
+identical, sample for sample, to `frere-jacques-bass.score` on channels 2
+and 3.
+
+**Checks.** Every earlier test passes; fmt and clippy clean.

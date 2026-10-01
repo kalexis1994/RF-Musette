@@ -1464,6 +1464,55 @@ component does (`.cargo/config.toml`). One test keeps two 357 KiB engines.
 * The 16′ stays 30 dB under its level for the whole 440 ms note: the slow
   growth of the lowest reeds is now the bass side's first defect.
 
+## 8b. The left hand on one keyboard
+
+The user (2026-10-01): many players have a MIDI keyboard, not a
+V-Accordion. Decided: two fixed zones under a split, no guessing and no
+latency.
+
+**The design:**
+* On every channel but the bass's and the chords', a note at or above the
+  split point plays the treble as before.
+* The octave just under it plays the chord ranks, each key its pitch class:
+  a triad held there sounds as the chord it is.
+* Everything below that plays the bass buttons, any octave of a pitch
+  class being its button.
+* Two parameters:
+  * "Left Hand", on by default -- under F3 the treble has no reeds, so
+    turning it on takes nothing from anyone;
+  * "Split Point", F3 (53) by default.
+* A note is let go where it was played, so moving the split while a key
+  is held leaves nothing stuck.
+
+On a 61-key keyboard (C2-C7) the chord octave is F2-E3 and the bass
+buttons C2-E2. A player who wants all twelve bass buttons moves the split
+up or the keyboard's octave down.
+
+**Predictions** (written before building it, 2026-10-01):
+1. Channel 1, Left Hand on:
+   * F3 and above play the treble;
+   * E3 down to F2 sound their pitch classes on the chord ranks only;
+   * E2 and below sound their bass buttons.
+2. A note held while the split moves is let go where it was played: no
+   reed stays open.
+3. Left Hand off: channel 1 under F3 is silent, as before.
+4. Channels 2 and 3 are unchanged, and every earlier test passes.
+
+**Status (2026-10-01): built (0.9.3); all four met**
+(`tests/milestone_8b.rs`).
+1. **Met.** On channel 1:
+   * F3 plays the treble;
+   * E3 and F2 sound E and F on the chord ranks only;
+   * E2 sounds the E bass button on every rank.
+2. **Met.** E2 held, the split moved to C2, let go: the bass button shuts.
+3. **Met.** Left Hand off, E2 and D3 on channel 1 are exactly silent.
+4. **Met.** Channel 2 plays its bass button with the split at C7; every
+   earlier test passes.
+
+"Frère Jacques" with its accompaniment on channel 1 alone
+(`scores/frere-jacques-keyboard.score`) renders sample for sample as the
+score that sends it on channels 2 and 3.
+
 ## 8c. The low reeds' attack
 
 The user, after milestone 8: the attack of the low notes. Measured first

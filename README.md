@@ -29,8 +29,10 @@ measures it). Which way the bellows moves, and so
 The bass side listens as a Roland V-Accordion sends it: the bass buttons on
 MIDI channel 2 (any octave of a note is its button), the chords on channel 3
 (each note sounds its pitch class on the chord ranks, so a keyboard's
-left-hand chord works too), the treble on every other channel. A keyboard
-whose split can send its lower zone on channels 2 or 3 plays both hands;
+left-hand chord works too), the treble on every other channel. On one
+keyboard, Left Hand (on by default) splits it at the Split Point (F3): the
+octave just below plays the chords, each key its note on the chord ranks,
+and everything lower the bass buttons;
 Bass Register opens the bass ranks as Roland's seven bass registers do.
 which reed of each plate sounds, is the Bellows Direction parameter or CC 80
 as a switch (below 64 pull, 64 and above push), since no MIDI accordion

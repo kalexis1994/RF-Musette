@@ -195,3 +195,102 @@ fn where_the_air_puts_its_energy() {
         }
     }
 }
+
+/// The fundamental's level against the mean flow, the way Nussbaumer &
+/// Agarwal measured real reeds (ICA 2016, Fig. 6: reed 2's fundamental rose
+/// 10.5 dB as the flow went from 20 to 52 l/min, ~7.6 dB per doubling; a
+/// swing that held constant would give 6). The shipping step, from rest.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn level_against_flow() {
+    use rf_musette_analysis::Trace;
+    use rf_musette_dsp::reed::{self, ReedState};
+    let design = Parameters::default().reed_design();
+    let model = ReedModel::new(design);
+    let rate = 192_000.0;
+    let h = 1.0 / rate;
+    let mut previous: Option<(f64, f64)> = None;
+    println!("supply | mean flow | swing, mean | fundamental | 2nd, 3rd | dB per doubling of flow");
+    for supply in [
+        40.0, 60.0, 100.0, 150.0, 200.0, 300.0, 450.0, 600.0, 900.0, 1500.0, 3000.0,
+    ] {
+        let mut state = ReedState::default();
+        let (settle, measure) = ((1.5 * rate) as usize, (0.5 * rate) as usize);
+        let mut trace = Trace {
+            rate,
+            zeta: Vec::new(),
+            flow_rate: Vec::new(),
+        };
+        let mut flow = 0.0;
+        for n in 0..settle + measure {
+            let rate_of_flow = reed::step(&model, &mut state, supply, f64::INFINITY, h);
+            if n >= settle {
+                trace.zeta.push(state.zeta);
+                trace.flow_rate.push(rate_of_flow);
+                flow += state.hole_flow;
+            }
+        }
+        let flow = flow / measure as f64;
+        let Some(tone) = trace.tone(0.0, 0.5) else {
+            println!("{supply:>6} Pa: silent");
+            continue;
+        };
+        let omega = 2.0 * PI * tone.frequency / rate;
+        let (mut re, mut im, mut norm) = (0.0, 0.0, 0.0);
+        for (i, x) in trace.flow_rate.iter().enumerate() {
+            let w = 0.5 - 0.5 * (2.0 * PI * i as f64 / measure as f64).cos();
+            re += w * x * (omega * i as f64).cos();
+            im -= w * x * (omega * i as f64).sin();
+            norm += w;
+        }
+        let fundamental = 20.0 * (2.0 * (re * re + im * im).sqrt() / norm).log10();
+        let harmonics = Trace::harmonics(&trace.flow_rate, rate, tone.frequency, 3);
+        let slope = previous.map_or(String::new(), |(f0, l0)| {
+            format!("{:+.1}", (fundamental - l0) / (flow / f0).log2())
+        });
+        println!(
+            "{supply:>6} Pa | {:>5.1} l/min | {:>5.2} mm, {:+.2} mm | {fundamental:>6.1} dB | {:>+6.1}, {:>+6.1} dB | {slope}",
+            flow * 6.0e4,
+            tone.amplitude * 1e3,
+            tone.mean * 1e3,
+            harmonics[1],
+            harmonics[2]
+        );
+        previous = Some((flow, fundamental));
+    }
+}
+
+/// Would a mean that moves toward the plate pin the swing? The balance of
+/// `where_the_air_puts_its_energy` with the mean set by hand: where it
+/// crosses 1, per supply and mean, without drag.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn a_mean_moved_toward_the_plate() {
+    let design = Parameters::default().reed_design();
+    let frequency = design.frequency * 2f64.powf(-6.5 / 1200.0);
+    let amplitudes: Vec<f64> = (1..=48).map(|i| 0.25e-3 * i as f64).collect();
+    println!("swing where the balance crosses 1, mm (mean in mm toward the plate from rest):");
+    for supply in [100.0, 300.0, 900.0, 3000.0] {
+        let row: Vec<String> = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7]
+            .iter()
+            .map(|mean_mm| {
+                let mut previous: Option<(f64, f64)> = None;
+                for &a in &amplitudes {
+                    let w = work(design, supply, mean_mm * 1e-3, a, frequency);
+                    let ratio = w.total() / w.dissipated;
+                    if let Some((a0, r0)) = previous {
+                        if r0 >= 1.0 && ratio < 1.0 {
+                            let at = a0 + (a - a0) * (r0 - 1.0) / (r0 - ratio);
+                            return format!("{mean_mm}: {:>5.2}", at * 1e3);
+                        }
+                    } else if ratio < 1.0 {
+                        return format!("{mean_mm}: silent");
+                    }
+                    previous = Some((a, ratio));
+                }
+                format!("{mean_mm}: >12")
+            })
+            .collect();
+        println!("{supply:>6} Pa | {}", row.join(" | "));
+    }
+}

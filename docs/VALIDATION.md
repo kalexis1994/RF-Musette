@@ -195,3 +195,18 @@ Without drag it reproduces the free reed's swings (4.9, 8.2, 11 mm), so the
 diagnosis computes the model. Almost all the energy enters above the plate;
 only the tip emerging beyond the plate returns it. Drag: 85 µJ per cycle at
 5 mm against Q's 108. Predictions 1 and 2 of 2c met; drag not built.
+
+**Level against flow** (`level_against_flow`, the shipping step at
+192 kHz, 1.5 s from rest then 0.5 s measured):
+
+| Supply | Mean flow | Swing | Fundamental of dU/dt | 2nd, 3rd | dB per doubling of flow |
+| --- | --- | --- | --- | --- | --- |
+| 100 Pa | 7.1 l/min | 1.58 mm | −4.8 dB | −12.6, −6.8 | +9.1 |
+| 200 Pa | 14.2 l/min | 3.51 mm | +2.0 dB | −10.9, −5.4 | +6.6 |
+| 300 Pa | 23.4 l/min | 4.93 mm | +5.1 dB | −7.5, −2.2 | +4.3 |
+| 600 Pa | 53.5 l/min | 7.01 mm | +8.5 dB | +0.6, +2.9 | +2.8 |
+| 900 Pa | 78.3 l/min | 8.17 mm | +9.9 dB | +3.9, +4.8 | +2.6 |
+| 3 kPa | 209 l/min | 11.1 mm | +11.9 dB | +11.4, +10.2 | +1.0 |
+
+Measured (Nussbaumer & Agarwal, ICA 2016, Fig. 6, reed 2): ~+7.6 dB per
+doubling from 20 to 52 l/min, the fundamental always the strongest.

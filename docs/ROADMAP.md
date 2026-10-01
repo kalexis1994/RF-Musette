@@ -291,6 +291,49 @@ thin plate the tongue "passes straight to the other side" (p270). St.
 Hilaire & Vaidya (1975) put the limit in the potential flow's higher
 harmonics, but only their abstract has been read.
 
+**A measured target, and a turn (2026-09-30).** Nussbaumer & Agarwal (ICA
+2016, read in full) filmed and measured real reeds.
+* Their reed 1 (236 Hz, 21 l/min) swings ±0.72 mm and enters the slot
+  0.4 mm below its mean: it never comes through the plate. So the far side
+  of the plate cannot be what limits that reed, and the path above is
+  contradicted.
+* Its mean moves toward the plate as the flow rises, with a growing share
+  of each cycle inside the slot.
+* Their Fig. 6 gives what can be compared without knowing the reed:
+  * the fundamental's level against the mean flow: reed 2 +10.5 dB from 20
+    to 52 l/min, ~7.6 dB per doubling;
+  * the second harmonic stays below the fundamental and rises faster.
+
+The model, measured the same way (`level_against_flow`):
+* +9 to +7 dB per doubling up to 150 Pa, then +4.3 at 300 Pa, +2.6 at
+  900 Pa, +1.0 at 3 kPa;
+* the 2nd and 3rd harmonics louder than the fundamental from 600 Pa.
+
+Its mean flow grows with its swing, because the gap above the plate opens
+with it, and the level runs out. The same defect, from the sound's side.
+
+**Nor does the mean moving toward the plate pin it**
+(`a_mean_moved_toward_the_plate`, the balance with the mean set by hand).
+Moving the mean 0.4 mm toward the plate lowers the settled swing by at most
+0.5 mm at any pressure: 4.97 → 4.44 mm at 300 Pa, 11.6 → 11.0 at 3 kPa. With
+the tip resting at the plate the reed no longer starts from small swings.
+
+**Where 2c stands.** Tried and not the limit: the tongue's drag in the air,
+the tip coming through the plate (a measured reed never does), and the mean
+moving toward the plate. What is left is the one thing all three leave
+untouched: the energy the air feeds in above the plate grows about in
+proportion to the pressure at any swing. What would make it level off is in
+the two works not yet read:
+* St. Hilaire & Vaidya (*J. Fluid Mech.* 67, 1975, 377-396): the limit from
+  the potential flow's higher harmonics;
+* Ricot et al. (*JASA* 117, 2005).
+
+A lead from builders, unverified: "the best excitation is when the minimum
+depth of the inlet chamber slightly exceeds the maximum tip amplitude" (a
+Soviet textbook reprinted at poigarmonika.ru). If so, the chamber's wall
+would pin the swing on an instrument, but not on the open laboratory rigs
+where reeds also saturate.
+
 **Open from milestone 1.** The absolute level and the air the reed spends
 (MODEL.md, known defects) want a measurement before anything moves them; the
 pitch-pressure mechanism wants Ricot et al. 2005 or Misdariis's potential-flow

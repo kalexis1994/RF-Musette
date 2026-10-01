@@ -1789,6 +1789,49 @@ and turning on its own later.
 3. **Met.** A controller's move is whole within 5 ms. Every earlier test
    passes.
 
+## 8g. The bellows' travel
+
+The rest of the user's idea (2026-10-01): a bellows runs out. A player
+turns it, and the short break as it turns is part of the accordion's
+sound (McMahan 2016; Llanos et al. 2002: "a slight interruption"). With
+no bellows controller there is no hand to turn it, so the instrument can
+turn it itself.
+
+**The design:**
+* "Auto Reverse", off by default. Off, the bellows never runs out, as
+  before.
+* "Bellows Travel", the air the bellows gives in one direction before it
+  must turn: 12 L by default, assumed. A full-size bellows' area of
+  600 cm² over some 20 cm of the stroke a player uses; voiced by ear.
+* On, the air the reeds draw is counted. The bellows turns, as a player
+  would:
+  * at a gap -- no key, button or chord note held -- once 70 % of the
+    travel is spent;
+  * or, if no gap comes, when all of it is.
+* The turn is the existing reversal, over Reversal Time. The direction the
+  player set stays the parameter's; the instrument's turns ride on it, and
+  a player who sets the direction again takes the bellows back, its travel
+  counted afresh.
+
+**Predictions** (written before building it, 2026-10-01):
+1. Off: nothing changes; a render is identical, sample for sample.
+2. On, a chord held: the bellows turns once the air drawn reaches the
+   travel, within 5 %.
+3. On, notes with gaps between them: every turn falls in a gap, none
+   before 70 % of the travel.
+4. After a turn the other reeds sound, the push reed as the pull reed
+   did; every earlier test passes.
+
+**Status (2026-10-01): built (0.9.5); all four met** (`tests/milestone_8g.rs`).
+1. **Met.** Off, a Master chord held 10 s on a 2 L travel never turns the
+   bellows. Off, the code path is skipped, so nothing else changes.
+2. **Met.** A Master chord held turns the bellows after 2.05 L of a 2 L
+   travel (+2.5 %).
+3. **Met.** One true 8′ in notes of 400 ms with gaps of 100 ms, 2 L of
+   travel: every turn begins in a gap, after 1.49-1.50 L (70 % is 1.4 L).
+4. **Met.** After the turn the push reed swings 3.8 mm; every earlier test
+   passes.
+
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.

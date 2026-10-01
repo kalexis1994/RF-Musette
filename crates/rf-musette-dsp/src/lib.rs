@@ -152,6 +152,10 @@ pub struct Engine {
     /// Which way the bellows moves: -1 pulling, +1 pushing, and in between
     /// while it turns. The signed pressure is `turn × supply`.
     turn: f64,
+    /// Auto Reverse has turned the bellows from the player's direction.
+    flipped: bool,
+    /// The air drawn in this direction since the bellows last turned, m³.
+    spent: f64,
     decimator: Decimator,
     /// A reed parameter moved: rebuild before the next sample.
     dirty: bool,
@@ -197,6 +201,8 @@ impl Engine {
             cassotto: cassotto::Cassotto::default(),
             supply: 0.0,
             turn: parameters.direction(),
+            flipped: false,
+            spent: 0.0,
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
             held: [false; KEYS],
@@ -232,11 +238,17 @@ impl Engine {
         // With no key down and nothing sounding, how long the bellows takes
         // to turn cannot be heard: a loaded program or a fresh engine starts
         // already turned.
+        // Setting the direction takes the bellows back from Auto Reverse,
+        // its travel counted afresh.
+        if index == parameters::BELLOWS_DIRECTION {
+            self.flipped = false;
+            self.spent = 0.0;
+        }
         if index == parameters::BELLOWS_DIRECTION
             && !self.anything_held()
             && self.keys.iter().all(Key::is_still)
         {
-            self.turn = self.parameters.direction();
+            self.turn = self.direction();
         }
         // The gain, the register, the bellows' direction, turning time and
         // air, and the cassotto are read as the samples are made; everything
@@ -261,6 +273,8 @@ impl Engine {
                 | parameters::LEFT_HAND
                 | parameters::SPLIT_POINT
                 | parameters::BELLOWS_SMOOTHING
+                | parameters::AUTO_REVERSE
+                | parameters::BELLOWS_TRAVEL
         ) {
             self.dirty = true;
         }
@@ -457,7 +471,7 @@ impl Engine {
         self.draw = 0.0;
         self.cassotto.reset();
         self.supply = 0.0;
-        self.turn = self.parameters.direction();
+        self.turn = self.direction();
         self.decimator.reset();
     }
 
@@ -535,6 +549,33 @@ impl Engine {
         }
     }
 
+    /// Which way the bellows is to move: the player's direction, or the
+    /// other way once Auto Reverse has turned it.
+    fn direction(&self) -> f64 {
+        let direction = self.parameters.direction();
+        if self.flipped { -direction } else { direction }
+    }
+
+    /// Auto Reverse (milestone 8g): with the bellows settled in its
+    /// direction, it turns at a gap -- nothing held -- once 70 % of its
+    /// travel is spent, or when all of it is. Checked every sample, so it
+    /// does not hang on how the host cuts its blocks; what is held is looked
+    /// at only once the 70 % is reached.
+    fn turn_if_spent(&mut self, travel: f64) {
+        if self.spent < 0.7 * travel || self.turn != self.direction() {
+            return;
+        }
+        if self.spent >= travel || !self.anything_held() {
+            self.flipped = !self.flipped;
+            self.spent = 0.0;
+        }
+    }
+
+    /// The air the reeds drew in the last step, m³/s: for measuring.
+    pub fn draw(&self) -> f64 {
+        self.draw
+    }
+
     /// A reed parameter moved: every key's reeds are out of date. They are
     /// built again as they are needed, or a few per block meanwhile.
     fn rebuild(&mut self) {
@@ -582,8 +623,14 @@ impl Engine {
         let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
         // Turning, the bellows takes its pressure through zero: the turn goes
         // from -1 to +1, or back, at a steady rate over the reversal time.
-        let direction = self.parameters.direction();
         let turning = 2.0 * h / self.parameters.reversal_time();
+        // The bellows' travel, when it runs out (Auto Reverse).
+        let travel = (self.parameters.get(parameters::AUTO_REVERSE) == Some(1.0)).then(|| {
+            self.parameters
+                .get(parameters::BELLOWS_TRAVEL)
+                .unwrap_or(12.0)
+                * 1.0e-3
+        });
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
         let kick = self.parameters.get(parameters::ATTACK_KICK).unwrap_or(0.0);
         // The ranks the registers let the bellows reach, on either side.
@@ -599,6 +646,10 @@ impl Engine {
             .map(|(resonance, q)| cassotto::CassottoTuning::new(resonance, q, h));
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
+            if let Some(travel) = travel {
+                self.turn_if_spent(travel);
+            }
+            let direction = self.direction();
             self.intent += (asked - self.intent) * following;
             // The bellows holds its pressure with or without a key down.
             let target = self.parameters.bellows_pressure(self.intent as f32);
@@ -699,6 +750,9 @@ impl Engine {
                     }
                 }
                 self.draw = drawn;
+                if travel.is_some() {
+                    self.spent += drawn.abs() * h;
+                }
                 if let Some(tuning) = &cassotto {
                     outward += self.cassotto.process(tuning, boxed);
                 }

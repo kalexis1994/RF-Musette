@@ -1107,6 +1107,57 @@
       "order": 14,
       "page": "model_air",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "auto_reverse",
+      "index": 43,
+      "kind": {
+        "choices": [
+          {
+            "name": "Off",
+            "value": 0
+          },
+          {
+            "name": "On",
+            "value": 1
+          }
+        ],
+        "default": 0,
+        "type": "enum"
+      },
+      "name": "Auto Reverse",
+      "order": 15,
+      "page": "model_air",
+      "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "bellows_travel",
+      "index": 44,
+      "kind": {
+        "default": 12.0,
+        "maximum": 40.0,
+        "minimum": 2.0,
+        "step": 0.1,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "L"
+      },
+      "name": "Bellows Travel",
+      "order": 16,
+      "page": "model_air",
+      "suggested_control": "knob"
     }
   ],
   "schema_version": 1

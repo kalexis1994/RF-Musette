@@ -615,3 +615,21 @@ and 3.
 * a controller's move is whole within 5 ms.
 
 **Checks.** Every earlier test passes; fmt and clippy clean.
+
+## 2026-10-01 -- Milestone 8g: the bellows' travel (0.9.5)
+
+**Built.**
+* `auto_reverse` (index 43, off) and `bellows_travel` (44, 12 L); the
+  state grows to 45 values.
+* On, the air drawn is counted. The bellows turns at a gap once 70 % is
+  spent, or when all of it is, over the existing reversal. Checked every
+  sample.
+* Setting the direction takes the bellows back.
+
+**Tests** (`tests/milestone_8g.rs`):
+* off never turns;
+* a held chord turns at 2.05 L of 2;
+* notes with gaps turn in the gaps after 1.49-1.50 L;
+* the push reed sounds after the turn.
+
+**Checks.** Every earlier test passes; fmt and clippy clean.

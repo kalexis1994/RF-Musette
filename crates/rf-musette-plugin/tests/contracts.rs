@@ -534,6 +534,34 @@ fn the_controller_roles_are_ones_rackforge_knows() {
     }
 }
 
+/// The catalog is the engine's table of programs, as `rf-musette-lab
+/// schema` writes it, and loading a program sets what it says (milestone
+/// 9e).
+#[test]
+fn the_program_catalog_is_the_engines() {
+    use rf_musette_dsp::programs::PROGRAMS;
+    let catalog: Value = serde_json::from_str(PRESETS).unwrap();
+    let presets = catalog["presets"].as_array().unwrap();
+    assert_eq!(presets.len(), PROGRAMS.len(), "run rf-musette-lab schema");
+    for (preset, program) in presets.iter().zip(PROGRAMS) {
+        assert_eq!(preset["id"], program.id);
+        assert_eq!(preset["name"], program.name);
+        assert_eq!(preset["bank"], program.bank);
+        assert_eq!(preset["description"], program.description);
+        let mut plugin = prepared();
+        assert!(plugin.load_preset(program.id));
+        for (index, value) in program.settings {
+            assert_eq!(
+                plugin.get_parameter(*index as u32),
+                Some(*value),
+                "{}: {}",
+                program.id,
+                parameters::SPECS[*index].id
+            );
+        }
+    }
+}
+
 #[test]
 fn every_shipped_program_is_one_the_instrument_answers_to() {
     let catalog: Value = serde_json::from_str(PRESETS).unwrap();

@@ -1,9 +1,198 @@
 {
-  "schema_version": 1,
-  "banks": [{ "id": "research", "name": "Research", "order": 0 }],
-  "presets": [{
-    "id": "research", "name": "Research", "bank": "research",
-    "category": "Accordion", "order": 0, "tags": ["default"],
-    "description": "Milestone 8: both hands. The treble, F3-A6, five ranks per key -- L, M−, M, M+, H -- opened by the 14 registers; the Stradella bass, twelve pitch classes on 16′, 8′, 8-4′, 4′ and 2′, opened by the 7 bass registers, its bass buttons on MIDI channel 2 and its chords on 3. All tuned to A440, a reed for each way the bellows moves (CC 80), one bellows the arm pushes, a cassotto for L and M (off by default). Every reed is scaled from the F4 the IfM Zwota measured."
-  }]
+  "banks": [
+    {
+      "id": "research",
+      "name": "Factory",
+      "order": 0
+    },
+    {
+      "id": "styles",
+      "name": "Styles",
+      "order": 1
+    },
+    {
+      "id": "setups",
+      "name": "Setups",
+      "order": 2
+    }
+  ],
+  "presets": [
+    {
+      "bank": "research",
+      "category": "Accordion",
+      "description": "A full piano accordion, every reed modelled from the physics: Clarinet in the treble, all five bass reeds, an ORTF pair in a small room.",
+      "id": "research",
+      "name": "Accordion",
+      "order": 0,
+      "tags": [
+        "default"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Musette",
+      "description": "The Paris bal-musette: three middle reeds tuned wide, open, in a dance hall.",
+      "id": "musette-paris",
+      "name": "Musette Paris",
+      "order": 0,
+      "tags": [
+        "musette"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Musette",
+      "description": "The Scottish dance band's very wet musette, on stage with clip-on mics.",
+      "id": "scottish",
+      "name": "Scottish Dance Band",
+      "order": 1,
+      "tags": [
+        "musette"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Musette",
+      "description": "The Italian tremolo: three middle reeds, a moderate shimmer, a spaced pair.",
+      "id": "italian",
+      "name": "Italian Folk",
+      "order": 2,
+      "tags": [
+        "musette"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Folk",
+      "description": "The German and Alpine sound: bassoon and two middle reeds, a gentle tremolo.",
+      "id": "alpine",
+      "name": "Alpine",
+      "order": 3,
+      "tags": [
+        "folk"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Folk",
+      "description": "The Slovenian polka sound: three middle reeds, the true one in the tone chamber.",
+      "id": "oberkrainer",
+      "name": "Oberkrainer",
+      "order": 4,
+      "tags": [
+        "folk"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Folk",
+      "description": "The American Slovenian polka: three middle reeds nearly dry, open, on stage.",
+      "id": "cleveland",
+      "name": "Cleveland Polka",
+      "order": 5,
+      "tags": [
+        "folk"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Folk",
+      "description": "The American tuning: two middle reeds with a light beat.",
+      "id": "american",
+      "name": "American",
+      "order": 6,
+      "tags": [
+        "folk"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Folk",
+      "description": "The Irish dance tuning: two middle reeds in swing, a slow beat, in a pub.",
+      "id": "irish",
+      "name": "Irish Swing",
+      "order": 7,
+      "tags": [
+        "folk"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Jazz",
+      "description": "The jazz accordion: bassoon and middle reed in the tone chamber, dry and round.",
+      "id": "jazz",
+      "name": "Jazz",
+      "order": 8,
+      "tags": [
+        "jazz"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Tango",
+      "description": "Towards the bandoneon: a middle reed and its octave, dry, close-miked.",
+      "id": "tango",
+      "name": "Tango",
+      "order": 9,
+      "tags": [
+        "tango"
+      ]
+    },
+    {
+      "bank": "styles",
+      "category": "Classical",
+      "description": "The concert accordion: bassoon, middle reed and piccolo, dry, through the tone chamber, in a hall.",
+      "id": "concert",
+      "name": "Concert",
+      "order": 10,
+      "tags": [
+        "classical"
+      ]
+    },
+    {
+      "bank": "setups",
+      "category": "Setup",
+      "description": "Both hands on one 61-key keyboard: chords in the octave below middle C, bass notes below them.",
+      "id": "keyboard-61",
+      "name": "61-Key Keyboard",
+      "order": 0,
+      "tags": [
+        "setup"
+      ]
+    },
+    {
+      "bank": "setups",
+      "category": "Setup",
+      "description": "The modulation wheel is the bellows: move it to play, up opens, down closes.",
+      "id": "wheel-bellows",
+      "name": "Wheel as Bellows",
+      "order": 1,
+      "tags": [
+        "setup"
+      ]
+    },
+    {
+      "bank": "setups",
+      "category": "Setup",
+      "description": "The bellows runs out and turns by itself, between notes where it can.",
+      "id": "auto-bellows",
+      "name": "Auto Bellows",
+      "order": 2,
+      "tags": [
+        "setup"
+      ]
+    },
+    {
+      "bank": "setups",
+      "category": "Setup",
+      "description": "For a digital accordion: its bellows sensor sets the pressure directly, bass and chords on their own MIDI channels.",
+      "id": "digital-accordion",
+      "name": "Digital Accordion",
+      "order": 3,
+      "tags": [
+        "setup"
+      ]
+    }
+  ],
+  "schema_version": 1
 }

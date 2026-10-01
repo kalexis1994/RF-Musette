@@ -2123,3 +2123,274 @@ the preview host, not in the Desktop frame.
 Not in 9a: a live bellows gauge (it needs read-only meter parameters, which
 RackForge polls like the rest), the branding (schema 3 artwork) and the
 factory programs.
+
+## 9b. The microphones and the room
+
+The user's ask (2026-10-01): the instrument heard as it is recorded, from
+where it sounds to where the microphone is, as Concert Grand takes the piano
+-- with the ways accordions are actually miked to choose from, each with its
+own settings.
+
+**What practice says** (research 2026-10-01; SOURCES.md, "The
+microphones"): engineers hear the accordion as two sources, the treble grille
+and the bass box, the second moving with the bellows. In the studio: one mic
+per side at about 30 cm (Shure; Piovesan, his usual), a coincident ORTF pair
+at 1 m (Piovesan's reference recordings), a spaced pair a little forward
+(Sound On Sound), or one mic 30-90 cm in front (Shure's booklet; Owsinski).
+On stage: mics on the instrument, either inside -- a bar of 2-6 capsules
+over the treble's reed blocks and 1-2 in the bass box (Rumberger, Nalbantov,
+MusicTech) -- or clipped outside, two goosenecks about 5 cm from the treble
+grille 25-30 cm apart and one 7.5 cm from the bass side (K&K, DPA 4099). The
+stage mics travel with the instrument, so the bass side's level stays put
+("slightly artificial", Piovesan); the studio's do not. No directivity of an
+accordion has been measured (neither TU Berlin's 41 instruments nor BYU's
+set has one); a free reed radiates as a monopole, the flow through its slot
+(Nussbaumer & Agarwal, ICA 2016).
+
+**What Concert Grand teaches** (rackforge, `plugins/concert-grand`): a room
+from Sabine's reverberation per band into a feedback delay network, first-
+order image sources read by each capsule, a capsule's pattern (1 − b) + b
+cos θ from omni to figure-of-eight with its diffuse pickup √((1 − b)² +
+b²/3), and the distance law. What not to take: its board-to-mic and room
+stages place the same pair in two places, and its proximity shelf is
+computed and never heard. RF-Musette's room is its own.
+
+**The design.**
+* **Two sources in space.** The treble side as four sources along its reed
+  blocks, the keyboard's quarters -- the reed blocks run the keyboard's
+  length, low notes at the top -- and the bass side as one, its box. Each
+  radiates the flow of the holes it covers, the monopole the model already
+  has. The bass side's position is the bellows' opening: the air it has let
+  through over the bellows' area (12 L over 600 cm², 20 cm), or the wheel's
+  position as the bellows (8i). Each source has a broad first-order
+  directivity toward where its grille faces; assumed, as no accordion's is
+  measured.
+* **Capsules.** Each has a position, an aim, a pattern, and a frame: the
+  room's (a stand) or the instrument's (mounted, inside or clipped), moving
+  with the treble side or the bass box. The direct path is a fractional
+  delay of each source, so moving sources and capsules change arrival time
+  and level as distance does; Doppler is that and nothing more (at bellows
+  speeds, 0.1-2 cents).
+* **The room.** A box of the chosen volume and wall hardness: Sabine's RT
+  per band, first-order images read by each capsule from the instrument's
+  centre, and a feedback delay network for the tail. Concert Grand's
+  equations; RF-Musette's own code, no_std, f64 where it counts.
+* **Six layouts, each with its own settings:** Internal; Clip-on; Two
+  spots (with an ambient ORTF pair to blend, Piovesan's four-mic take); ORTF
+  pair; Spaced pair; One mic in front. Each layout's capsules are trimmed so
+  switching layouts keeps the loudness -- the engineer's preamp -- and a
+  Perspective sets whose left is left: the player's or the audience's.
+* **The dry instrument stays.** The mono render at 1 m, every earlier test
+  and measurement, is unchanged; the microphones and the room are a stereo
+  stage after it.
+
+**Predictions** (written before building it, 2026-10-01):
+1. The dry render is unchanged: every earlier test passes.
+2. A stand mic, the room off: opening the bellows moves a held bass note's
+   level by 20 log₁₀ of the distance ratio within 0.5 dB, and its arrival by
+   the path's change over c within one sample.
+3. A mounted bass-side mic, the room off: the bass note's level does not
+   move with the bellows, within 0.1 dB.
+4. A bass note heard on a stand mic while the bass end moves at a steady
+   speed toward it shifts up by v/c (in cents, 1200 log₂(1 + v/c)) within
+   20 %.
+5. Internal, two treble capsules at the reed blocks' ends: the notes under
+   them are at least 3 dB louder than one between; with six, the spread is
+   less than half of that.
+6. The room's tail decays at the RT60 Sabine gives for it, within 15 %, in
+   the middle band.
+7. Each layout's loudness of a reference -- a held treble chord and bass
+   note -- is within ±3 dB of the ORTF pair's.
+8. The player's perspective puts the treble to the right and the bass to
+   the left (by the level between the channels); the audience's the
+   reverse.
+9. The room's level against the direct sound follows Sabine: an omni
+   capsule at the critical distance √(A/16π) (A the room's absorption area)
+   hears the tail as loud as the direct sound, within 2 dB.
+
+**Status (2026-10-01): built (0.11.0); all nine met** (`tests/milestone_9b.rs`,
+`stage.rs`).
+1. **Met.** The mono render is the instrument alone, as before; every
+   earlier test passes.
+2. **Met.** Two spots, omni, the room off: the bellows shut to open brings
+   the bass box from 0.377 to 0.240 m of its stand, +3.90 dB against the
+   distance's +3.93, and its arrival 19.0 samples sooner against the path's
+   19.2.
+3. **Met.** Clip-on: the bass note's level moves 0.000 dB with the
+   bellows.
+4. **Met.** The bass box moving 0.5 m/s, the path to the stand shortening
+   0.336 m/s: +1.694 cents heard, +1.696 from the path.
+5. **Met.** Internal, two treble capsules: the quarters under them 7.4 dB
+   over those between; six capsules, a spread of 1.5 dB against 7.4.
+6. **Met.** The tail in the middle band: 0.65 s against Sabine's 0.66
+   (150 m³, hardness 0.4), 1.53 s against 1.57 (600 m³, 0.6).
+7. **Met.** A held chord and bass note, against the ORTF pair: Internal
+   -1.6 dB, Clip-on -0.1, Two spots +0.5, Spaced pair -1.0, One mic -1.1,
+   Dry +2.2.
+8. **Met.** The player's perspective puts a treble quarter 0.8 dB to the
+   right and the bass box 1.8 dB to the left in the ORTF pair; the
+   audience's the reverse.
+9. **Met.** One omni mic 1.01 m from a treble quarter, in the middle band:
+   the room 1.4 dB under the direct sound, Sabine's 1.4.
+
+Found in building, not predicted:
+* The tail's network was fed the same signal in all six lines; that is the
+  Householder mixer's own vector, which keeps the lines in step. Fed with
+  alternating signs it gives back its input within 1 dB (1.15-1.19 of it,
+  the loop filters off; `the_tail_gives_back_the_energy_it_is_given`).
+* The first measures of 6 and 9 were the measurement's: Schroeder's
+  integral taken over the direct sound, and a "noise" that was a multiplier
+  on the sample's number, nearly periodic. Taken over the tail from 80 ms,
+  and with real noise, both met as above.
+* What the room costs (the four-note Master chord, natively): 5.73 µs a
+  sample alone, 6.11-6.43 with a layout (+7-12 %), Dry +0. The stage stops
+  computing once its room has fallen silent.
+* The engine is 547 KiB with its microphones and room; its size test spoke
+  of a 1 MiB stack the component left behind at milestone 7, and now bounds
+  it at 768 KiB of the 8 MiB.
+
+Heard: the same phrase through the seven layouts, sent to the player.
+
+
+## 9c. Headroom
+
+**Heard by the player (2026-10-01): it plays so loud it clips, and did
+before the microphones.** Measured (`the_output_levels`): the engine's
+output is pascals at 1 m, and the plugin sent it as is, 1 Pa to full scale
+(94 dB SPL). A C4 at mf peaks at -4 dBFS; a chord and bass at mf +9.7;
+both hands' full chords in Master at ff +15.8 dB over full scale, clipped by
+the host.
+
+**The design:** what an engineer does at the preamp. The stereo output --
+the plugin's, the laboratory's `--stereo` -- is brought down by a fixed
+recording level, set so the loudest the instrument plays peaks at -6 dBFS,
+the headroom of a recording: -21 dB, full scale 115 dB SPL at the 1 m
+reference. Output Gain stays the player's, ×0-4, and behind it a soft
+ceiling: nothing under -6 dBFS is touched, and what rises above it rounds
+toward full scale instead of being cut there. The mono render, every
+measurement, stays in pascals.
+
+**Predictions** (written before building it, 2026-10-01):
+1. The loudest case, both hands' full chords in Master at ff through the
+   ORTF pair, peaks at -6 dBFS within 1 dB; a C4 at mf near -25.
+2. Under -6 dBFS the ceiling changes no sample; nothing it puts out
+   reaches full scale.
+3. The mono render is unchanged: every earlier test passes.
+
+**Status (2026-10-01): built (0.11.1); all three met** (`tests/milestone_9c.rs`).
+1. **Met.** Both hands' full chords in Master at the ceiling, through the
+   ORTF pair: -6.1 dBFS; a C4 at mf -26.3 dBFS. The level is -22 dB, full
+   scale 116 dB SPL at 1 m -- first -21 dB, measured again after 9d's room
+   changed each layout's balance and its peaks.
+2. **Met.** Under 0.5 of full scale the ceiling returns every sample as it
+   came; above, it rises steadily toward 0.98 (-0.2 dBFS), so even a float
+   whose tanh rounds to one stays short of full scale (the first build
+   reached it at 4.7 times full scale).
+3. **Met.** Every earlier test passes.
+
+## 9d. A diffuse room
+
+**Heard by the player (2026-10-01): the ambience rebounds, as if in a
+closed resonating tube.** Measured (`diagnose_the_room`, the room's own
+impulse response through an omni at 1 m, 150 m³): the tail's spectrum
+ripples 16.8 dB about its third-octave smoothing between 300 Hz and 4 kHz,
+against the ~5.6 dB of a diffuse field, with 173 peaks 8 dB proud of it at
+a median spacing of 18.3 Hz -- a tube's regular resonances; its echo
+density (Abel & Huang's, 1 for a diffuse field) is 0.10 at 5 ms, 0.22 at 15
+and 0.63 at 30. The cause is the tail's network: six lines of 6-14 ms, 60
+ms in all, one mode in every ~17 Hz, where a room of 150 m³ has dozens in
+every hertz. The first reflections make a comb with the direct sound too
+(28 dB deep), the walls reflecting every frequency alike.
+
+**The repair:** the network a reverberator needs to sound diffuse.
+* Eight lines, from one to four mean free paths long and sharing no
+  divisor: some 200 ms in all at 150 m³, a mode in every ~5 Hz.
+* An allpass inside each line, so the echoes multiply at every pass, and
+  four short allpasses before the network, so the field is diffuse from
+  its first milliseconds. Allpasses lose nothing: Sabine's decay and level
+  stand, each line's gain reckoned over its whole loop.
+* The first reflections take the walls' high band: each capsule's images
+  pass a one-pole whose loss at 4 kHz is the walls' there against the
+  middle band.
+
+**Predictions** (written before it, 2026-10-01):
+1. The tail's ripple between 300 Hz and 4 kHz is within 1.5 dB of a
+   diffuse field's 5.6 dB, at 30, 150 and 1500 m³.
+2. Its echo density reaches 0.9 by 50 ms.
+3. Milestone 9b's predictions still hold: the decay within 15 % of Sabine's,
+   the room's level within 2 dB.
+4. The stage costs at most 15 % over the mono render.
+
+**Status (2026-10-01): built (0.11.1); 1, 3 and 4 met, 2 at two rooms of
+three** (`tests/milestone_9d.rs`, `stage.rs`).
+1. **Met.** The tail's ripple: 7.0 dB at 30 m³, 6.6 at 150, 6.9 at 1500
+   (was 16.8 at 150), a diffuse field's 5.6 measuring 5.7 on the same
+   analysis; no regular peaks.
+2. **Met at 30 and 150 m³, not at 1500.** Echo density at 50 ms: 0.91,
+   0.95, 0.79 (was 0.63 at 30 ms at 150). In the large room the first
+   images still arrive apart at 50 ms. Kept, ignored, in the test.
+3. **Met.** The decay 0.67 s against Sabine's 0.66 (150 m³) and 1.47
+   against 1.57 (600 m³); the room 0.8 dB under the direct sound at 1.01 m
+   against Sabine's 1.4.
+4. **Met.** +10-15 % over the mono render (Internal 15 %), nothing when
+   silent.
+
+How it was reached, as measured:
+* Eight lines alone gave 11.2 dB: a network of 0.2 s holds a mode in every
+  5 Hz, and a decay of 0.66 s gives each mode 3.3 Hz -- they do not
+  overlap. A diffuse tail needs ~1 s of delay; memory holds ~0.6.
+* Long allpasses inside the loops (13-53 ms) added delay but dispersed it:
+  some frequencies stayed in the loop four times longer and the decay ran
+  29 % long against Sabine. Short ones (3-7 ms) keep the decay.
+* What memory cannot hold, motion stands for: each loop allpass's delay
+  wanders ±0.3 ms at 0.3-0.9 Hz -- at most ~2.4 cents of pitch, the
+  reverberator's means (Dattorro 1997) of letting few modes stand for a
+  room's many. Not the room's physics; stated as such in MODEL.md.
+* The lines: four short (7-23 ms) for the onset, four long (83-163 ms) for
+  the modes. Each side of the output takes two of each; one side of the
+  long ones alone was 4 dB quieter, as long lines lose more at each pass.
+* The shelf lifting the lows is second order: a first order's skirt
+  reached the middle band.
+* The first reflections take the walls' high band, a one-pole per capsule.
+
+## 9e. Factory programs
+
+The user's ask (2026-10-01): variety -- the package had one program.
+Research first (SOURCES.md, "The programs"): how each tradition tunes its
+tremolo, which registers and cassotto it uses. The tremolo values come from
+Roland's V-Accordion musette detunes, which Roland does not publish but two
+players measured in cents on an FR-3s and an FR-3, agreeing on French
+(±23 c) and Scottish (±26-27 c), and from makers' and tuners' tables
+(Victoria, Castagnari, Liberty Bellows, Pellegrini, Weirig, Dumpleton).
+None gives a rule for how the beat runs across the keyboard by tradition;
+every program keeps Hergert's measured lines.
+
+**Built (0.12.0):** sixteen programs in three banks, a table in the engine
+(`programs.rs`) that `rf-musette-lab schema` writes into `presets.json`.
+* Factory: Accordion, the defaults (its id, `research`, kept).
+* Styles: Musette Paris (Musette, 5.9 Hz), Scottish Dance Band (Musette,
+  6.7 Hz, clip-on mics on stage), Italian Folk (Musette, 4.0 Hz), Alpine
+  (Cello, 3.3 Hz), Oberkrainer (Musette, 3.0 Hz, cassotto), Cleveland Polka
+  (Musette, 0.5 Hz, internal mics), American (Celeste, 2.5 Hz), Irish Swing
+  (Celeste, 1.2 Hz), Jazz (Bandoneon, cassotto), Tango (Oboe -- a
+  bandoneon is tuned in dry octaves, 8′ and 4′), Concert (Harmonium, dry,
+  cassotto, an ORTF pair in a hall); each with the room and microphones of
+  where it is played.
+* Setups: 61-Key Keyboard (the split at C4), Wheel as Bellows, Auto
+  Bellows, Digital Accordion (the bellows' pressure direct, bass on its
+  channels; not "V-Accordion", Roland's trademark).
+
+**Checked:** every setting is a value its parameter takes, ids and names
+unique, descriptions for the player (`programs.rs`); the catalog is the
+table and loading each program sets what it says (the plugin's
+`the_program_catalog_is_the_engines`); RackForge loads them.
+
+**The Accordion register, checked against Roland:** the FR-3x manual's
+symbol (p. 27), the source of `REGISTERS`, draws Accord as L, M−, M, H; the
+FR-4x's reed tables (Supplementary Manual 2017, set NOR CASS) give L, M,
+M+, H. Roland's own instruments differ by model and set; `REGISTERS` keeps
+the FR-3x's, the manual it cites. The difference is which side the second
+8′ beats on.
+
+Heard: the same phrase through Accordion and the eleven styles, sent to the
+player.

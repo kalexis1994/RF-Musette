@@ -24,7 +24,9 @@ pub const STATE_VERSION: u32 = 2;
 pub const STATE_BYTES: usize = 12 + 8 * PARAMETER_COUNT;
 const STATE_V1_BYTES: usize = 16;
 pub const PARAMETER_GAIN: u32 = parameters::GAIN as u32;
-/// The one program the research package ships.
+/// The first program, "Accordion" (its id kept from the research package,
+/// so sessions that recall it still find it); the rest are in
+/// `rf_musette_dsp::programs`.
 pub const PROGRAM_RESEARCH: &str = "research";
 
 /// Expression's high seven bits: the bellows.
@@ -52,7 +54,9 @@ pub struct MusetteProcessor {
     parameters: Parameters,
     maximum_frames: u32,
     channels: u32,
-    mono: [f32; MAX_FRAMES as usize],
+    /// The two channels the microphones hear (milestone 9b).
+    left: [f32; MAX_FRAMES as usize],
+    right: [f32; MAX_FRAMES as usize],
 }
 
 impl Default for MusetteProcessor {
@@ -62,7 +66,8 @@ impl Default for MusetteProcessor {
             parameters: Parameters::default(),
             maximum_frames: 0,
             channels: 0,
-            mono: [0.0; MAX_FRAMES as usize],
+            left: [0.0; MAX_FRAMES as usize],
+            right: [0.0; MAX_FRAMES as usize],
         }
     }
 }
@@ -204,10 +209,10 @@ impl Processor for MusetteProcessor {
     }
 
     fn load_preset(&mut self, id: &str) -> bool {
-        if id != PROGRAM_RESEARCH {
+        let Some(program) = rf_musette_dsp::programs::program(id) else {
             return false;
-        }
-        self.apply(Parameters::default());
+        };
+        self.apply(program.parameters());
         true
     }
 
@@ -344,14 +349,25 @@ impl Processor for MusetteProcessor {
             .into_iter()
             .flatten()
             .fold(frames, u32::min);
-            let span = &mut self.mono[start as usize..end as usize];
+            let range = start as usize..end as usize;
             let engine = self.engine.as_mut().expect("prepared engine");
-            // The engine applies the gain itself.
-            engine.render(span);
-            for (offset, sample) in span.iter().enumerate() {
+            // The engine applies the gain itself, and hears the instrument
+            // through the chosen microphones; a mono output takes both.
+            engine.render_stereo(
+                &mut self.left[range.clone()],
+                &mut self.right[range.clone()],
+            );
+            for (offset, (left, right)) in self.left[range.clone()]
+                .iter()
+                .zip(&self.right[range])
+                .enumerate()
+            {
                 let frame = (start as usize + offset) * outputs as usize;
-                for channel in 0..outputs as usize {
-                    output[frame + channel] = *sample;
+                if outputs == 1 {
+                    output[frame] = 0.5 * (left + right);
+                } else {
+                    output[frame] = *left;
+                    output[frame + 1] = *right;
                 }
             }
             start = end;

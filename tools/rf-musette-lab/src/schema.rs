@@ -89,11 +89,53 @@ fn panel_order(id: &str) -> usize {
         .unwrap_or_else(|| panic!("{id} is not on the panel"))
 }
 
+/// The program catalog, from the engine's own table of programs.
+pub fn programs() -> Value {
+    use rf_musette_dsp::programs::{BANKS, PROGRAMS};
+    let banks: Vec<Value> = BANKS
+        .iter()
+        .enumerate()
+        .map(|(order, (id, name))| json!({ "id": id, "name": name, "order": order }))
+        .collect();
+    let presets: Vec<Value> = PROGRAMS
+        .iter()
+        .map(|program| {
+            let order = PROGRAMS
+                .iter()
+                .filter(|other| other.bank == program.bank)
+                .position(|other| other.id == program.id)
+                .unwrap_or(0);
+            let tags = if program.id == "research" {
+                vec!["default".to_owned()]
+            } else {
+                vec![program.category.to_lowercase()]
+            };
+            json!({
+                "id": program.id,
+                "name": program.name,
+                "bank": program.bank,
+                "category": program.category,
+                "order": order,
+                "tags": tags,
+                "description": program.description,
+            })
+        })
+        .collect();
+    json!({ "schema_version": 1, "banks": banks, "presets": presets })
+}
+
+/// Writes the parameter schema and the program catalog.
 pub fn write() -> Result<(), Box<dyn Error>> {
-    let path = super::package::workspace_root()?.join("package/metadata/parameters.json");
-    let mut text = serde_json::to_string_pretty(&document())?;
-    text.push('\n');
-    fs::write(&path, text)?;
-    println!("Wrote {}", path.display());
+    let root = super::package::workspace_root()?;
+    for (name, document) in [
+        ("parameters.json", document()),
+        ("presets.json", programs()),
+    ] {
+        let path = root.join("package/metadata").join(name);
+        let mut text = serde_json::to_string_pretty(&document)?;
+        text.push('\n');
+        fs::write(&path, text)?;
+        println!("Wrote {}", path.display());
+    }
     Ok(())
 }

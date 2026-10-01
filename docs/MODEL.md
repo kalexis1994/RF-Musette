@@ -367,6 +367,49 @@ a second, 68 Pa, within 3.2 dB even ±30 % uneven; one step a second, 16-30
 Pa, the true 8′'s threshold, steady when the steps are and breaking off
 when they are not, as a reed at its threshold does.
 
+### The microphones and the room (milestone 9b; positions and directivity assumed)
+
+The instrument is heard as it is recorded (`stage.rs`). Two sides in
+space: the treble's reed blocks as four sources along the keyboard, the low
+notes at the top, and the bass box as one, which the bellows' opening
+carries away to the left -- the air let through over the bellows' area, or
+the wheel's place as the bellows. Each radiates the monopole above, leaning
+toward where its grille faces, (1 − d) + d cos φ with d = 0.3 (assumed: no
+accordion's directivity is measured, and a free reed itself is a monopole,
+Nussbaumer & Agarwal 2016).
+
+A capsule hears each source along its own path, a fractional delay r/c
+(four-point Lagrange) and 1/r, its pattern (1 − b) + b cos θ: a moving
+source or capsule changes its path, and Doppler is that. Mounted capsules
+(Internal, Clip-on) ride with the instrument; stands stay. The room is a box
+of 1.25 : 1.6 : 1 (assumed), Sabine's reverberation per band from Concert
+Grand's absorption law (voiced there), six first-order images of the
+instrument read by every capsule -- their high band taken by the walls --
+and an eight-line feedback delay network (milestone 9d: four short lines,
+7-23 ms, for the onset, four long, 83-163 ms, for the modes; a short
+allpass in each loop and four before the network for diffusion) whose
+energy, with the images', is Sabine's reverberant field: 16π/A of a
+source's power at 1 m, the source's lean taken out, as each capsule takes a
+diffuse field, (1 − b)² + b²/3. Each layout is trimmed to the dry
+instrument's loudness, its room included.
+
+Not physics, stated as such: each loop allpass's delay wanders ±0.3 ms at
+0.3-0.9 Hz, at most ~2.4 cents of pitch. A room has thousands of
+overlapping modes; a network in memory has a mode in every ~2 Hz, which,
+standing still, ring like a tube (the player heard it, ROADMAP 9d).
+Moving, they blur, as reverberators do (Dattorro 1997).
+
+The recording (milestone 9c): the stereo output is brought down by -22 dB,
+full scale 116 dB SPL at the 1 m reference, so the loudest the instrument
+plays peaks at -6 dBFS, and passes a soft ceiling above -6 dBFS that never
+reaches full scale. The mono render stays in pascals.
+
+Assumed: every position -- a seated player, the instrument's middle 1.03 m
+up, its sides 24 cm apart shut -- the layouts' defaults where practice gives
+none (docs/SOURCES.md, "The microphones"), and the internal capsules'
+omni pattern. Not modelled: the player's body, the grille as a filter, key
+and bellows noise, a capsule's proximity effect.
+
 ## How it is computed (tested)
 
 Implicit midpoint on every linear part, with the jet's Bernoulli loss

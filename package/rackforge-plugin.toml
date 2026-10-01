@@ -1,10 +1,10 @@
-# Schema 1 intentionally uses RackForge's generic identity during model
-# research. A branded schema 3 package follows once product artwork exists.
+# Schema 1 uses RackForge's generic identity: a branded schema 3 package
+# follows once product artwork exists.
 schema_version = 1
 id = "org.rackforge.musette"
-name = "RF-Musette Research"
+name = "RF-Musette"
 vendor = "RackForge"
-version = "0.10.2"
+version = "0.12.1"
 description = "Physically modelled accordion: free reeds driven by the bellows, with no samples"
 kind = "instrument"
 state_version = 2

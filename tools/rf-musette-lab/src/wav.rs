@@ -1,4 +1,5 @@
-//! Mono IEEE float WAV, written and read by this laboratory alone.
+//! IEEE float WAV, written and read by this laboratory alone: mono for
+//! measuring, stereo for listening to the microphones (milestone 9b).
 //!
 //! No normalisation and no clipping: a report that says the peak was 1.4 is
 //! more useful than a file that was quietly brought back to 1.0.
@@ -20,8 +21,14 @@ pub struct Report {
     pub rms: f32,
 }
 
-/// Write a new file. An existing path is an error, never an overwrite.
-pub fn write(path: &Path, samples: &[f32], sample_rate: u32) -> Result<Report, Box<dyn Error>> {
+/// Write a new file of `channels` interleaved channels. An existing path
+/// is an error, never an overwrite.
+pub fn write_channels(
+    path: &Path,
+    samples: &[f32],
+    channels: u16,
+    sample_rate: u32,
+) -> Result<Report, Box<dyn Error>> {
     if let Some(parent) = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -36,10 +43,10 @@ pub fn write(path: &Path, samples: &[f32], sample_rate: u32) -> Result<Report, B
     out.write_all(b"WAVEfmt ")?;
     out.write_all(&16u32.to_le_bytes())?;
     out.write_all(&FORMAT_IEEE_FLOAT.to_le_bytes())?;
-    out.write_all(&1u16.to_le_bytes())?;
+    out.write_all(&channels.to_le_bytes())?;
     out.write_all(&sample_rate.to_le_bytes())?;
-    out.write_all(&(sample_rate * 4).to_le_bytes())?;
-    out.write_all(&4u16.to_le_bytes())?;
+    out.write_all(&(sample_rate * 4 * u32::from(channels)).to_le_bytes())?;
+    out.write_all(&(4 * channels).to_le_bytes())?;
     out.write_all(&32u16.to_le_bytes())?;
     out.write_all(b"data")?;
     out.write_all(&data.to_le_bytes())?;
@@ -48,7 +55,9 @@ pub fn write(path: &Path, samples: &[f32], sample_rate: u32) -> Result<Report, B
     }
     out.flush()?;
     out.into_inner()?.sync_all()?;
-    Ok(measure(samples, sample_rate))
+    let mut report = measure(samples, sample_rate);
+    report.frames /= usize::from(channels.max(1));
+    Ok(report)
 }
 
 /// Read a file this laboratory wrote, checking every structural claim it makes.
@@ -117,12 +126,12 @@ mod tests {
                 .as_nanos()
         ));
         let samples = [0.0, 0.5, -1.25, 1.0e-6];
-        let written = write(&path, &samples, 48_000).unwrap();
+        let written = write_channels(&path, &samples, 1, 48_000).unwrap();
         assert_eq!(written.peak, 1.25);
         let (read_back, report) = read(&path).unwrap();
         assert_eq!(read_back, samples);
         assert_eq!(report.sample_rate, 48_000);
-        assert!(write(&path, &samples, 48_000).is_err());
+        assert!(write_channels(&path, &samples, 1, 48_000).is_err());
         std::fs::remove_file(path).unwrap();
     }
 }

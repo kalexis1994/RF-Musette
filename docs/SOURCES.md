@@ -75,12 +75,51 @@ please say so: the ledger is meant to be accurate.
 | Wikipedia, "Stradella bass system" (unreferenced) | The five bass-side sets and their octaves: bass C2-B2, tenor C3-B3, contralto F♯3-F4, alto C4-B4, soprano C5-B5; three-note chords, the fifth left out of the seventh and diminished | `compass.rs` (`BASS_LOWEST`), assumed | Descriptive; agrees with Roland's footages |
 | Tula bayan reed-plate patent RU2233009C1 (Google Patents) | The slot's length, root and tip widths and plate thickness per note (Table 3: F3, F4, F5 slots 35.4, 27.8, 20.5 mm), whose octave ratios scale the measured F4 into the L and H reeds and every reed of the compass, assumed | `parameters.rs` (`rank_design`), `compass.rs` | Table read off rendered pages by a research agent |
 
+## The microphones
+
+Read 2026-10-01 by a research agent, for milestone 9b; none of them
+measures an accordion's directivity, which no published database holds
+(TU Berlin's 41 instruments, Ackermann et al., arXiv 2307.02110, 2023;
+BYU's set).
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| Shure, "Eight Ways to Mic an Accordion" (tests by C. Frantisak), and "Microphone Techniques for Recording" (AL25697, 2013) | The accordion best "about one to two feet from the instrument"; one condenser per side; a stand 12 in from the keyboard side; a mic one or two feet in front, centred; inside mics "emphasize midrange" | `stage.rs` (Two spots, One mic); parameters | Web page and booklet, in full |
+| P. White, "Q. How should I mic an accordion?", *Sound On Sound*, July 2010 | Two cardioids a little forward, spaced about 18 in wider than the instrument; narrowing their panning, against "a 20-foot-wide accordion" | `stage.rs` (Spaced pair); Stereo Width | In full |
+| L. Piovesan, "Accordion4Composers" v1.0 (2013) | His reference recordings with an ORTF pair 1 m in front; one stand per side, the bass's at the middle of the arc the left hand draws; four mics with an ORTF pair; clip-ons "slightly artificial", internal mics "in the box"; the accordion as two sources | `stage.rs` (ORTF pair, Two spots, the ambient pair) | In full |
+| P. Stamler, "Tough-to-record instruments A-Z", *Recording* magazine | The bass end moves with the bellows; an omni a foot from it; Doppler on the moving end | `stage.rs` (the bass box's motion) | In full |
+| B. Owsinski, "5 Techniques for Miking the Accordion" (from *The Recording Engineer's Handbook*) | A mic 2-3 ft away; three lavaliers on the treble and two in the bass inside | `stage.rs` (Internal) | In full |
+| K&K Sound, accordion system manual (2013) | Two goosenecks about 2 in from the treble grille, 10-12 in apart; one about 3 in from the bass side | `stage.rs` (Clip-on) | In full |
+| Rumberger TA20, Nalbantov AMP 8S, MusicTech MT-04N (G. Whitfield's install), AMT, DPA 4099, AKG C516 ML, Audio-Technica ATM350 (makers' pages) | Internal bars of 2-6 treble capsules and 1-2 in the bass box, a treble/bass balance; clip-on mics one per side, cardioid or supercardioid; an 80 Hz high-pass | `stage.rs` (Internal, Clip-on); parameters | Web pages |
+| D. Nussbaumer, A. Agarwal, "Aeroacoustics of free reeds", ICA 2016, paper 756 | A free reed radiates mainly as a monopole, the fluctuating flow through its slot | `stage.rs` (each side a monopole, its lean assumed) | In full (the user's cache) |
+| J. Dattorro, "Effect Design, Part 1: Reverberator and Other Filters", *J. Audio Eng. Soc.* 45 (1997) 660-684 | Allpasses inside a reverberator's loops and before it for diffusion; slowly modulated delays to keep its modes from ringing | `stage.rs` (the tail) | From the literature as practised; the paper not reread for this |
+| J. S. Abel, P. Huang, "A simple, robust measure of reverberation echo density", AES 121st Convention (2006) | The normalized echo density used to test the tail: the share of samples beyond one standard deviation over a Gaussian's | `tests/milestone_9d.rs` | The measure as published, from its definition |
+| RackForge's Concert Grand (`plugins/concert-grand`, the host's own) | The room: Sabine per band into a feedback delay network, first-order images per capsule, the absorption law from hardness, the line spread, a capsule's pattern and its diffuse share; air absorption at 4 kHz after ISO 9613-1 | `stage.rs` | The code and `docs/PIANO_MODEL.md` (2026-10-01) |
+
+## The programs
+
+Read 2026-10-01 by a research agent, for milestone 9e. Hz at A4 are cents
+converted (1 Hz ≈ 4 c there).
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| Big Squeezy Accordions, Roland FR-3s musette detunes measured in cents, accordionists.info (2024-06-11); B. Young, the same on an FR-3, melodeon.net (2009-10-02) | Roland's sixteen detunes, symmetric about M: French ±23 c, Scottish ±26-27 c (the two measurements agree), Italian ±15-17, German ±13-15, American ±6-8 | `programs.rs` | Forum posts, in full |
+| Victoria's tuning list (1997, quoted on melodeon.net), Castagnari's list, Liberty Bellows' FAQ, G. Pellegrini (mon-accordeon.com), A. Weirig (accarnoldw.com, 2010), S. Dumpleton (melodeon.net guide), J. Crawford's note | Makers' and tuners' tremolo by style: Scottish +26 c, French 4-6 Hz, Italian ±15-16 c, American ±10 c, Slovenian 3 Hz, Cleveland and tango 0.5 Hz, swing 1-1.5 Hz, concert dry | `programs.rs` | Web pages, in full |
+| OA Bandoneon; bandoneonist.ch | A bandoneon tuned in dry octaves, 8′ and 4′: the Tango program's Oboe | `programs.rs` | Web pages |
+| Players' reports on accordionists.info and melodeon.net (2009-2025), M. Nadvesnik (accordionmaniac.com, 2018) | The registers and cassotto each style uses: open musette for French and Scottish, the true M in the cassotto for Oberkrainer, cassotto for jazz and concert | `programs.rs` | Forum posts |
+| Roland Corporation, *FR-4x Supplementary Explanation of the Reed Combinations* (2017) | The FR-4x's reed maps per register; its Accord is L, M, M+, H against the FR-3x's L, M−, M, H (ROADMAP 9e) | ROADMAP 9e | Tables rendered and read (2026-10-01) |
+
 ## The surface
 
 | Work | What RF-Musette takes from it | Where | Read |
 | --- | --- | --- | --- |
 | RackForge, `docs/WEB_PLUGIN_API.md` and `docs/MIDI_PARAMETER_LINKS.md` (the host's own documentation) | The `rackforge.plugin.web@1` bridge the PLAY surface speaks; the program selector and save dialog it places; the touch long-press RackForge keeps for its link menu (560 ms, `ParameterLinkHost.tsx`), the reason the air button offers the menu on its label; Control Profile v1 and its roles | `rf-musette-ui`, `parameters.rs` (`SEMANTIC_CONTROLS`), docs/RACKFORGE_CONTROL_MAPPING.md | In full, with the code (2026-10-01) |
 | RackForge's RF-5 plugin, `docs/UI_ARCHITECTURE.md` and `docs/RACKFORGE_CONTROL_MAPPING.md` | The surface's architecture -- a Rust WebAssembly bridge client, a panel map held to the parameter table by a test, knobs on pointer capture over a native range input, a guard for the host's context press -- and the rule of publishing a controller role only where the instrument has what it names; not its look | `rf-musette-ui`; docs/RACKFORGE_CONTROL_MAPPING.md | In full, with the code (2026-10-01) |
+| RF-5's `plugin-ui/src/light.rs` and `texture.rs` | One light for the whole panel (bearing 315°, elevation 40°) written as CSS variables; finishes generated offline from noise, turned into normals and lit by that light, checked against the shipped images by a test | `light.rs`, `texture.rs` | In full, with the code (2026-10-01) |
+| G. J. Ward, "Measuring and modeling anisotropic reflection", *SIGGRAPH '92* | The anisotropic specular term every highlight uses: the grille's streak across its bars, the pearl's shards, the coat's gloss (isotropic, normalised) | `light.rs`, `texture.rs` | Through RF-5's use of it |
+| C. Schlick, "An inexpensive BRDF model for physically-based rendering", *Computer Graphics Forum* 13 (1994); PMMA's refractive index, 1.49 | The acrylic coat's reflectance at its face, and the light it bends towards the pearl (Snell's law) | `light.rs` | The approximation and the index, as standard |
+| Rothko & Frost, "Red Pearloid Celluloid Sheet" (Incudo, RF0031), product photograph; Wikimedia Commons, "Santucci accordion - Christopher's ruby red"; Wikipedia, "Pearloid" | What pearloid looks like and why: chunks of pearl celluloid swirled in solvent, cured and sliced, so angular shards of many sizes at many depths, each lit as a whole, evenly spread | `texture.rs` | Looked at (2026-10-01); nothing copied |
+| Astigmatic (A. Bonislawsky, J. Lyles), *Grand Hotel*; T. Jockin, *Josefin Sans* -- both SIL Open Font License 1.1 | The nameplate's script and the labels' face, cut to Latin and shipped with their licences (`package/web/fonts/`) | `styles.css` | Licences in full |
 
 ## Not yet used in code
 

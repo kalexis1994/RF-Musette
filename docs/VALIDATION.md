@@ -704,3 +704,54 @@ after four of its own intervals.
 step a second steady within 1.6 dB; from rest at 20 steps a second,
 sounding in 27 ms. One step a second ±30 % uneven still breaks off: the
 reed at its threshold (16-30 Pa), recorded, not repaired.
+
+## 2026-10-01 -- Milestone 9b: the microphones and the room (0.11.0)
+
+**Built.** The instrument heard through microphones in a room (`stage.rs`):
+the treble's quarters and the bass box as sources in space, the bass box
+carried by the bellows' opening; six layouts from engineers' practice --
+Internal, Clip-on, Two spots, ORTF pair, Spaced pair, One mic -- and Dry,
+each with its own settings on the Microphones page; a Sabine room of
+images and a feedback delay network. The plugin's output is stereo; the
+laboratory's `--stereo` renders it.
+
+**Measured** (`tests/milestone_9b.rs`): level and arrival with the bass
+box's distance (+3.90 dB against +3.93, 19.0 samples against 19.2);
+mounted, 0.000 dB; Doppler +1.694 cents against +1.696; internal capsules'
+near notes 7.4 dB louder with two, 1.5 dB spread with six; the tail 0.65 s
+against Sabine's 0.66 and 1.53 against 1.57; the room 1.4 dB under the
+direct sound against Sabine's 1.4; every layout within 2.2 dB of the ORTF
+pair's loudness. Cost: +7-12 % natively, nothing when silent.
+
+**Checks.** Every earlier test passes; the network's energy, the UI's map
+of the new page.
+
+## 2026-10-01 -- Milestones 9c and 9d: headroom, and a diffuse room (0.11.1)
+
+**Heard by the player:** it clipped, before the microphones too; and the
+room rang like a closed tube.
+
+**Measured before:** a chord and bass at mf +9.7 dBFS, the loudest +15.8 --
+pascals at 1 m sent to full scale; the room's tail rippling 16.8 dB with
+peaks every 18.3 Hz, its echo density 0.22 at 15 ms.
+
+**Built.** The stereo output at -22 dB with a soft ceiling above -6 dBFS;
+an eight-line network, short and long lines, allpasses inside and before
+it, slowly wandering delays, a second-order low shelf, the walls' high band
+on the first reflections.
+
+**Measured after:** the loudest -6.1 dBFS, a C4 at mf -26.3; the tail's
+ripple 6.6-7.0 dB (a diffuse field's 5.6), echo density at 50 ms 0.91 and
+0.95 (0.79 in a 1500 m³ room); the decay within -7 to +1 % of Sabine's,
+the room's level within 0.6 dB; +10-15 % over the mono render.
+
+## 2026-10-01 -- Milestone 9e: factory programs (0.12.0)
+
+**Built.** Sixteen programs in three banks -- Factory, Styles (eleven
+traditions, their tremolo, registers, cassotto, microphones and room from
+measured Roland detunes and makers' tables), Setups -- from a table in the
+engine, written to `presets.json` by `rf-musette-lab schema`.
+
+**Checked.** Each program's settings are values the instrument takes; the
+catalog matches the table; loading each sets what it says; RackForge's
+`inspect` and `smoke` take the package.

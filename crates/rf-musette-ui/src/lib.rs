@@ -5,11 +5,14 @@
 //! What can be tested off the browser is plain Rust: the panel map
 //! ([`panel`]), the knobs' travel and readouts ([`dial`]) and the register
 //! symbols ([`symbols`]). The page itself is `browser`, built for wasm32
-//! only; `tools/build-web-ui` turns it into `package/web/app.js`.
+//! only; `rf-musette-lab web-ui` turns it into `package/web/app.js`.
 
 pub mod dial;
+pub mod help;
+pub mod light;
 pub mod panel;
 pub mod symbols;
+pub mod texture;
 
 #[cfg(target_arch = "wasm32")]
 mod browser;

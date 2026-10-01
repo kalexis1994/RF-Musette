@@ -21,7 +21,9 @@ pub mod math;
 pub mod motion;
 pub mod pallet;
 pub mod parameters;
+pub mod programs;
 pub mod reed;
+pub mod stage;
 pub mod tongue;
 pub mod tuning;
 pub mod wind;
@@ -50,6 +52,40 @@ const RADIATION: f64 = reed::AIR_DENSITY / (4.0 * core::f64::consts::PI);
 /// the reed as a step. Numerical, not physical: the bellows' own compliance
 /// is milestone 5.
 const SUPPLY_SMOOTHING_SECONDS: f64 = 0.001;
+
+/// The recording's level (milestone 9c): pascals at 1 m to full scale, set
+/// so the loudest the instrument plays -- both hands' full chords in Master
+/// at the bellows' ceiling, through the ORTF pair -- peaks at -6 dBFS, a
+/// recording's headroom: -22 dB, full scale 116 dB SPL at the 1 m reference
+/// (measured again with milestone 9d's room; the room's part of each
+/// layout's balance moves the peaks a decibel or two).
+pub const RECORDING_LEVEL: f32 = 0.079_433;
+
+/// Where the soft ceiling starts, of full scale: -6 dBFS; and the level it
+/// rounds toward, -0.2 dBFS, short of full scale even where a float's tanh
+/// has rounded to one.
+const CEILING_KNEE: f32 = 0.5;
+const CEILING_TOP: f32 = 0.98;
+
+/// The output's ceiling: nothing under the knee is touched, and what rises
+/// above it rounds toward full scale, never reaching it, instead of being
+/// cut there (milestone 9c).
+pub fn ceiling(sample: f32) -> f32 {
+    let size = sample.abs();
+    if size <= CEILING_KNEE || !size.is_finite() {
+        return if size.is_finite() { sample } else { 0.0 };
+    }
+    let over = f64::from((size - CEILING_KNEE) / (CEILING_TOP - CEILING_KNEE));
+    // tanh, its slope 1 at the knee, so the ceiling bends in without a step.
+    let e = math::exp(-2.0 * over);
+    let bent = CEILING_KNEE + (CEILING_TOP - CEILING_KNEE) * ((1.0 - e) / (1.0 + e)) as f32;
+    bent.copysign(sample)
+}
+
+/// How the bass box follows the wheel's place as the bellows, s: the steps
+/// of a 7-bit wheel are 1.6 mm of the box's travel at 12 L, smoothed so its
+/// paths to the microphones do not jump.
+const OPENING_SMOOTHING_SECONDS: f64 = 0.03;
 
 /// The MIDI channels of the bass side, counted from 0, as Roland's
 /// V-Accordions send them (FR-3x Owner's Manual, p. 57): the bass buttons
@@ -146,8 +182,9 @@ pub struct Engine {
     wind: wind::Wind,
     /// The air the reeds drew in the last step, m³/s.
     draw: f64,
-    /// The cassotto L and M sound into, when the instrument has one.
-    cassotto: cassotto::Cassotto,
+    /// The cassotto L and M sound into, when the instrument has one: one
+    /// filter for each treble quarter the microphones hear apart.
+    cassotto: [cassotto::Cassotto; stage::TREBLE_SOURCES],
     /// The bellows' pressure, Pa, without its sign.
     supply: f64,
     /// Which way the bellows moves: -1 pulling, +1 pushing, and in between
@@ -180,6 +217,13 @@ pub struct Engine {
     /// The wheel's last high and low halves.
     wheel_msb: u8,
     wheel_lsb: u8,
+    /// The microphones and the room (milestone 9b): each source brought to
+    /// the host's rate apart, the stage, and whether it needs tuning.
+    zone_decimators: [Decimator; stage::SOURCES],
+    stage: stage::Stage,
+    stage_dirty: bool,
+    /// The air in the bellows, m³ from shut: where the bass box is.
+    opened: f64,
 }
 
 impl Engine {
@@ -208,7 +252,7 @@ impl Engine {
             ask: 0.0,
             wind: wind::Wind::default(),
             draw: 0.0,
-            cassotto: cassotto::Cassotto::default(),
+            cassotto: core::array::from_fn(|_| cassotto::Cassotto::default()),
             supply: 0.0,
             turn: parameters.direction(),
             flipped: false,
@@ -226,6 +270,10 @@ impl Engine {
             flow: 0.0,
             wheel_msb: 0,
             wheel_lsb: 0,
+            zone_decimators: core::array::from_fn(|_| Decimator::new(parameters.oversampling())),
+            stage: stage::Stage::new(f64::from(sample_rate)),
+            stage_dirty: true,
+            opened: parameters.travel() / 2.0,
         };
         engine.rebuild();
         Ok(engine)
@@ -258,6 +306,15 @@ impl Engine {
         if index == parameters::BELLOWS_DIRECTION {
             self.flipped = false;
             self.spent = 0.0;
+        }
+        // The microphones and the room are tuned before the next stereo
+        // block; nothing of the reeds changes.
+        if index >= parameters::MIC_LAYOUT {
+            self.stage_dirty = true;
+            return true;
+        }
+        if matches!(index, parameters::BELLOWS_TRAVEL | parameters::BELLOWS_AREA) {
+            self.stage_dirty = true;
         }
         // What the wheel is changed: it starts afresh, and gives the bellows
         // back to velocity until a controller moves it.
@@ -551,7 +608,13 @@ impl Engine {
         self.ask = 0.0;
         self.wind = wind::Wind::default();
         self.draw = 0.0;
-        self.cassotto.reset();
+        for cassotto in self.cassotto.iter_mut() {
+            cassotto.reset();
+        }
+        for decimator in self.zone_decimators.iter_mut() {
+            decimator.reset();
+        }
+        self.stage.reset();
         self.supply = 0.0;
         self.turn = self.direction();
         self.decimator.reset();
@@ -671,16 +734,48 @@ impl Engine {
         self.pallet_design = self.parameters.pallet_design();
         if self.decimator.factor() != self.parameters.oversampling() {
             self.decimator = Decimator::new(self.parameters.oversampling());
+            self.zone_decimators =
+                core::array::from_fn(|_| Decimator::new(self.parameters.oversampling()));
         }
         self.dirty = false;
     }
 
     /// Renders one block of mono output, in units of 1 Pa at 1 m times the
-    /// gain.
+    /// gain: the instrument alone, as every measurement takes it.
     pub fn render(&mut self, output: &mut [f32]) {
+        self.render_with(output.len(), false, &mut |n, mono, _| output[n] = mono);
+    }
+
+    /// Renders one block in stereo as the chosen microphones hear it in the
+    /// room (milestone 9b), each layout brought to the dry instrument's
+    /// loudness at 1 m, with Dry the mono render in both channels; then
+    /// recorded as an engineer sets the preamp (milestone 9c): at
+    /// [`RECORDING_LEVEL`], under a soft [`ceiling`].
+    pub fn render_stereo(&mut self, left: &mut [f32], right: &mut [f32]) {
+        let frames = left.len().min(right.len());
+        self.render_with(frames, true, &mut |n, l, r| {
+            left[n] = ceiling(l * RECORDING_LEVEL);
+            right[n] = ceiling(r * RECORDING_LEVEL);
+        });
+    }
+
+    /// Where the bass box is: the bellows' opening, m.
+    pub fn bellows_opening(&self) -> f64 {
+        let area = self.parameters.bellows_air().area;
+        if area > 0.0 { self.opened / area } else { 0.0 }
+    }
+
+    fn render_with(&mut self, frames: usize, stereo: bool, sink: &mut dyn FnMut(usize, f32, f32)) {
         if self.dirty {
             self.rebuild();
         }
+        let area = self.parameters.bellows_air().area.max(1.0e-6);
+        if stereo && self.stage_dirty {
+            self.stage
+                .tune(&self.parameters, self.parameters.travel() / area);
+            self.stage_dirty = false;
+        }
+        let staged = stereo && self.stage.is_active();
         self.build_stale();
         let factor = self.decimator.factor();
         let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
@@ -740,7 +835,21 @@ impl Engine {
             .cassotto()
             .map(|(resonance, q)| cassotto::CassottoTuning::new(resonance, q, h));
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
-        for sample in output.iter_mut() {
+        let travel_air = self.parameters.travel();
+        let following_bellows = 1.0 - math::exp(-1.0 / (rate * OPENING_SMOOTHING_SECONDS));
+        for n in 0..frames {
+            // Where the bass box is: the wheel's place, as the bellows (8i),
+            // or the air let through -- pulling opens the bellows, pushing
+            // shuts it.
+            if driven {
+                if let Some(position) = self.motion.position() {
+                    self.opened += (position * travel_air - self.opened) * following_bellows;
+                }
+            } else {
+                self.opened -= self.turn * self.draw / rate;
+            }
+            self.opened = self.opened.clamp(0.0, travel_air);
+            let extension = self.opened / area;
             // The wheel up opens the bellows -- pulls -- and down closes it.
             let arm = if driven {
                 -self.motion.speed(self.clock, rate) * wheel_travel
@@ -759,7 +868,9 @@ impl Engine {
                 // Every pallet is shut, nothing moves and nothing is left in
                 // the filter. The bellows keeps moving as asked, and only
                 // its leaks and the air button spend its air.
-                self.cassotto.reset();
+                for cassotto in self.cassotto.iter_mut() {
+                    cassotto.reset();
+                }
                 self.draw = 0.0;
                 if driven {
                     self.drive(&air, ceiling, arm, h * factor as f64);
@@ -771,10 +882,18 @@ impl Engine {
                     };
                     self.turn = toward(self.turn, direction, turning * factor as f64);
                 }
-                *sample = 0.0;
+                // The room rings on after the instrument has stopped.
+                let (left, right) = if staged {
+                    let (left, right) = self.stage.process(&[0.0; stage::SOURCES], extension);
+                    (left as f32 * gain, right as f32 * gain)
+                } else {
+                    (0.0, 0.0)
+                };
+                sink(n, left, right);
                 continue;
             }
-            for slot in chunk.iter_mut().take(factor) {
+            let mut zone_chunks = [[0.0f32; decimator::MAX_FACTOR]; stage::SOURCES];
+            for (slot, mono) in chunk.iter_mut().enumerate().take(factor) {
                 if driven {
                     self.drive(&air, ceiling, arm, h);
                 } else {
@@ -796,9 +915,10 @@ impl Engine {
                 // and its reed sees nothing of the bellows. The flow through
                 // the hole is inward on pull and outward on push; what
                 // radiates is the outward flow's rate.
-                let mut outward = 0.0;
+                // Each source's: the treble's quarters, then the bass box.
+                let mut outward = [0.0f64; stage::SOURCES];
                 // What L and M send into the cassotto, when there is one.
-                let mut boxed = 0.0;
+                let mut boxed = [0.0f64; stage::TREBLE_SOURCES];
                 // The air every reed's hole passes, drawn from the bellows.
                 let mut drawn = 0.0;
                 for (number, key) in self.keys.iter_mut().enumerate() {
@@ -806,6 +926,11 @@ impl Engine {
                         continue;
                     }
                     let bass = number >= BASS_START;
+                    let source = if bass {
+                        stage::BASS_SOURCE
+                    } else {
+                        number * stage::TREBLE_SOURCES / compass::KEYS
+                    };
                     key.pallet.advance(&self.pallet_design, h);
                     key.chord.advance(&self.pallet_design, h);
                     for (index, rank) in key.ranks.iter_mut().enumerate() {
@@ -831,9 +956,9 @@ impl Engine {
                         // thesis 2015).
                         let boxed_here = !bass && Parameters::in_cassotto(index);
                         let into = if cassotto.is_some() && boxed_here {
-                            &mut boxed
+                            &mut boxed[source]
                         } else {
-                            &mut outward
+                            &mut outward[source]
                         };
                         for ((which, state), given) in
                             rank.states.iter_mut().enumerate().zip(&mut rank.started)
@@ -864,11 +989,33 @@ impl Engine {
                     self.spent += drawn.abs() * h;
                 }
                 if let Some(tuning) = &cassotto {
-                    outward += self.cassotto.process(tuning, boxed);
+                    for (quarter, cassotto) in self.cassotto.iter_mut().enumerate() {
+                        outward[quarter] += cassotto.process(tuning, boxed[quarter]);
+                    }
                 }
-                *slot = (RADIATION * outward) as f32;
+                if staged {
+                    for (chunk, source) in zone_chunks.iter_mut().zip(outward) {
+                        chunk[slot] = (RADIATION * source) as f32;
+                    }
+                } else {
+                    *mono = (RADIATION * outward.iter().sum::<f64>()) as f32;
+                }
             }
-            *sample = self.decimator.decimate(&chunk[..factor]) * gain;
+            if staged {
+                let mut sources = [0.0f64; stage::SOURCES];
+                for ((source, decimator), chunk) in sources
+                    .iter_mut()
+                    .zip(self.zone_decimators.iter_mut())
+                    .zip(&zone_chunks)
+                {
+                    *source = f64::from(decimator.decimate(&chunk[..factor]));
+                }
+                let (left, right) = self.stage.process(&sources, extension);
+                sink(n, left as f32 * gain, right as f32 * gain);
+            } else {
+                let mono = self.decimator.decimate(&chunk[..factor]) * gain;
+                sink(n, mono, mono);
+            }
         }
     }
 
@@ -892,7 +1039,10 @@ impl Engine {
     /// reed's state is zeroed exactly once its energy is negligible, so the
     /// silence that follows is exact too.
     fn at_rest(&mut self) -> bool {
-        if self.decimator.is_quiet() && self.keys.iter().all(Key::is_still) {
+        if self.decimator.is_quiet()
+            && self.zone_decimators.iter().all(Decimator::is_quiet)
+            && self.keys.iter().all(Key::is_still)
+        {
             return true;
         }
         // A sounding F4 reed stores a few millijoules; 1e-12 J is about
@@ -972,13 +1122,15 @@ mod tests {
         assert_eq!(engine.parameter(parameters::GAIN), Some(2.0));
     }
 
-    /// The whole treble lives inside the engine, which never allocates: it
-    /// must fit, with room, the 1 MiB stack a WebAssembly module starts with.
+    /// The whole instrument, its microphones and its room live inside the
+    /// engine, which never allocates. The component is linked with an 8 MiB
+    /// stack (.cargo/config.toml) and the engine is moved a few times as it
+    /// is built: it must stay inside an eighth of it.
     #[test]
     fn a_whole_instrument_fits_the_stack() {
         let bytes = core::mem::size_of::<Engine>();
         std::println!("Engine: {} KiB", bytes / 1024);
-        assert!(bytes < 384 * 1024, "{bytes} bytes");
+        assert!(bytes < 1024 * 1024, "{bytes} bytes");
     }
 
     #[test]

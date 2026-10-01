@@ -220,8 +220,13 @@ mod tests {
                 let value = value_at(spec, f64::from(share) / 20.0);
                 let up = nudged(spec, value, "ArrowUp").unwrap();
                 let down = nudged(spec, value, "ArrowDown").unwrap();
-                assert!(up > value, "{}: up from {value} stayed", spec.id);
-                assert!(down < value, "{}: down from {value} stayed", spec.id);
+                // A coarse step can put a near end on the end itself.
+                if value < spec.maximum {
+                    assert!(up > value, "{}: up from {value} stayed", spec.id);
+                }
+                if value > spec.minimum {
+                    assert!(down < value, "{}: down from {value} stayed", spec.id);
+                }
             }
             assert_eq!(
                 nudged(spec, spec.maximum, "PageUp"),

@@ -46,7 +46,11 @@ host and move the CI `ref` to the commit of that release — in one commit.
 cargo run --release -p rf-musette-lab -- render --output renders/a4.wav
 cargo run --release -p rf-musette-lab -- render --output renders/phrase.wav --score phrase.txt
 cargo run --release -p rf-musette-lab -- inspect renders/a4.wav
+cargo run --release -p rf-musette-lab -- render --output renders/pair.wav --score scores/frere-jacques-bass.score --stereo --set mic_layout=3
 ```
+
+A render is the instrument alone at 1 m, mono, as every measurement takes
+it; `--stereo` renders it through the microphones and the room instead.
 
 A score has one event per line: `onset_ms duration_ms note velocity`,
 `onset_ms bellows 0..127` for Expression, `onset_ms wheel 0..127` for the

@@ -41,7 +41,12 @@ Render options:
   --lead-in S       Silence before the first event, 0..10 (default 1.5)
   --tail S          Time rendered after the last event, 0..30 (default 1)
   --sample-rate HZ  8000..384000 (default 48000)
-WAV is mono IEEE float, without normalisation or clipping. Every render also
+  --program ID      A factory program's settings, before any --set (ids in
+                    package/metadata/presets.json)
+  --stereo          Through the microphones and the room (Microphones page;
+                    --set mic_layout=0..6), a stereo WAV; without it, the
+                    instrument alone at 1 m, mono, as every measurement.
+WAV is IEEE float, mono (stereo with --stereo), without normalisation or clipping. Every render also
 writes a JSON report beside it. The lead-in is there for listening: a
 wireless headset wakes on the first sound and swallows it, so an attack at
 the very start of a file is heard as a fade.
@@ -108,6 +113,10 @@ struct Options {
     sample_rate: f32,
     /// Parameter index and value, in the order given.
     settings: Vec<(usize, f64)>,
+    /// Through the microphones and the room, in stereo (milestone 9b).
+    stereo: bool,
+    /// A factory program's settings, before any --set.
+    program: Option<&'static rf_musette_dsp::programs::Program>,
 }
 
 impl Options {
@@ -123,6 +132,8 @@ impl Options {
             lead_in: 1.5,
             tail: 1.0,
             sample_rate: 48_000.0,
+            stereo: false,
+            program: None,
         };
         let mut seen = std::collections::BTreeSet::new();
         let mut index = 0;
@@ -130,6 +141,11 @@ impl Options {
             let flag = arguments[index].as_str();
             if flag != "--set" && !seen.insert(flag.to_owned()) {
                 return Err(format!("duplicate option: {flag}").into());
+            }
+            if flag == "--stereo" {
+                options.stereo = true;
+                index += 1;
+                continue;
             }
             let value = arguments
                 .get(index + 1)
@@ -143,6 +159,12 @@ impl Options {
             };
             match flag {
                 "--output" => output = Some(PathBuf::from(value)),
+                "--program" => {
+                    options.program = Some(
+                        rf_musette_dsp::programs::program(value)
+                            .ok_or_else(|| format!("no program is called {value}"))?,
+                    );
+                }
                 "--score" => options.score = Some(PathBuf::from(value)),
                 "--set" => {
                     let (id, number) = value.split_once('=').ok_or("--set takes ID=VALUE")?;
@@ -215,6 +237,11 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
     let frames = last + (options.tail * f64::from(rate)).round() as usize;
 
     let mut engine = Engine::new(rate).map_err(|error| format!("{error:?}"))?;
+    if let Some(program) = options.program {
+        for (index, value) in program.settings {
+            engine.set_parameter(*index, *value);
+        }
+    }
     for (index, value) in &options.settings {
         let spec = &PARAMETER_SPECS[*index];
         if !engine.set_parameter(*index, *value) {
@@ -226,10 +253,18 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
         }
     }
     let mut samples = vec![0.0f32; frames];
+    let mut right = vec![0.0f32; if options.stereo { frames } else { 0 }];
+    let mut span = |engine: &mut Engine, from: usize, to: usize| {
+        if options.stereo {
+            engine.render_stereo(&mut samples[from..to], &mut right[from..to]);
+        } else {
+            engine.render(&mut samples[from..to]);
+        }
+    };
     let mut cursor = 0;
     for event in &events {
         let at = frame_of(event.at_ms).min(frames);
-        engine.render(&mut samples[cursor..at]);
+        span(&mut engine, cursor, at);
         cursor = at;
         match event.action {
             Action::NoteOn {
@@ -259,7 +294,17 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
             }
         }
     }
-    engine.render(&mut samples[cursor..]);
+    span(&mut engine, cursor, frames);
+    let (samples, channels) = if options.stereo {
+        let interleaved: Vec<f32> = samples
+            .iter()
+            .zip(&right)
+            .flat_map(|(l, r)| [*l, *r])
+            .collect();
+        (interleaved, 2)
+    } else {
+        (samples, 1)
+    };
 
     // Both files are new or neither is written: a WAV without its report
     // cannot be told apart from a render made some other way.
@@ -267,7 +312,7 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
     if report_path.exists() {
         return Err(format!("refusing to overwrite {}", report_path.display()).into());
     }
-    let report = wav::write(&options.output, &samples, rate as u32)?;
+    let report = wav::write_channels(&options.output, &samples, channels, rate as u32)?;
     let summary = json!({
         "schema_version": 1,
         "laboratory_version": env!("CARGO_PKG_VERSION"),
@@ -276,6 +321,7 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
         "frames": report.frames,
         "seconds": report.frames as f64 / f64::from(report.sample_rate),
         "lead_in_seconds": options.lead_in,
+        "channels": channels,
         "peak": report.peak,
         "rms": report.rms,
         "events": events.len(),

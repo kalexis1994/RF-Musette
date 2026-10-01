@@ -6,19 +6,24 @@
       "order": 0
     },
     {
+      "id": "mics",
+      "name": "Microphones",
+      "order": 1
+    },
+    {
       "id": "reed",
       "name": "Reed",
-      "order": 1
+      "order": 2
     },
     {
       "id": "cell",
       "name": "Cell & Pallet",
-      "order": 2
+      "order": 3
     },
     {
       "id": "air",
       "name": "Air & Bellows",
-      "order": 3
+      "order": 4
     }
   ],
   "parameters": [
@@ -1186,6 +1191,647 @@
       "order": 4,
       "page": "play",
       "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "mic_layout",
+      "index": 46,
+      "kind": {
+        "choices": [
+          {
+            "name": "Internal",
+            "value": 0
+          },
+          {
+            "name": "Clip-on",
+            "value": 1
+          },
+          {
+            "name": "Two spots",
+            "value": 2
+          },
+          {
+            "name": "ORTF pair",
+            "value": 3
+          },
+          {
+            "name": "Spaced pair",
+            "value": 4
+          },
+          {
+            "name": "One mic",
+            "value": 5
+          },
+          {
+            "name": "Dry",
+            "value": 6
+          }
+        ],
+        "default": 3,
+        "type": "enum"
+      },
+      "name": "Microphones",
+      "order": 0,
+      "page": "mics",
+      "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "stereo_width",
+      "index": 47,
+      "kind": {
+        "default": 0.7,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Stereo Width",
+      "order": 1,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "perspective",
+      "index": 48,
+      "kind": {
+        "choices": [
+          {
+            "name": "Player",
+            "value": 0
+          },
+          {
+            "name": "Audience",
+            "value": 1
+          }
+        ],
+        "default": 1,
+        "type": "enum"
+      },
+      "name": "Perspective",
+      "order": 2,
+      "page": "mics",
+      "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "room_size",
+      "index": 49,
+      "kind": {
+        "default": 150.0,
+        "maximum": 3000.0,
+        "minimum": 20.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "m³"
+      },
+      "name": "Room Size",
+      "order": 3,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "room_hardness",
+      "index": 50,
+      "kind": {
+        "default": 0.4,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Wall Hardness",
+      "order": 4,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "room_level",
+      "index": 51,
+      "kind": {
+        "default": 0.0,
+        "maximum": 12.0,
+        "minimum": -40.0,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "dB"
+      },
+      "name": "Room Level",
+      "order": 5,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "internal_treble",
+      "index": 52,
+      "kind": {
+        "default": 3.0,
+        "maximum": 6.0,
+        "minimum": 2.0,
+        "step": 1.0,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Treble Capsules",
+      "order": 6,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "internal_bass",
+      "index": 53,
+      "kind": {
+        "default": 1.0,
+        "maximum": 2.0,
+        "minimum": 1.0,
+        "step": 1.0,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Bass Capsules",
+      "order": 7,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "internal_balance",
+      "index": 54,
+      "kind": {
+        "default": 0.0,
+        "maximum": 12.0,
+        "minimum": -12.0,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "dB"
+      },
+      "name": "Balance",
+      "order": 8,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "internal_highpass",
+      "index": 55,
+      "kind": {
+        "default": 80.0,
+        "maximum": 300.0,
+        "minimum": 20.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "Hz"
+      },
+      "name": "High-Pass",
+      "order": 9,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "clip_distance",
+      "index": 56,
+      "kind": {
+        "default": 5.0,
+        "maximum": 15.0,
+        "minimum": 2.0,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "cm"
+      },
+      "name": "Distance",
+      "order": 10,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "clip_spacing",
+      "index": 57,
+      "kind": {
+        "default": 27.0,
+        "maximum": 35.0,
+        "minimum": 15.0,
+        "step": 0.5,
+        "taper": "linear",
+        "type": "float",
+        "unit": "cm"
+      },
+      "name": "Spacing",
+      "order": 11,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "clip_pattern",
+      "index": 58,
+      "kind": {
+        "default": 0.5,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Pattern",
+      "order": 12,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "clip_balance",
+      "index": 59,
+      "kind": {
+        "default": 0.0,
+        "maximum": 12.0,
+        "minimum": -12.0,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "dB"
+      },
+      "name": "Balance",
+      "order": 13,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "clip_highpass",
+      "index": 60,
+      "kind": {
+        "default": 80.0,
+        "maximum": 300.0,
+        "minimum": 20.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "Hz"
+      },
+      "name": "High-Pass",
+      "order": 14,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "spots_treble_distance",
+      "index": 61,
+      "kind": {
+        "default": 30.0,
+        "maximum": 100.0,
+        "minimum": 10.0,
+        "step": 0.5,
+        "taper": "linear",
+        "type": "float",
+        "unit": "cm"
+      },
+      "name": "Treble Distance",
+      "order": 15,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "spots_bass_distance",
+      "index": 62,
+      "kind": {
+        "default": 30.0,
+        "maximum": 100.0,
+        "minimum": 10.0,
+        "step": 0.5,
+        "taper": "linear",
+        "type": "float",
+        "unit": "cm"
+      },
+      "name": "Bass Distance",
+      "order": 16,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "spots_pattern",
+      "index": 63,
+      "kind": {
+        "default": 0.5,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Pattern",
+      "order": 17,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "spots_ambience",
+      "index": 64,
+      "kind": {
+        "default": 0.0,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Ambient Pair",
+      "order": 18,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "ortf_distance",
+      "index": 65,
+      "kind": {
+        "default": 1.0,
+        "maximum": 3.0,
+        "minimum": 0.3,
+        "step": 0.01,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "m"
+      },
+      "name": "Distance",
+      "order": 19,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "ortf_height",
+      "index": 66,
+      "kind": {
+        "default": 1.2,
+        "maximum": 2.0,
+        "minimum": 0.5,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float",
+        "unit": "m"
+      },
+      "name": "Height",
+      "order": 20,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "ortf_pattern",
+      "index": 67,
+      "kind": {
+        "default": 0.5,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Pattern",
+      "order": 21,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "spaced_distance",
+      "index": 68,
+      "kind": {
+        "default": 0.5,
+        "maximum": 2.0,
+        "minimum": 0.2,
+        "step": 0.01,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "m"
+      },
+      "name": "Distance",
+      "order": 22,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "spaced_spacing",
+      "index": 69,
+      "kind": {
+        "default": 0.9,
+        "maximum": 1.5,
+        "minimum": 0.3,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float",
+        "unit": "m"
+      },
+      "name": "Spacing",
+      "order": 23,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "spaced_pattern",
+      "index": 70,
+      "kind": {
+        "default": 0.5,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Pattern",
+      "order": 24,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "single_distance",
+      "index": 71,
+      "kind": {
+        "default": 0.5,
+        "maximum": 2.0,
+        "minimum": 0.2,
+        "step": 0.01,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "m"
+      },
+      "name": "Distance",
+      "order": 25,
+      "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "single_pattern",
+      "index": 72,
+      "kind": {
+        "default": 0.5,
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Pattern",
+      "order": 26,
+      "page": "mics",
+      "suggested_control": "knob"
     }
   ],
   "schema_version": 2,

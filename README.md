@@ -63,6 +63,20 @@ bellows -- its direction, the air button (open while held), Auto Reverse and
 its travel, the smoothing; and the voice. The model's parameters follow on
 three pages of knobs, each with where its value comes from as its tooltip.
 
+It is heard as it is recorded: the Microphones page chooses how it is
+miked -- inside the instrument or clipped to it as on stage, one mic per
+side, an ORTF pair at 1 m, a spaced pair or one mic in front as in the
+studio -- each with its own settings, in a room whose size and walls set
+its reverberation as Sabine's law does. The treble side and the bass box
+are two sources, and the bass box moves with the bellows: a stand mic
+hears it come and go; a mic on the instrument travels with it.
+
+Sixteen programs come with it: the accordion as eleven traditions tune and
+record it -- Paris musette, Scottish dance band, Italian, Alpine,
+Oberkrainer, Cleveland polka, American, Irish, jazz, tango, concert -- and
+setups for a 61-key keyboard, the wheel as the bellows, a bellows that turns
+by itself, and a digital accordion.
+
 A controller's knobs reach it by meaning: where a controller package gives a
 knob the attack, release or LFO-rate role, it turns the pallet's opening and
 closing and the tremolo's beat. Everything else can be linked by hand from

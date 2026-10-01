@@ -7,6 +7,9 @@ pub struct Group {
     pub id: &'static str,
     pub title: &'static str,
     pub parameters: &'static [&'static str],
+    /// Shown only while this choice has this value: a microphone layout's
+    /// own settings, under that layout.
+    pub shown_when: Option<(&'static str, f64)>,
 }
 
 pub struct Page {
@@ -40,11 +43,13 @@ pub const PAGES: &[Page] = &[
                 id: "treble",
                 title: "Treble",
                 parameters: &["register"],
+                shown_when: None,
             },
             Group {
                 id: "bass",
                 title: "Bass",
                 parameters: &["bass_register", "left_hand", "split_point"],
+                shown_when: None,
             },
             Group {
                 id: "bellows",
@@ -57,11 +62,83 @@ pub const PAGES: &[Page] = &[
                     "bellows_travel",
                     "bellows_smoothing",
                 ],
+                shown_when: None,
             },
             Group {
                 id: "voice",
                 title: "Voice",
                 parameters: &["gain", "tremolo", "cassotto", "pitch_a4"],
+                shown_when: None,
+            },
+        ],
+    },
+    Page {
+        id: "mics",
+        label: "Microphones",
+        groups: &[
+            Group {
+                id: "layout",
+                title: "Layout",
+                parameters: &["mic_layout", "stereo_width", "perspective"],
+                shown_when: None,
+            },
+            Group {
+                id: "room",
+                title: "Room",
+                parameters: &["room_size", "room_hardness", "room_level"],
+                shown_when: None,
+            },
+            Group {
+                id: "internal",
+                title: "Internal",
+                parameters: &[
+                    "internal_treble",
+                    "internal_bass",
+                    "internal_balance",
+                    "internal_highpass",
+                ],
+                shown_when: Some(("mic_layout", 0.0)),
+            },
+            Group {
+                id: "clip",
+                title: "Clip-on",
+                parameters: &[
+                    "clip_distance",
+                    "clip_spacing",
+                    "clip_pattern",
+                    "clip_balance",
+                    "clip_highpass",
+                ],
+                shown_when: Some(("mic_layout", 1.0)),
+            },
+            Group {
+                id: "spots",
+                title: "Two spots",
+                parameters: &[
+                    "spots_treble_distance",
+                    "spots_bass_distance",
+                    "spots_pattern",
+                    "spots_ambience",
+                ],
+                shown_when: Some(("mic_layout", 2.0)),
+            },
+            Group {
+                id: "ortf",
+                title: "ORTF pair",
+                parameters: &["ortf_distance", "ortf_height", "ortf_pattern"],
+                shown_when: Some(("mic_layout", 3.0)),
+            },
+            Group {
+                id: "spaced",
+                title: "Spaced pair",
+                parameters: &["spaced_distance", "spaced_spacing", "spaced_pattern"],
+                shown_when: Some(("mic_layout", 4.0)),
+            },
+            Group {
+                id: "single",
+                title: "One mic",
+                parameters: &["single_distance", "single_pattern"],
+                shown_when: Some(("mic_layout", 5.0)),
             },
         ],
     },
@@ -80,6 +157,7 @@ pub const PAGES: &[Page] = &[
                     "reed_length",
                     "reed_width",
                 ],
+                shown_when: None,
             },
             Group {
                 id: "plate",
@@ -90,11 +168,13 @@ pub const PAGES: &[Page] = &[
                     "side_clearance",
                     "tip_clearance",
                 ],
+                shown_when: None,
             },
             Group {
                 id: "attack",
                 title: "Attack",
                 parameters: &["attack_kick"],
+                shown_when: None,
             },
         ],
     },
@@ -111,16 +191,19 @@ pub const PAGES: &[Page] = &[
                     "tone_hole_depth",
                     "end_correction",
                 ],
+                shown_when: None,
             },
             Group {
                 id: "pallet",
                 title: "Pallet",
                 parameters: &["pallet_lift", "pallet_opening", "pallet_closing"],
+                shown_when: None,
             },
             Group {
                 id: "cassotto",
                 title: "Cassotto",
                 parameters: &["cassotto_resonance", "cassotto_q"],
+                shown_when: None,
             },
         ],
     },
@@ -132,6 +215,7 @@ pub const PAGES: &[Page] = &[
                 id: "jet",
                 title: "Jet",
                 parameters: &["contraction", "near_field_inertance", "swing_limit"],
+                shown_when: None,
             },
             Group {
                 id: "bellows-model",
@@ -146,11 +230,13 @@ pub const PAGES: &[Page] = &[
                     "bellows_leak",
                     "reversal_time",
                 ],
+                shown_when: None,
             },
             Group {
                 id: "engine",
                 title: "Engine",
                 parameters: &["oversampling"],
+                shown_when: None,
             },
         ],
     },
@@ -169,6 +255,27 @@ pub const IDLE_UNLESS: &[(&str, &[(&str, f64)])] = &[
     ("cassotto_resonance", &[("cassotto", 1.0)]),
     ("cassotto_q", &[("cassotto", 1.0)]),
 ];
+
+/// Whether a group is shown with these values.
+pub fn shown(group: &Group, values: &[f64]) -> bool {
+    group.shown_when.is_none_or(|(id, value)| {
+        index_of(id)
+            .and_then(|index| values.get(index))
+            .is_some_and(|current| *current == value)
+    })
+}
+
+/// Whether changing this parameter shows or hides a group.
+pub fn reveals(index: usize) -> bool {
+    PAGES
+        .iter()
+        .flat_map(|page| page.groups.iter())
+        .any(|group| {
+            group
+                .shown_when
+                .is_some_and(|(id, _)| index_of(id) == Some(index))
+        })
+}
 
 /// The page with this id, or the first.
 pub fn page(id: &str) -> &'static Page {
@@ -256,6 +363,27 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Each microphone layout shows its own settings and no other's.
+    #[test]
+    fn a_layout_shows_its_own_settings() {
+        let mut values: Vec<f64> = SPECS.iter().map(|spec| spec.default).collect();
+        let layout = index_of("mic_layout").unwrap();
+        let mics = page("mics");
+        for choice in 0..SPECS[layout].choices.len() {
+            values[layout] = choice as f64;
+            let shown: Vec<_> = mics
+                .groups
+                .iter()
+                .filter(|group| group.shown_when.is_some() && shown(group, &values))
+                .collect();
+            // Dry, the last, has none.
+            let expected = usize::from(choice < SPECS[layout].choices.len() - 1);
+            assert_eq!(shown.len(), expected, "layout {choice}");
+        }
+        assert!(reveals(layout));
+        assert!(!reveals(index_of("gain").unwrap()));
     }
 
     #[test]

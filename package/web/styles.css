@@ -1,12 +1,45 @@
 /* RF-Musette's PLAY surface: the face of a piano accordion -- red pearloid
-   celluloid, a chrome grille, ivory register tabs, bakelite knobs. Every
-   material is drawn here; the package carries no images or fonts. */
+   celluloid, a chrome grille, ivory register tabs, bakelite knobs. One light
+   for the whole panel: the UI writes --light-x/--light-y (towards the
+   light), --shadow-x/--shadow-y (away from it) and --light-angle (a gradient
+   from the lit side to the shaded one) on the root, and the celluloid's
+   pearl image is lit by the same light when it is generated. */
+
+/* Grand Hotel (Astigmatic) for the nameplate, Josefin Sans for the labels:
+   both under the SIL Open Font License (fonts/OFL-*.txt), cut to Latin. */
+@font-face {
+  font-family: "Grand Hotel";
+  src: url("fonts/GrandHotel-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Josefin Sans";
+  src: url("fonts/JosefinSans.ttf") format("truetype");
+  font-weight: 100 700;
+  font-display: swap;
+}
 
 :root {
+  /* The light, until the UI writes it: upper left, as RF-5's. */
+  --light-x: -0.7071;
+  --light-y: -0.7071;
+  --shadow-x: 0.7071;
+  --shadow-y: 0.7071;
+  --light-angle: 135deg;
+  /* The pearl: layers of shards, top first, each its own image repeating at
+     its own period; the periods share no factor, so the stack does not
+     visibly repeat. */
+  --pearl-layers:
+    url("assets/pearl-top-a.png") 0 0 / 331px 331px repeat,
+    url("assets/pearl-top-b.png") 0 0 / 277px 277px repeat,
+    url("assets/pearl-mid.png") 0 0 / 239px 239px repeat,
+    url("assets/pearl-deep.png") 0 0 / 197px 197px repeat;
+  /* The nameplate's script, and the labels'. */
+  --title-font: "Grand Hotel", Georgia, "Times New Roman", serif;
+  --label-font: "Josefin Sans", "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
   --body: #7a1420;
   --body-deep: #4a0b13;
-  --pearl: rgba(255, 214, 200, 0.16);
-  --pearl-strong: rgba(255, 228, 214, 0.28);
   --ink: #f4e9d4;
   --ink-muted: rgba(244, 233, 212, 0.66);
   --ivory: #f1e8d4;
@@ -18,7 +51,7 @@
   --lacquer: #141112;
   --lamp: #ff5a3c;
   --lamp-glow: rgba(255, 90, 60, 0.55);
-  --group: rgba(20, 4, 7, 0.32);
+  --group: rgba(20, 4, 7, 0.52);
   --group-line: rgba(244, 222, 190, 0.22);
   --focus: #ffd27a;
   color-scheme: dark;
@@ -27,14 +60,12 @@
 :root[data-lighting="stage"] {
   --body: #4c0d15;
   --body-deep: #26060a;
-  --pearl: rgba(255, 200, 186, 0.09);
-  --pearl-strong: rgba(255, 214, 200, 0.15);
   --ivory: #d9cfbb;
   --ivory-shade: #b5a88e;
   --chrome-light: #c9cdd2;
   --chrome-mid: #858b92;
   --chrome-dark: #44494f;
-  --group: rgba(0, 0, 0, 0.36);
+  --group: rgba(0, 0, 0, 0.56);
 }
 
 * {
@@ -47,7 +78,7 @@ body {
   min-height: 100%;
   background: var(--body-deep);
   color: var(--ink);
-  font-family: "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
+  font-family: var(--label-font);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -60,67 +91,115 @@ body {
   letter-spacing: 0.08em;
 }
 
-/* The celluloid: a deep red with pearl swirled through it. */
+/* The celluloid: shards of pearl in a clear red sheet under an acrylic
+   coat. The pearl images are lit by the light the coat lets through, bent
+   towards the normal; the coat's own gloss (--coat-gloss, written by the
+   UI from Ward's lobe and Fresnel's reflectance) mirrors the light where
+   the eye sees it, on the screen and not on the page, so it stays put as
+   the page scrolls.
+   Cheap by construction: every image and gradient is computed once, and
+   the gloss is a fixed layer of its own that the compositor moves -- a
+   fixed background would repaint the pearl on every scroll. */
 .musette {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   background:
-    radial-gradient(ellipse 38% 22% at 18% 30%, var(--pearl-strong), transparent 70%),
-    radial-gradient(ellipse 30% 40% at 72% 62%, var(--pearl), transparent 70%),
-    radial-gradient(ellipse 50% 18% at 40% 85%, var(--pearl), transparent 70%),
-    radial-gradient(ellipse 22% 30% at 90% 15%, var(--pearl-strong), transparent 70%),
-    radial-gradient(ellipse 26% 16% at 55% 8%, var(--pearl), transparent 70%),
-    linear-gradient(160deg, var(--body) 0%, var(--body-deep) 100%);
+    var(--pearl-layers),
+    linear-gradient(var(--light-angle), var(--body) 0%, var(--body-deep) 100%);
   padding: 0 0 24px;
 }
 
-/* The grille: chrome bars over black, the nameplate on it. */
+.musette::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--coat-gloss, none);
+  will-change: transform;
+}
+
+/* The grille: chrome bars over black, the nameplate on it. The UI writes
+   the bars' shading (--grille-bars) and their anisotropic glint, a band
+   across them towards the light (--grille-sheen, masked to where each
+   bar's section returns it, --grille-glint), from Ward's term (light.rs). */
 .grille {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px 20px;
   padding: 14px max(16px, 3vw);
-  background:
-    repeating-linear-gradient(
+  /* A gap and a bar per tile, repeated with `round`: the pitch stretches a
+     little so a whole number of bars fills the grille, which ends on the
+     last bar's foot. */
+  background: var(
+    --grille-bars,
+    linear-gradient(
       180deg,
-      var(--chrome-light) 0 1px,
-      var(--chrome-mid) 1px 3px,
-      var(--chrome-dark) 3px 4px,
-      var(--lacquer) 4px 7px
-    );
-  border-bottom: 3px solid var(--chrome-mid);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+      var(--lacquer) 0 29%,
+      var(--chrome-light) 29% 43%,
+      var(--chrome-mid) 43% 71%,
+      var(--chrome-dark) 71% 100%
+    )
+  );
+  background-size: 100% var(--grille-pitch, 7px);
+  background-repeat: repeat round;
+  /* The bars stand a hair off the celluloid: a short, faint shadow away
+     from the light (about their radius over tan 40 degrees). */
+  box-shadow: calc(var(--shadow-x) * 1.5px) calc(var(--shadow-y) * 2px) 2px rgba(0, 0, 0, 0.3);
 }
 
+.grille::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--grille-sheen, none);
+  -webkit-mask-image: var(--grille-glint, none);
+  mask-image: var(--grille-glint, none);
+  -webkit-mask-size: 100% var(--grille-pitch, 7px);
+  mask-size: 100% var(--grille-pitch, 7px);
+  -webkit-mask-repeat: repeat round;
+  mask-repeat: repeat round;
+}
+
+/* The nameplate: the instrument's name in script, its maker small under it,
+   both centred. */
 .nameplate {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 6px 18px 8px;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 18px 7px;
   border-radius: 10px;
-  background: linear-gradient(180deg, var(--chrome-light), var(--chrome-mid) 55%, var(--chrome-dark));
+  background: linear-gradient(var(--light-angle), var(--chrome-light), var(--chrome-mid) 55%, var(--chrome-dark));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 2px 6px rgba(0, 0, 0, 0.6);
+    inset calc(var(--light-x) * -1px) calc(var(--light-y) * -1px) 0 rgba(255, 255, 255, 0.8),
+    calc(var(--shadow-x) * 3px) calc(var(--shadow-y) * 3px) 6px rgba(0, 0, 0, 0.6);
   color: var(--lacquer);
 }
 
+.nameplate .title {
+  font-family: var(--title-font);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--body);
+  text-shadow: calc(var(--shadow-x) * 1px) calc(var(--shadow-y) * 1px) 0 rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
 .nameplate .maker {
-  font-size: 11px;
+  margin-top: 1px;
+  font-family: var(--label-font);
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-}
-
-.nameplate .script {
-  font-family: Georgia, "Times New Roman", serif;
-  font-style: italic;
-  font-weight: 700;
-  font-size: 28px;
-  line-height: 1;
-  color: var(--body);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
 }
 
 .program-bar {
@@ -132,7 +211,7 @@ body {
   padding: 6px 8px;
   border-radius: 10px;
   background: rgba(10, 8, 9, 0.88);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+  box-shadow: inset calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 2px) 6px rgba(0, 0, 0, 0.8);
 }
 
 .program-selector-slot {
@@ -186,7 +265,7 @@ button:focus-visible,
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 2px 0 #8b7e64, 0 3px 6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 0 #8b7e64, calc(var(--shadow-x) * 3px) calc(var(--shadow-y) * 4px) 6px rgba(0, 0, 0, 0.5);
 }
 
 .save-button:active:not(.rackforge-context-press),
@@ -215,13 +294,13 @@ button:focus-visible,
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 4px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 3px) 4px rgba(0, 0, 0, 0.45);
 }
 
 .page-key[aria-pressed="true"] {
   background: linear-gradient(180deg, var(--lacquer), #2c2427);
   color: var(--ink);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8);
+  box-shadow: inset calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 2px) 5px rgba(0, 0, 0, 0.8);
 }
 
 /* The panel: groups set into the celluloid. */
@@ -238,7 +317,8 @@ button:focus-visible,
 }
 
 .panel.page-play .group-treble,
-.panel.page-play .group-bass {
+.panel.page-play .group-bass,
+.panel.page-mics .group-layout {
   grid-column: 1 / -1;
 }
 
@@ -248,7 +328,7 @@ button:focus-visible,
   border: 1px solid var(--group-line);
   border-radius: 14px;
   background: var(--group);
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: inset calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 2px) 10px rgba(0, 0, 0, 0.35), calc(var(--shadow-x) * 1px) calc(var(--shadow-y) * 1px) 0 rgba(255, 255, 255, 0.07);
 }
 
 .group h2 {
@@ -324,15 +404,27 @@ output {
   inset: 11px;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 35% 28%, #5a5254 0%, #231e20 42%, #0c0a0b 100%);
+    radial-gradient(
+      circle at calc(50% + var(--light-x) * 21%) calc(50% + var(--light-y) * 21%),
+      #5a5254 0%,
+      #231e20 42%,
+      #0c0a0b 100%
+    );
   box-shadow:
     0 0 0 2px var(--chrome-mid),
     0 0 0 3px var(--chrome-dark),
-    0 4px 8px rgba(0, 0, 0, 0.65);
+    calc(var(--shadow-x) * 4px) calc(var(--shadow-y) * 4px) 8px rgba(0, 0, 0, 0.65);
+}
+
+/* The pointer turns; the cap's highlight stays where the light is. */
+.knob-pointer {
+  position: absolute;
+  inset: 0;
   transform: rotate(var(--turn, 0deg));
 }
 
-.knob-pointer {
+.knob-pointer::before {
+  content: "";
   position: absolute;
   top: 4px;
   left: 50%;
@@ -361,7 +453,7 @@ output {
   border: 0;
   border-radius: 6px;
   background: linear-gradient(180deg, var(--ivory) 0 50%, var(--ivory-shade) 50% 100%);
-  box-shadow: 0 2px 0 #8b7e64, 0 3px 6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 0 #8b7e64, calc(var(--shadow-x) * 3px) calc(var(--shadow-y) * 4px) 6px rgba(0, 0, 0, 0.5);
   cursor: pointer;
 }
 
@@ -389,9 +481,10 @@ output {
 /* A few named values: an ivory row, the chosen one pressed in. */
 .choices {
   display: flex;
+  flex-wrap: wrap;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 0 #8b7e64, 0 3px 6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 0 #8b7e64, calc(var(--shadow-x) * 3px) calc(var(--shadow-y) * 4px) 6px rgba(0, 0, 0, 0.5);
 }
 
 .choice {
@@ -414,7 +507,34 @@ output {
 .choice[aria-checked="true"] {
   background: linear-gradient(180deg, #2a2225, var(--lacquer));
   color: var(--ink);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8);
+  box-shadow: inset calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 2px) 5px rgba(0, 0, 0, 0.8);
+}
+
+/* The register rows take their width as it comes: where a tab is too narrow
+   for its name, the name gives way to a larger symbol, and the chosen
+   register is named under the row. */
+.register-row {
+  container-type: inline-size;
+}
+
+@container (max-width: 470px) {
+  .treble-register .tab-name {
+    display: none;
+  }
+  .treble-register .register-symbol {
+    width: min(100%, 40px);
+    height: auto;
+  }
+}
+
+@container (max-width: 700px) {
+  .bass-register .tab-name {
+    display: none;
+  }
+  .bass-register .register-symbol {
+    width: min(100%, 40px);
+    height: auto;
+  }
 }
 
 /* The registers: ivory tabs on a black lacquer rail, each with Roland's
@@ -433,7 +553,7 @@ output {
   padding: 8px 8px 10px;
   border-radius: 10px;
   background: linear-gradient(180deg, #252022, var(--lacquer));
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+  box-shadow: inset calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 2px) 6px rgba(0, 0, 0, 0.8);
 }
 
 @media (min-width: 1040px) {
@@ -455,14 +575,14 @@ output {
   background: linear-gradient(180deg, #fffaf0, var(--ivory) 40%, var(--ivory-shade));
   color: var(--ivory-ink);
   cursor: pointer;
-  box-shadow: 0 4px 0 #8b7e64, 0 5px 8px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 0 #8b7e64, calc(var(--shadow-x) * 3px) calc(var(--shadow-y) * 5px) 8px rgba(0, 0, 0, 0.6);
   transition: transform 80ms ease, box-shadow 80ms ease;
 }
 
 .register-tab[aria-checked="true"] {
   transform: translateY(3px);
   background: linear-gradient(180deg, var(--ivory-shade), var(--ivory) 60%, var(--ivory-shade));
-  box-shadow: 0 1px 0 #8b7e64, 0 1px 3px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 0 #8b7e64, calc(var(--shadow-x) * 1px) calc(var(--shadow-y) * 2px) 3px rgba(0, 0, 0, 0.6);
 }
 
 .register-tab::after {
@@ -520,8 +640,8 @@ output {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, var(--chrome-light), var(--chrome-mid) 55%, var(--chrome-dark));
-  box-shadow: 0 4px 0 #3c4046, 0 6px 10px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(circle at calc(50% + var(--light-x) * 17%) calc(50% + var(--light-y) * 17%), var(--chrome-light), var(--chrome-mid) 55%, var(--chrome-dark));
+  box-shadow: 0 4px 0 #3c4046, calc(var(--shadow-x) * 4px) calc(var(--shadow-y) * 6px) 10px rgba(0, 0, 0, 0.6);
   cursor: pointer;
   touch-action: none;
   user-select: none;
@@ -539,7 +659,7 @@ output {
 
 .air-button[aria-pressed="true"] {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 #3c4046, 0 2px 4px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 0 #3c4046, calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 2px) 4px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(0, 0, 0, 0.35);
 }
 
 .bridge-error {
@@ -551,13 +671,53 @@ output {
   font-size: 13px;
 }
 
+/* Narrow: the nameplate and the program bar each take the whole width. */
+@media (max-width: 640px) {
+  .nameplate,
+  .program-bar {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+
 @media (max-width: 520px) {
   .grille {
     padding: 12px 16px;
   }
 
-  .nameplate .script {
-    font-size: 24px;
+  .panel {
+    gap: 12px;
+  }
+
+  .group {
+    padding: 10px 10px 14px;
+  }
+
+  .pages {
+    gap: 6px;
+  }
+
+  .page-key {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 11px;
+  }
+
+  /* A choice of many -- the microphones -- across the whole width, in
+     even rows. */
+  .choice-control:has(.choice:nth-child(4)) {
+    flex: 1 1 100%;
+  }
+
+  .choice-control:has(.choice:nth-child(4)) .choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    width: 100%;
+  }
+
+  .choice {
+    border-left: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.25);
   }
 
   .controls {

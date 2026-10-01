@@ -41,12 +41,14 @@ pub struct ParameterSpec {
 /// so RackForge's own screens group the parameters as the panel does: what
 /// a player reaches for first, then the model.
 pub const PAGE_PLAY: &str = "play";
+pub const PAGE_MICS: &str = "mics";
 pub const PAGE_REED: &str = "reed";
 pub const PAGE_CELL: &str = "cell";
 pub const PAGE_AIR: &str = "air";
 
-pub const PAGES: [(&str, &str); 4] = [
+pub const PAGES: [(&str, &str); 5] = [
     (PAGE_PLAY, "Play"),
+    (PAGE_MICS, "Microphones"),
     (PAGE_REED, "Reed"),
     (PAGE_CELL, "Cell & Pallet"),
     (PAGE_AIR, "Air & Bellows"),
@@ -98,8 +100,36 @@ pub const BELLOWS_SMOOTHING: usize = 42;
 pub const AUTO_REVERSE: usize = 43;
 pub const BELLOWS_TRAVEL: usize = 44;
 pub const MOD_WHEEL: usize = 45;
+/// The microphones and the room (milestone 9b).
+pub const MIC_LAYOUT: usize = 46;
+pub const STEREO_WIDTH: usize = 47;
+pub const PERSPECTIVE: usize = 48;
+pub const ROOM_SIZE: usize = 49;
+pub const ROOM_HARDNESS: usize = 50;
+pub const ROOM_LEVEL: usize = 51;
+pub const INTERNAL_TREBLE: usize = 52;
+pub const INTERNAL_BASS: usize = 53;
+pub const INTERNAL_BALANCE: usize = 54;
+pub const INTERNAL_HIGHPASS: usize = 55;
+pub const CLIP_DISTANCE: usize = 56;
+pub const CLIP_SPACING: usize = 57;
+pub const CLIP_PATTERN: usize = 58;
+pub const CLIP_BALANCE: usize = 59;
+pub const CLIP_HIGHPASS: usize = 60;
+pub const SPOTS_TREBLE_DISTANCE: usize = 61;
+pub const SPOTS_BASS_DISTANCE: usize = 62;
+pub const SPOTS_PATTERN: usize = 63;
+pub const SPOTS_AMBIENCE: usize = 64;
+pub const ORTF_DISTANCE: usize = 65;
+pub const ORTF_HEIGHT: usize = 66;
+pub const ORTF_PATTERN: usize = 67;
+pub const SPACED_DISTANCE: usize = 68;
+pub const SPACED_SPACING: usize = 69;
+pub const SPACED_PATTERN: usize = 70;
+pub const SINGLE_DISTANCE: usize = 71;
+pub const SINGLE_PATTERN: usize = 72;
 
-pub const COUNT: usize = 46;
+pub const COUNT: usize = 73;
 
 /// The pressure below which the air is too weak to push a tongue into its
 /// frame at a key's opening, Pa: half the start is reached here. Assumed, of
@@ -114,6 +144,10 @@ pub const STIFF: f64 = 1.0;
 /// the bellows is (milestone 8i).
 pub const WHEEL_PRESSURE: f64 = 0.0;
 pub const WHEEL_BELLOWS: f64 = 1.0;
+
+/// [`PERSPECTIVE`]'s values: whose left is left.
+pub const PLAYER: f64 = 0.0;
+pub const AUDIENCE: f64 = 1.0;
 
 /// The treble's ranks, in the order the engine keeps them.
 pub const RANK_LOW: usize = 0;
@@ -623,6 +657,255 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         &[(0, "Pressure"), (1, "Bellows")],
         0,
         "Decided 2026-10-01 (milestone 8i), at the player's asking: what the modulation wheel is. Pressure: how hard the arm pushes (milestone 8f). Bellows: where the bellows is, 0 shut and 127 open its whole travel -- moving the wheel moves the air, up opening (pull) and down closing (push), and a wheel standing still holds the bellows still.",
+    ),
+    choice(
+        "mic_layout",
+        "Microphones",
+        PAGE_MICS,
+        &[
+            (0, "Internal"),
+            (1, "Clip-on"),
+            (2, "Two spots"),
+            (3, "ORTF pair"),
+            (4, "Spaced pair"),
+            (5, "One mic"),
+            (6, "Dry"),
+        ],
+        3,
+        "Decided 2026-10-01 (milestone 9b), at the player's asking: how the instrument is miked, as engineers do it (docs/SOURCES.md, \"The microphones\"). On stage, inside the instrument (Rumberger, Nalbantov) or clipped to it (K&K, DPA 4099); in the studio, one mic per side (Shure, Piovesan), an ORTF pair at 1 m (Piovesan's reference recordings, the default), a spaced pair (Sound On Sound) or one mic in front (Shure). Dry is the instrument alone at 1 m, as before.",
+    ),
+    spec(
+        "stereo_width",
+        "Stereo Width",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.7, 0.01),
+        Taper::Linear,
+        "Voiced by ear: how far apart the capsules are panned. Sound On Sound (2010): hard panning gives \"a 20-foot-wide accordion\".",
+    ),
+    choice(
+        "perspective",
+        "Perspective",
+        PAGE_MICS,
+        &[(0, "Player"), (1, "Audience")],
+        1,
+        "Decided 2026-10-01: whose left is left. Microphones facing the player hear the treble on their left, so the audience's is the default.",
+    ),
+    spec(
+        "room_size",
+        "Room Size",
+        PAGE_MICS,
+        "m³",
+        (20.0, 3000.0, 150.0, 1.0),
+        Taper::Logarithmic,
+        "Assumed: the room's volume. A box of 1.25 : 1.6 : 1, the player a third of the way down it; Sabine's reverberation from its walls.",
+    ),
+    spec(
+        "room_hardness",
+        "Wall Hardness",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.4, 0.01),
+        Taper::Linear,
+        "Concert Grand's absorption from hardness, voiced there: alpha_mid = 0.5 e^(-2.6 h) + 0.035, the highs more absorbed in a soft room.",
+    ),
+    spec(
+        "room_level",
+        "Room Level",
+        PAGE_MICS,
+        "dB",
+        (-40.0, 12.0, 0.0, 0.1),
+        Taper::Linear,
+        "Derived at 0 dB: the room's reflections and tail as loud as Sabine's reverberant field makes them, 16 pi/A of the direct sound at 1 m. Away from 0, an engineer's choice.",
+    ),
+    spec(
+        "internal_treble",
+        "Treble Capsules",
+        PAGE_MICS,
+        "",
+        (2.0, 6.0, 3.0, 1.0),
+        Taper::Linear,
+        "Internal: how many capsules run over the treble's reed blocks, end to end, 3 cm off them -- K&K two, MusicTech and Owsinski three, Nalbantov five, Rumberger up to six.",
+    ),
+    spec(
+        "internal_bass",
+        "Bass Capsules",
+        PAGE_MICS,
+        "",
+        (1.0, 2.0, 1.0, 1.0),
+        Taper::Linear,
+        "Internal: one or two capsules in the bass box, 4 cm off its reeds (Owsinski two; the rest one).",
+    ),
+    spec(
+        "internal_balance",
+        "Balance",
+        PAGE_MICS,
+        "dB",
+        (-12.0, 12.0, 0.0, 0.1),
+        Taper::Linear,
+        "Internal: the treble against the bass, as the systems' own control (Rumberger TA20).",
+    ),
+    spec(
+        "internal_highpass",
+        "High-Pass",
+        PAGE_MICS,
+        "Hz",
+        (20.0, 300.0, 80.0, 1.0),
+        Taper::Logarithmic,
+        "Internal: the high-pass a live rig puts on close capsules, against handling and bellows noise (Audio-Technica ATM350, 80 Hz).",
+    ),
+    spec(
+        "clip_distance",
+        "Distance",
+        PAGE_MICS,
+        "cm",
+        (2.0, 15.0, 5.0, 0.1),
+        Taper::Linear,
+        "Clip-on: the goosenecks off the treble grille; the bass one half as far again (K&K: 2 in, 3 in).",
+    ),
+    spec(
+        "clip_spacing",
+        "Spacing",
+        PAGE_MICS,
+        "cm",
+        (15.0, 35.0, 27.0, 0.5),
+        Taper::Linear,
+        "Clip-on: between the two treble goosenecks (K&K: 10-12 in).",
+    ),
+    spec(
+        "clip_pattern",
+        "Pattern",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.5, 0.01),
+        Taper::Linear,
+        "Assumed, voiced by ear: the capsules' pattern, from omni (0) through cardioid (0.5) and supercardioid (~0.63) to figure-of-eight (1). Clip-on mics are cardioid or supercardioid (DPA 4099, AKG C516).",
+    ),
+    spec(
+        "clip_balance",
+        "Balance",
+        PAGE_MICS,
+        "dB",
+        (-12.0, 12.0, 0.0, 0.1),
+        Taper::Linear,
+        "Clip-on: the treble against the bass; K&K's treble channel \"may need\" more gain.",
+    ),
+    spec(
+        "clip_highpass",
+        "High-Pass",
+        PAGE_MICS,
+        "Hz",
+        (20.0, 300.0, 80.0, 1.0),
+        Taper::Logarithmic,
+        "Clip-on: as Internal's.",
+    ),
+    spec(
+        "spots_treble_distance",
+        "Treble Distance",
+        PAGE_MICS,
+        "cm",
+        (10.0, 100.0, 30.0, 0.5),
+        Taper::Linear,
+        "Two spots: the treble's stand off its grille (Shure: about 12 in).",
+    ),
+    spec(
+        "spots_bass_distance",
+        "Bass Distance",
+        PAGE_MICS,
+        "cm",
+        (10.0, 100.0, 30.0, 0.5),
+        Taper::Linear,
+        "Two spots: the bass's stand off the middle of the arc the bass box travels (Piovesan), a foot away (Stamler).",
+    ),
+    spec(
+        "spots_pattern",
+        "Pattern",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.5, 0.01),
+        Taper::Linear,
+        "Assumed, voiced by ear: the capsules' pattern, from omni (0) through cardioid (0.5) and supercardioid (~0.63) to figure-of-eight (1).",
+    ),
+    spec(
+        "spots_ambience",
+        "Ambient Pair",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.0, 0.01),
+        Taper::Linear,
+        "Two spots: how much of the ORTF pair, as set for it, is mixed in -- Piovesan's four-mic take.",
+    ),
+    spec(
+        "ortf_distance",
+        "Distance",
+        PAGE_MICS,
+        "m",
+        (0.3, 3.0, 1.0, 0.01),
+        Taper::Logarithmic,
+        "ORTF pair: in front of the instrument (Piovesan: 1 m).",
+    ),
+    spec(
+        "ortf_height",
+        "Height",
+        PAGE_MICS,
+        "m",
+        (0.5, 2.0, 1.2, 0.01),
+        Taper::Linear,
+        "Assumed: the pair's height off the floor; the seated instrument's middle is 1.03 m.",
+    ),
+    spec(
+        "ortf_pattern",
+        "Pattern",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.5, 0.01),
+        Taper::Linear,
+        "Assumed, voiced by ear: the capsules' pattern, from omni (0) through cardioid (0.5) and supercardioid (~0.63) to figure-of-eight (1). ORTF is cardioid.",
+    ),
+    spec(
+        "spaced_distance",
+        "Distance",
+        PAGE_MICS,
+        "m",
+        (0.2, 2.0, 0.5, 0.01),
+        Taper::Logarithmic,
+        "Spaced pair: \"slightly forward of the instrument\" (Sound On Sound, 2010).",
+    ),
+    spec(
+        "spaced_spacing",
+        "Spacing",
+        PAGE_MICS,
+        "m",
+        (0.3, 1.5, 0.9, 0.01),
+        Taper::Linear,
+        "Spaced pair: about 18 in wider than the instrument (Sound On Sound, 2010).",
+    ),
+    spec(
+        "spaced_pattern",
+        "Pattern",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.5, 0.01),
+        Taper::Linear,
+        "Assumed, voiced by ear: the capsules' pattern, from omni (0) through cardioid (0.5) and supercardioid (~0.63) to figure-of-eight (1). Sound On Sound's are cardioids.",
+    ),
+    spec(
+        "single_distance",
+        "Distance",
+        PAGE_MICS,
+        "m",
+        (0.2, 2.0, 0.5, 0.01),
+        Taper::Logarithmic,
+        "One mic: in front, centred, \"one or two feet\" (Shure's booklet; Owsinski 2-3 ft).",
+    ),
+    spec(
+        "single_pattern",
+        "Pattern",
+        PAGE_MICS,
+        "",
+        (0.0, 1.0, 0.5, 0.01),
+        Taper::Linear,
+        "Assumed, voiced by ear: the capsules' pattern, from omni (0) through cardioid (0.5) and supercardioid (~0.63) to figure-of-eight (1).",
     ),
 ];
 

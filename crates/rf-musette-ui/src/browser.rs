@@ -6,7 +6,7 @@
 //! host gives the values.
 
 use crate::{
-    dial, escape_html,
+    dial, escape_html, help,
     panel::{self, Control},
     symbols,
 };
@@ -166,7 +166,7 @@ impl App {
     fn render(&self) {
         let mut html = String::from("<div class=\"musette\">");
         html.push_str(
-            "<header class=\"grille\"><div class=\"nameplate\" role=\"img\" aria-label=\"RF-Musette\"><span class=\"maker\">RackForge</span><span class=\"script\">Musette</span></div><div class=\"program-bar\"><div class=\"program-selector-slot\" id=\"program-selector-slot\"></div><button type=\"button\" class=\"save-button\" data-action=\"save\">Save</button></div></header>",
+            "<header class=\"grille\"><div class=\"nameplate\" role=\"img\" aria-label=\"RF-Musette, RackForge Instruments\"><span class=\"title\">RF-Musette</span><span class=\"maker\">RackForge Instruments</span></div><div class=\"program-bar\"><div class=\"program-selector-slot\" id=\"program-selector-slot\"></div><button type=\"button\" class=\"save-button\" data-action=\"save\">Save</button></div></header>",
         );
         html.push_str(&self.render_pages());
         html.push_str(&self.render_panel());
@@ -204,6 +204,9 @@ impl App {
         let page = panel::page(self.page);
         let mut groups = String::new();
         for group in page.groups {
+            if !panel::shown(group, &self.values) {
+                continue;
+            }
             let mut controls = String::new();
             for id in group.parameters {
                 if let Some(index) = panel::index_of(id) {
@@ -227,13 +230,13 @@ impl App {
         )
     }
 
-    /// The control's frame: its class, whether it is idle, and the
-    /// parameter's source as its tooltip.
+    /// The control's frame: its class, whether it is idle, and what it does
+    /// as its tooltip.
     fn frame(&self, index: usize, kind: &str, inner: &str) -> String {
         let idle = if self.idle(index) { " idle" } else { "" };
         format!(
             "<div class=\"control {kind}-control{idle}\" data-control-index=\"{index}\" title=\"{}\">{inner}</div>",
-            escape_html(SPECS[index].source)
+            escape_html(help::help(SPECS[index].id))
         )
     }
 
@@ -567,6 +570,11 @@ fn update_parameter_dom(app: &AppHandle, index: usize) {
             .and_then(|choice| choice.parse::<f64>().ok())
             == Some(value);
         let _ = button.set_attribute("aria-checked", if chosen { "true" } else { "false" });
+    }
+    // A choice that shows another layout's settings redraws the page.
+    if panel::reveals(index) {
+        app.borrow().render();
+        return;
     }
     for waiting in panel::waiting_on(index) {
         let idle = app.borrow().idle(waiting);
@@ -989,6 +997,14 @@ fn on_message(app: &AppHandle, event: &MessageEvent) {
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     let app = App::new()?;
+    // One light for the whole panel: every shadow and gradient reads it.
+    if let Some(root) = app.borrow().document.document_element() {
+        let existing = root.get_attribute("style").unwrap_or_default();
+        root.set_attribute(
+            "style",
+            &format!("{existing}{}", crate::light::css_variables()),
+        )?;
+    }
     app.borrow().render();
     install_events(&app)?;
     let ready = Ready {

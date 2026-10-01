@@ -14,6 +14,10 @@ crate-type = ["cdylib", "rlib"]
 # The panel reads the engine's own parameter and register tables.
 rf-musette-dsp.workspace = true
 
+[dev-dependencies]
+# Writes and checks the shipped pearl image (texture.rs).
+png = "0.17"
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"
 serde = { version = "1.0", features = ["derive"] }

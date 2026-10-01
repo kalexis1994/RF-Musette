@@ -27,6 +27,9 @@ struct Work {
     dissipated: f64,
     /// What the air's drag on the tongue takes, where it is out of the slot.
     drag: f64,
+    /// The part of the air's work done by the cell's pressure, ∮ S_r p ζ';
+    /// the rest is the near field's inertia, -∮ S_r M_n u' ζ'.
+    cell: f64,
 }
 
 impl Work {
@@ -72,6 +75,7 @@ fn work(design: ReedDesign, supply: f64, mean: f64, amplitude: f64, frequency: f
         beyond: 0.0,
         dissipated: 0.0,
         drag: 0.0,
+        cell: 0.0,
     };
     let mode = TongueMode::with_ratio(d.mode_ratio);
     let dx = d.length / (SPAN_POINTS - 1) as f64;
@@ -92,6 +96,7 @@ fn work(design: ReedDesign, supply: f64, mean: f64, amplitude: f64, frequency: f
         if n >= settle {
             let (zeta, w) = tongue(t);
             let power = s_r * jet_pressure(t, s[0]) * w * h;
+            out.cell += s_r * s[2] * w * h;
             // Where the tip is, from flat: negative above the plate.
             let y = zeta - d.set;
             for i in 0..SPAN_POINTS {
@@ -128,6 +133,7 @@ fn work(design: ReedDesign, supply: f64, mean: f64, amplitude: f64, frequency: f
     out.inside /= cycles;
     out.beyond /= cycles;
     out.drag /= cycles;
+    out.cell /= cycles;
     out.dissipated = PI * model.modal_mass * (model.omega / d.q) * omega * amplitude * amplitude;
     out
 }
@@ -292,5 +298,52 @@ fn a_mean_moved_toward_the_plate() {
             })
             .collect();
         println!("{supply:>6} Pa | {}", row.join(" | "));
+    }
+}
+
+/// The small-amplitude growth rate against pressure, the shape Cottingham,
+/// Reed & Busha measured on a reed-organ C3 (Forum Acusticum 1999, Fig. 4):
+/// rising from damping at the lowest pressures to a maximum near 1 kPa
+/// (11.5 /s), then falling to a third of it by 3 kPa.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn growth_against_pressure() {
+    let design = Parameters::default().reed_design();
+    let model = ReedModel::new(design);
+    let mechanical = model.omega / (2.0 * design.q);
+    println!("mechanical damping {mechanical:.2} /s");
+    for supply in [
+        20.0, 35.0, 50.0, 100.0, 200.0, 400.0, 700.0, 1000.0, 1500.0, 2000.0, 3000.0, 4500.0,
+        6000.0,
+    ] {
+        let sigma = rf_musette_analysis::growth_rate(design, 32.0 * 96_000.0, supply);
+        println!(
+            "{supply:>6} Pa: σ {sigma:>7.2} /s, (σ + δ)/δ {:>6.2}",
+            (sigma + mechanical) / mechanical
+        );
+    }
+}
+
+/// Which term feeds the tongue: the cell's pressure or the near field's
+/// inertia, against the swing.
+#[test]
+#[ignore = "diagnosis: prints, asserts nothing"]
+fn which_term_feeds_it() {
+    let design = Parameters::default().reed_design();
+    let model = ReedModel::new(design);
+    let frequency = design.frequency * 2f64.powf(-6.5 / 1200.0);
+    for supply in [300.0, 3000.0] {
+        let mean = model.mu * supply / (model.omega * model.omega);
+        println!("{supply} Pa:");
+        for a_mm in [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0] {
+            let w = work(design, supply, mean, a_mm * 1e-3, frequency);
+            println!(
+                "  A {a_mm:>4} mm: total {:>+8.2} = cell {:>+8.2} + near-field inertia {:>+8.2} µJ | damping {:>7.2} µJ",
+                w.total() * 1e6,
+                w.cell * 1e6,
+                (w.total() - w.cell) * 1e6,
+                w.dissipated * 1e6
+            );
+        }
     }
 }

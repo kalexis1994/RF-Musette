@@ -318,6 +318,68 @@ Moving the mean 0.4 mm toward the plate lowers the settled swing by at most
 0.5 mm at any pressure: 4.97 → 4.44 mm at 300 Pa, 11.6 → 11.0 at 3 kPa. With
 the tip resting at the plate the reed no longer starts from small swings.
 
+**The linear base is sound (2026-09-30).** Cottingham, Reed & Busha
+(Forum Acusticum 1999, Fig. 4, digitised here) measured a reed-organ C3's
+small-amplitude growth against pressure:
+* damping below ~0.05 kPa;
+* 2.0, 3.4, 4.5, 4.6, 8.3 /s at 0.07, 0.09, ~0.2, 0.27, 0.52 kPa;
+* a maximum of **11.5 /s at 1.0 kPa**;
+* then 10.3, 9.1, 6.9, 3.3 /s at 1.5, 2.0, 2.5, 3.0 kPa.
+
+The model's (`growth_against_pressure`) has the same shape:
+* 0.4, 7.0, 21.2, 36.6 /s at 35, 100, 400, 1000 Pa;
+* a maximum of 46.5 /s near 2 kPa, 39.1 at 3 kPa;
+* none at 4.5 kPa, where the tongue's static deflection has brought it to
+  the plate.
+
+Normalised by each reed's own damping, the peaks are 7.8 and 11.4. The
+reeds differ, so this is a match of shape, not of numbers. So the
+small-amplitude excitation is not the defect: the swing's limit is purely
+nonlinear, as St. Hilaire & Vaidya say.
+
+**The measured swing against pressure (2026-09-30).** Cottingham, Lilly
+& Reed ("The motion of air-driven free reeds", Forum Acusticum 1999,
+Fig. 2, read in full and digitised here, ±0.03 mm) measured an A♯ organ
+reed (118 Hz, 4 cm tongue) at mid-tongue, 2 cm from the tip:
+
+| P (kPa) | 0.03 | 0.31 | 0.60 | 0.89 | 1.19 | 1.95 | 2.44 | 2.94 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Half swing (mm) | 0.73 | 1.17 | 1.20 | 1.17 | 1.21 | 1.10 | 1.04 | 1.03 |
+| Mean (mm) | +0.07 | 0.00 | −0.08 | −0.15 | −0.24 | −0.39 | −0.50 | −0.64 |
+
+* From 0.3 to 1.2 kPa the swing holds within 3 %, and by 2.9 kPa, ten times
+  the pressure, it has fallen 12 %.
+* At the tip that is ~3.4 mm (mode shape 0.34 at mid-length).
+* The mean drifts with the flow, ~0.24 mm/kPa at mid-tongue.
+* The model's swing grows 2.2× from 0.3 to 3 kPa.
+
+This is 2c's quantitative target: **a swing that, past the onset, changes
+by less than ~15 % over a tenfold rise in pressure**.
+
+**What feeds the swing, exactly (`which_term_feeds_it`).**
+* The air's work splits 70 : 30, at every swing and pressure, between the
+  cell's pressure and the near field's inertia. Below the cell's resonance
+  (~2 kHz) both are one thing: the inertia upstream of the gap, hole
+  (~110 kg/m⁴) and near field (47.6) in series, times the rate of change
+  of the flow through the gap.
+* Quasi-steadily, that flow is α S(ζ) v, so the work per cycle is about
+  −S_r M_up α v ∮ S′(ζ) ζ′² dt.
+* While the tongue is above the plate the gap's area grows in proportion
+  to the lift (S′ constant, ~32 mm²/mm here). The feed therefore grows as
+  A², exactly as the tongue's damping does, and nothing limits the swing
+  until the geometry changes: the area capped at the slot's, or the tip
+  emerging from the plate.
+
+**So the derivation has a precise target:** how the escape area -- the
+flow a lifted tongue lets through, at a given pressure -- grows with the
+lift once the lift is no longer small against the tongue's width and the
+slot. A swing that holds over a tenfold rise in pressure needs S′ to fall
+off at a lift of the order of the measured swings (~3.4 mm at the tip of a
+4 cm organ reed, more than 4 mm for this F4). This is static, measurable
+flow physics, the same for any pressure -- which is exactly why it would
+pin the swing independently of pressure. The model now takes the
+area as the lift times the edges, hard-capped at the slot's area.
+
 **Where 2c stands.** Tried and not the limit: the tongue's drag in the air,
 the tip coming through the plate (a measured reed never does), and the mean
 moving toward the plate. What is left is the one thing all three leave

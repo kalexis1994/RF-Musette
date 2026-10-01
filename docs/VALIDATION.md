@@ -599,3 +599,19 @@ identical, sample for sample, to `frere-jacques-bass.score` on channels 2
 and 3.
 
 **Checks.** Every earlier test passes; fmt and clippy clean.
+
+## 2026-10-01 -- Milestone 8f: the keyboard player's bellows (0.9.4)
+
+**Built.**
+* The modulation wheel (CC 1, CC 33; MIDI 2.0 wide) takes the bellows as
+  Expression does; the last moved leads.
+* `bellows_smoothing`, index 42, 150 ms: velocity's push reached first
+  order. The state grows to 43 values.
+
+**Tests:**
+* the wheel equals Expression at 7 and 14 bits and at MIDI 2.0 width, and
+  wheel down is silent;
+* velocity's push reaches 63 % in 150 ms without a jump;
+* a controller's move is whole within 5 ms.
+
+**Checks.** Every earlier test passes; fmt and clippy clean.

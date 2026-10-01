@@ -20,9 +20,12 @@ Stradella bass after it. Each reed is a self-oscillating free reed; the key
 only opens a pallet, and loudness, brightness and the small sag of pitch come
 from the pressure in one bellows that every reed shares.
 
-With no bellows controller, key velocity sets the push; once Expression
-(CC 11, with CC 43 as its low bits) arrives, it drives the bellows instead —
-which is what digital accordions send. The push is the arm's: one bellows
+With no bellows controller, key velocity sets the push, which the arm
+reaches over Bellows Smoothing (150 ms) rather than at once; once
+Expression (CC 11, with CC 43 as its low bits) or the modulation wheel
+(CC 1, with CC 33) arrives, it drives the bellows instead -- the last moved
+leads. Digital accordions send Expression; a keyboard player can move the
+wheel as the arm, shaking it for the accordion's own vibrato. The push is the arm's: one bellows
 feeds every reed and gives way a little as more of them draw air (Bellows
 Response "Stiff" makes it the pressure itself, for a digital accordion that
 measures it). Which way the bellows moves, and so

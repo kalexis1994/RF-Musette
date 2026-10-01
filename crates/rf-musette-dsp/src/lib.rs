@@ -156,6 +156,9 @@ pub struct Engine {
     /// A reed parameter moved: rebuild before the next sample.
     dirty: bool,
     held: [bool; KEYS],
+    /// The intent as the arm follows it: velocity's strikes smoothed over
+    /// "Bellows Smoothing", a controller's as it comes.
+    intent: f64,
     /// Where each note on a treble channel went when it was played, so it
     /// is let go there whatever the split has become since.
     played: [Side; KEYS],
@@ -197,6 +200,7 @@ impl Engine {
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
             held: [false; KEYS],
+            intent: 0.0,
             played: [Side::Treble; KEYS],
             bass_held: [false; KEYS],
             chord_held: [false; KEYS],
@@ -256,6 +260,7 @@ impl Engine {
                 | parameters::BASS_REGISTER
                 | parameters::LEFT_HAND
                 | parameters::SPLIT_POINT
+                | parameters::BELLOWS_SMOOTHING
         ) {
             self.dirty = true;
         }
@@ -556,8 +561,24 @@ impl Engine {
         self.build_stale();
         let factor = self.decimator.factor();
         let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
-        // The bellows holds its pressure with or without a key down.
-        let target = self.parameters.bellows_pressure(self.bellows.intent());
+        // The arm: velocity's strikes reached over the smoothing time, a
+        // controller's at once.
+        let asked = f64::from(self.bellows.intent());
+        let following = match self.bellows.source() {
+            BellowsSource::Velocity => {
+                let seconds = self
+                    .parameters
+                    .get(parameters::BELLOWS_SMOOTHING)
+                    .unwrap_or(0.0)
+                    * 1e-3;
+                if seconds > 0.0 {
+                    1.0 - math::exp(-1.0 / (f64::from(self.sample_rate) * seconds))
+                } else {
+                    1.0
+                }
+            }
+            BellowsSource::Expression => 1.0,
+        };
         let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
         // Turning, the bellows takes its pressure through zero: the turn goes
         // from -1 to +1, or back, at a steady rate over the reversal time.
@@ -578,6 +599,9 @@ impl Engine {
             .map(|(resonance, q)| cassotto::CassottoTuning::new(resonance, q, h));
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
+            self.intent += (asked - self.intent) * following;
+            // The bellows holds its pressure with or without a key down.
+            let target = self.parameters.bellows_pressure(self.intent as f32);
             if self.keys.iter().all(Key::is_idle) && self.at_rest() {
                 // Every pallet is shut, nothing moves and nothing is left in
                 // the filter. The bellows keeps moving as asked, and only

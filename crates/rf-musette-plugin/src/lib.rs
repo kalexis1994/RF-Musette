@@ -31,6 +31,10 @@ pub const PROGRAM_RESEARCH: &str = "research";
 pub const CC_EXPRESSION: u8 = 11;
 /// Expression's low seven bits.
 pub const CC_EXPRESSION_LSB: u8 = 43;
+/// The modulation wheel, and its low seven bits: the bellows, as Expression
+/// is (milestone 8f).
+pub const CC_MOD_WHEEL: u8 = 1;
+pub const CC_MOD_WHEEL_LSB: u8 = 33;
 /// The bellows' direction, as a switch: below 64 pull, 64 and above push.
 /// General Purpose 5, which MIDI defines as a switch and nothing else uses;
 /// no MIDI accordion sends the direction (docs/ROADMAP.md, milestone 3).
@@ -104,8 +108,8 @@ impl MusetteProcessor {
             0x90 if value > 0 => engine.channel_note_on(channel, index, f32::from(value) / 127.0),
             0x80 | 0x90 => engine.channel_note_off(channel, index),
             0xb0 => match index {
-                CC_EXPRESSION => engine.bellows_mut().expression_msb(value),
-                CC_EXPRESSION_LSB => engine.bellows_mut().expression_lsb(value),
+                CC_EXPRESSION | CC_MOD_WHEEL => engine.bellows_mut().expression_msb(value),
+                CC_EXPRESSION_LSB | CC_MOD_WHEEL_LSB => engine.bellows_mut().expression_lsb(value),
                 CC_ALL_SOUND_OFF | CC_ALL_NOTES_OFF => engine.reset(),
                 _ => {}
             },
@@ -140,11 +144,15 @@ impl MusetteProcessor {
                 match event.index {
                     // A 7-bit origin takes the byte path exactly, so a
                     // controller behaves the same whichever protocol carried it.
-                    CC_EXPRESSION if seven_bit => engine.bellows_mut().expression_msb(byte),
-                    CC_EXPRESSION => engine
+                    CC_EXPRESSION | CC_MOD_WHEEL if seven_bit => {
+                        engine.bellows_mut().expression_msb(byte)
+                    }
+                    CC_EXPRESSION | CC_MOD_WHEEL => engine
                         .bellows_mut()
                         .expression_wide((f64::from(event.value) / f64::from(u32::MAX)) as f32),
-                    CC_EXPRESSION_LSB if seven_bit => engine.bellows_mut().expression_lsb(byte),
+                    CC_EXPRESSION_LSB | CC_MOD_WHEEL_LSB if seven_bit => {
+                        engine.bellows_mut().expression_lsb(byte)
+                    }
                     CC_ALL_SOUND_OFF | CC_ALL_NOTES_OFF => engine.reset(),
                     _ => {}
                 }

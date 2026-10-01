@@ -91,8 +91,9 @@ pub const ATTACK_KICK: usize = 38;
 pub const BASS_REGISTER: usize = 39;
 pub const LEFT_HAND: usize = 40;
 pub const SPLIT_POINT: usize = 41;
+pub const BELLOWS_SMOOTHING: usize = 42;
 
-pub const COUNT: usize = 42;
+pub const COUNT: usize = 43;
 
 /// The pressure below which the air is too weak to push a tongue into its
 /// frame at a key's opening, Pa: half the start is reached here. Assumed, of
@@ -577,6 +578,15 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         (24.0, 96.0, 53.0, 1.0),
         Taper::Linear,
         "The lowest note the treble keeps when Left Hand is on, as a MIDI note: F3 (53), the treble's first key, by default. The octave below it plays the chords, the rest the bass buttons.",
+    ),
+    spec(
+        "bellows_smoothing",
+        "Bellows Smoothing",
+        PAGE_AIR,
+        "ms",
+        (0.0, 1000.0, 150.0, 1.0),
+        Taper::Linear,
+        "Decided 2026-10-01 (milestone 8f), voiced by ear: when key velocity sets the push, the push moves to each new strike's over this time, first order, not at once -- an arm does not jump. A modulation wheel or an expression pedal is the player's hand already, and the bellows follows it as it comes.",
     ),
 ];
 

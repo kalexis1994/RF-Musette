@@ -11,7 +11,10 @@
 //! * once Expression (CC 11) arrives -- an expression pedal, or a digital
 //!   accordion's bellows, which is what Roland's FR-series sends -- it takes
 //!   the bellows over for good and velocity stops moving it. CC 43 carries
-//!   its low seven bits when the controller has them.
+//!   its low seven bits when the controller has them. The modulation wheel
+//!   (CC 1, CC 33) does the same (decided 2026-10-01, milestone 8f): an
+//!   accordion has no vibrato control, and a keyboard player's free hand on
+//!   the wheel is the arm on the bellows. Of the two, the last moved leads.
 //!
 //! The intent is a fraction of the instrument's range, not a pressure. Which
 //! pressure in pascals a given intent means belongs to the model, and is

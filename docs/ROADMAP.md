@@ -1749,6 +1749,46 @@ the bellows then took 203 ms (7c), so the hold took the mass's 10 ms too.
 The honest test of speaking shows milestone 7's top-4′ defect from key 87,
 not 90. Both hands now cost 7.7 µs per sample.
 
+## 8f. The keyboard player's bellows
+
+The user (2026-10-01): a keyboard player with both hands busy and no
+expression pedal still needs a bellows, and one playing with one hand can
+move the modulation wheel with the other. An accordion has no wheel and
+no vibrato control. Its own vibrato is a bellows shaken by the arm, which
+the model already makes from the pressure; so the wheel is better spent as
+the bellows. Decided: the wheel and a smoothing first; the bellows' travel
+and turning on its own later.
+
+**The design:**
+* The modulation wheel (CC 1, with CC 33 as its low bits; MIDI 2.0 at full
+  width) takes the bellows as Expression does. Wheel down is the bellows
+  still, and silent; wheel up is the hardest push. Of the wheel and an
+  expression pedal, the last moved leads.
+* "Bellows Smoothing": when velocity sets the push, the push moves to each
+  new strike's over this time (first order), not at once. An arm does not
+  jump. 150 ms by default, voiced by ear later. A wheel or a pedal is the
+  player's hand already, and the bellows follows it as it comes.
+
+**Predictions** (written before building it, 2026-10-01):
+1. CC 1 at a value asks the pressure CC 11 at that value asks; wheel down
+   leaves the instrument silent; 14-bit and MIDI 2.0 work as for CC 11.
+2. Velocity alone: from a soft strike to a hard one, the asked pressure
+   rises 63 % of the way in the smoothing time (150 ± 15 ms), and does not
+   jump.
+3. With a controller the pressure follows it at once, as before: every
+   earlier test passes.
+
+**Status (2026-10-01): built (0.9.4); met, one as written read on the push**
+(`tests/milestone_8f.rs`, the plugin's contracts).
+1. **Met.** CC 1 asks what CC 11 asks, at seven bits, at fourteen
+   (CC 1 + CC 33) and at MIDI 2.0 width. With the wheel down a key is
+   silent.
+2. **Met on the push.** It moves 63 % of the way in 150 ms, and does not
+   jump. As written, of the pressure, the prediction overlooked the curve:
+   the pressure is the push squared, and moves 51 % in that time.
+3. **Met.** A controller's move is whole within 5 ms. Every earlier test
+   passes.
+
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.

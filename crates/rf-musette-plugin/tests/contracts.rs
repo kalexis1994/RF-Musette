@@ -7,8 +7,8 @@ use rackforge_plugin_sdk::{
 };
 use rf_musette_dsp::{BellowsSource, parameters};
 use rf_musette_plugin::{
-    CC_BELLOWS_DIRECTION, CC_EXPRESSION, CC_EXPRESSION_LSB, MAX_FRAMES, MusetteProcessor,
-    PARAMETER_GAIN, PROGRAM_RESEARCH, STATE_BYTES,
+    CC_BELLOWS_DIRECTION, CC_EXPRESSION, CC_EXPRESSION_LSB, CC_MOD_WHEEL, CC_MOD_WHEEL_LSB,
+    MAX_FRAMES, MusetteProcessor, PARAMETER_GAIN, PROGRAM_RESEARCH, STATE_BYTES,
 };
 use serde_json::Value;
 
@@ -106,6 +106,65 @@ fn a_seven_bit_origin_takes_the_byte_path_exactly() {
         upscaled.engine().unwrap().bellows()
     );
     assert!(upscaled.engine().unwrap().is_held(60));
+}
+
+/// Milestone 8f, prediction 1: the modulation wheel asks what Expression
+/// asks, at seven bits, at fourteen and at MIDI 2.0 width; wheel down is
+/// silent.
+#[test]
+fn the_wheel_is_the_bellows() {
+    let intent = |events: &[MidiEvent], wide: &[MidiEvent2]| {
+        let mut plugin = prepared();
+        run(&mut plugin, events, wide);
+        let engine = plugin.engine().unwrap();
+        (engine.bellows().source(), engine.bellows().intent())
+    };
+    assert_eq!(
+        intent(&[midi(0, [0xb0, CC_MOD_WHEEL, 90])], &[]),
+        intent(&[midi(0, [0xb0, CC_EXPRESSION, 90])], &[])
+    );
+    assert_eq!(
+        intent(
+            &[
+                midi(0, [0xb0, CC_MOD_WHEEL, 90]),
+                midi(0, [0xb0, CC_MOD_WHEEL_LSB, 33])
+            ],
+            &[]
+        ),
+        intent(
+            &[
+                midi(0, [0xb0, CC_EXPRESSION, 90]),
+                midi(0, [0xb0, CC_EXPRESSION_LSB, 33])
+            ],
+            &[]
+        )
+    );
+    let wide = |index| MidiEvent2 {
+        frame: 0,
+        kind: MIDI2_KIND_CONTROL_CHANGE,
+        channel: 0,
+        index,
+        flags: 0,
+        value: 0x9000_0000,
+        extra: 0,
+    };
+    assert_eq!(
+        intent(&[], &[wide(CC_MOD_WHEEL)]),
+        intent(&[], &[wide(CC_EXPRESSION)])
+    );
+    assert_eq!(
+        intent(&[midi(0, [0xb0, CC_MOD_WHEEL, 90])], &[]).0,
+        BellowsSource::Expression
+    );
+
+    // Wheel down: a key pressed, nothing sounds.
+    let mut plugin = prepared();
+    let out = run(
+        &mut plugin,
+        &[midi(0, [0xb0, CC_MOD_WHEEL, 0]), midi(0, [0x90, 69, 100])],
+        &[],
+    );
+    assert!(out.iter().all(|x| *x == 0.0), "a sound with the wheel down");
 }
 
 /// Milestone 8, prediction 6: the channel picks the side, as a V-Accordion

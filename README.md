@@ -18,7 +18,10 @@ from the pressure in one bellows that every reed shares.
 
 With no bellows controller, key velocity sets the push; once Expression
 (CC 11, with CC 43 as its low bits) arrives, it drives the bellows instead —
-which is what digital accordions send.
+which is what digital accordions send. Which way the bellows moves, and so
+which reed of each plate sounds, is the Bellows Direction parameter or CC 80
+as a switch (below 64 pull, 64 and above push), since no MIDI accordion
+sends it.
 
 ## How it is judged
 

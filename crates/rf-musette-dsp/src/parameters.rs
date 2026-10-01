@@ -72,8 +72,14 @@ pub const PALLET_LIFT: usize = 19;
 pub const PALLET_OPENING: usize = 20;
 pub const PALLET_CLOSING: usize = 21;
 pub const SWING_LIMIT: usize = 22;
+pub const BELLOWS_DIRECTION: usize = 23;
+pub const REVERSAL_TIME: usize = 24;
 
-pub const COUNT: usize = 23;
+pub const COUNT: usize = 25;
+
+/// [`BELLOWS_DIRECTION`]'s values.
+pub const PULL: f64 = 0.0;
+pub const PUSH: f64 = 1.0;
 
 /// Steel, kg/m³. Tongues are tempered spring steel (Llanos-Vázquez et al.
 /// 2002; the maker Harmonikas.cz); the density of steel is not in doubt.
@@ -337,6 +343,23 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Linear,
         "Voiced: the one voiced constant of the reed. A damping that grows with the tongue's swing and with the flow, standing in for the nonlinear dissipation St. Hilaire & Vaidya (J. Fluid Mech. 67, 1975) found limits a free reed and that this model does not derive. At 0.5 the swing settles near 5 mm from 1 kPa up, as this reed's is measured (Ziegenhals 2009: more than 4 mm at mf) and holds nearly constant with pressure (Cottingham, Lilly & Reed 1999). At 0 the model is as derived and its swing keeps growing with pressure. Heard 2026-09-30 against 0 on a continuous swell of the F4: 0.5 preferred.",
     ),
+    choice(
+        "bellows_direction",
+        "Bellows Direction",
+        PAGE_AIR,
+        &[(0, "Pull"), (1, "Push")],
+        0,
+        "Decided 2026-09-30: which way the bellows moves, and so which reed of the plate sounds -- on pull the one inside the cell, on push the one on the bellows side. No MIDI accordion sends it (Roland FR-1x and Brendan Vavra's both send only CC 11), so it is this parameter, or CC 80 as a switch: below 64 pull, 64 and above push.",
+    ),
+    spec(
+        "reversal_time",
+        "Reversal Time",
+        PAGE_AIR,
+        "ms",
+        (5.0, 1000.0, 100.0, 1.0),
+        Taper::Logarithmic,
+        "Assumed: how long the bellows takes to stop and turn when the direction changes, the pressure passing through zero on the way. Not measured; players describe \"a slight interruption in the sound\", like a bow change (McMahan 2016; Llanos et al. 2002).",
+    ),
 ];
 
 /// One engine's parameter values, in the units of [`SPECS`].
@@ -413,6 +436,20 @@ impl Parameters {
 
     pub fn oversampling(&self) -> usize {
         self.values[OVERSAMPLING] as usize
+    }
+
+    /// +1 when the bellows pushes, -1 when it pulls.
+    pub fn direction(&self) -> f64 {
+        if self.values[BELLOWS_DIRECTION] == PUSH {
+            1.0
+        } else {
+            -1.0
+        }
+    }
+
+    /// Seconds the bellows takes to turn.
+    pub fn reversal_time(&self) -> f64 {
+        self.values[REVERSAL_TIME] * 1.0e-3
     }
 
     pub fn pallet_design(&self) -> crate::pallet::PalletDesign {

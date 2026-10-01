@@ -7,7 +7,7 @@ mod schema;
 mod score;
 mod wav;
 
-use rf_musette_dsp::{Engine, PARAMETER_SPECS, REED_KEY, SAMPLE_RATES};
+use rf_musette_dsp::{Engine, PARAMETER_SPECS, REED_KEY, SAMPLE_RATES, parameters};
 use score::Action;
 use serde_json::json;
 use std::{
@@ -25,7 +25,8 @@ Usage:
   rf-musette-lab audition [--prepare-only]
 Render options:
   --score PATH      A score: `onset_ms duration_ms note velocity` per line,
-                    or `onset_ms bellows 0..127`. Without it, one note.
+                    `onset_ms bellows 0..127` or `onset_ms direction
+                    pull|push`. Without it, one note.
   --set ID=VALUE    Sets a parameter by its id, in its own units; repeat for
                     more. The ids are in package/metadata/parameters.json.
   --note N          MIDI 0..127 for the single note (default 65, F4: the
@@ -213,6 +214,14 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
             Action::NoteOn { note, velocity } => engine.note_on(note, f32::from(velocity) / 127.0),
             Action::NoteOff { note } => engine.note_off(note),
             Action::Bellows { value } => engine.bellows_mut().expression_msb(value),
+            Action::Direction { push } => {
+                let way = if push {
+                    parameters::PUSH
+                } else {
+                    parameters::PULL
+                };
+                engine.set_parameter(parameters::BELLOWS_DIRECTION, way);
+            }
         }
     }
     engine.render(&mut samples[cursor..]);

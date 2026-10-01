@@ -553,6 +553,57 @@
       "order": 5,
       "page": "model_air",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "bellows_direction",
+      "index": 23,
+      "kind": {
+        "choices": [
+          {
+            "name": "Pull",
+            "value": 0
+          },
+          {
+            "name": "Push",
+            "value": 1
+          }
+        ],
+        "default": 0,
+        "type": "enum"
+      },
+      "name": "Bellows Direction",
+      "order": 6,
+      "page": "model_air",
+      "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "reversal_time",
+      "index": 24,
+      "kind": {
+        "default": 100.0,
+        "maximum": 1000.0,
+        "minimum": 5.0,
+        "step": 1.0,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "ms"
+      },
+      "name": "Reversal Time",
+      "order": 7,
+      "page": "model_air",
+      "suggested_control": "knob"
     }
   ],
   "schema_version": 1

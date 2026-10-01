@@ -4,6 +4,6 @@
   "presets": [{
     "id": "research", "name": "Research", "bank": "research",
     "category": "Accordion", "order": 0, "tags": ["default"],
-    "description": "Milestone 1: the one reed the IfM Zwota measured, F4, blown from its cell. Every other key is silent."
+    "description": "Milestone 3: the F4 plate the IfM Zwota measured -- a reed for each way the bellows moves (CC 80, or the Bellows Direction parameter). Every other key is silent."
   }]
 }

@@ -31,6 +31,10 @@ pub const PROGRAM_RESEARCH: &str = "research";
 pub const CC_EXPRESSION: u8 = 11;
 /// Expression's low seven bits.
 pub const CC_EXPRESSION_LSB: u8 = 43;
+/// The bellows' direction, as a switch: below 64 pull, 64 and above push.
+/// General Purpose 5, which MIDI defines as a switch and nothing else uses;
+/// no MIDI accordion sends the direction (docs/ROADMAP.md, milestone 3).
+pub const CC_BELLOWS_DIRECTION: u8 = 80;
 const CC_ALL_SOUND_OFF: u8 = 120;
 const CC_ALL_NOTES_OFF: u8 = 123;
 
@@ -73,11 +77,26 @@ impl MusetteProcessor {
         }
     }
 
+    /// The bellows' direction from its switch: a parameter like any other,
+    /// so it is saved with the state and the host sees it move.
+    fn turn_bellows(&mut self, push: bool) {
+        let value = if push {
+            parameters::PUSH
+        } else {
+            parameters::PULL
+        };
+        Processor::set_parameter(self, parameters::BELLOWS_DIRECTION as u32, value);
+    }
+
     fn midi1(&mut self, event: &MidiEvent) {
+        let [status, index, value] = event.data;
+        if status & 0xf0 == 0xb0 && index == CC_BELLOWS_DIRECTION {
+            self.turn_bellows(value >= 64);
+            return;
+        }
         let Some(engine) = &mut self.engine else {
             return;
         };
-        let [status, index, value] = event.data;
         match status & 0xf0 {
             0x90 if value > 0 => engine.note_on(index, f32::from(value) / 127.0),
             0x80 | 0x90 => engine.note_off(index),
@@ -92,6 +111,11 @@ impl MusetteProcessor {
     }
 
     fn midi2(&mut self, event: &MidiEvent2) {
+        if event.kind == MIDI2_KIND_CONTROL_CHANGE && event.index == CC_BELLOWS_DIRECTION {
+            // The upper half of the range at any width: 64 and above at 7 bits.
+            self.turn_bellows(event.value >= 1 << 31);
+            return;
+        }
         let Some(engine) = &mut self.engine else {
             return;
         };

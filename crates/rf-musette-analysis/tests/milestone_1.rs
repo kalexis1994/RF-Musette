@@ -45,7 +45,14 @@ fn no_reachable_parameter_set_blows_up() {
             seed ^= seed >> 7;
             seed ^= seed << 17;
             let unit = (seed >> 11) as f64 / (1u64 << 53) as f64;
-            assert!(p.set(index, spec.minimum + unit * (spec.maximum - spec.minimum)));
+            // A choice takes one of its values; anything else, any value in
+            // its range.
+            let value = if spec.choices.is_empty() {
+                spec.minimum + unit * (spec.maximum - spec.minimum)
+            } else {
+                f64::from(spec.choices[(unit * spec.choices.len() as f64) as usize].0)
+            };
+            assert!(p.set(index, value));
         }
         sets.push(p);
     }

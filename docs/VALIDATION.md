@@ -235,3 +235,35 @@ within 0.07 cents and 0.4 %; the deepest bend −16.0 cents; choking 35.5,
 
 **Checks.** The workspace's tests all pass; the sag and attack defects
 remain ignored.
+
+## 2026-09-30 -- Milestone 3: the plate pair (0.4.0)
+
+**Measured first** (`tests/push_reed.rs`, RK4): the push reed (cell
+downstream) and the pull reed (cell upstream) have the same threshold to
+the pascal for every cell -- 32 Pa by default; 36, 53, 119, 217, 358,
+761 Pa with the cell's resonance at 1.3, 1.1, 1.0, 0.95, 0.9, 0.8 of the
+reed. In one series loop the order does not matter.
+
+**Built.** Two reed states behind one pallet; the signed bellows pressure
+blows each from its own side; `bellows_direction` (index 23) and CC 80;
+`reversal_time` (index 24, 100 ms, assumed); the state grows to 25 values
+(212 bytes) and loads every older one.
+
+**Tests** (`tests/milestone_3.rs`, through the engine at 48 kHz, 300 Pa):
+the push reed's output is the pull reed's negated, sample for sample
+(worst |pull + push| 0); the idle reed's state stays exactly default;
+after a reversal the level returns to +0.05 dB. The gap: 130, 190, 250,
+410 ms for turns of 20, 50, 100, 200 ms, none for 5 ms -- ignored as the
+known slow-growth defect. Plugin: CC 80 at 64 and 63, and a wide value on
+either side of half, set the parameter, which round-trips through the state.
+
+**Package.** `rf-musette-lab package`: PLUGIN_PACKAGE_VALID 0.4.0,
+parameters=25, PLUGIN_SMOKE_OK, state_bytes=212; wasm 63251 → 52180 bytes
+optimised.
+
+**Checks.** All workspace tests pass; fmt and clippy clean; the wasm
+target builds.
+
+**Render for listening.** `scores/bellows-reversal.score`: the F4 held at
+~400 Pa while the bellows turns three times, then four notes on alternating
+directions.

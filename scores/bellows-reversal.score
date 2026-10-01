@@ -1,0 +1,17 @@
+# Milestone 3: the F4 held while the bellows turns, at a steady push of
+# about 400 Pa (CC 11 at 80). Pull first; each turn takes the reversal time
+# (100 ms by default), the pressure passing through zero.
+0 bellows 80
+0 8500 65 100
+2000 direction push
+4000 direction pull
+6000 direction push
+# Then the same turns between separate notes, as a player phrases them.
+9000 direction pull
+9000 700 65 100
+9800 direction push
+9800 700 65 100
+10600 direction pull
+10600 700 65 100
+11400 direction push
+11400 1200 65 100

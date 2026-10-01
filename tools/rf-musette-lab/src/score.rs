@@ -4,6 +4,7 @@
 //! # comments and blank lines are ignored
 //! 0     2000  69  100     # onset_ms duration_ms note velocity
 //! 500   bellows 90        # onset_ms bellows 0..127 (Expression, CC 11)
+//! 1500  direction push    # onset_ms direction pull|push (CC 80)
 //! ```
 //!
 //! The same shape as the Concert Grand laboratory's scores, with the
@@ -13,9 +14,20 @@ use std::error::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
-    NoteOn { note: u8, velocity: u8 },
-    NoteOff { note: u8 },
-    Bellows { value: u8 },
+    NoteOn {
+        note: u8,
+        velocity: u8,
+    },
+    NoteOff {
+        note: u8,
+    },
+    Bellows {
+        value: u8,
+    },
+    /// The bellows turns: true pushing, false pulling.
+    Direction {
+        push: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -50,6 +62,17 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
                     action: Action::Bellows { value },
                 });
             }
+            [_, "direction", way] => {
+                let push = match *way {
+                    "push" => true,
+                    "pull" => false,
+                    _ => return Err(fail("direction is pull or push").into()),
+                };
+                events.push(Event {
+                    at_ms,
+                    action: Action::Direction { push },
+                });
+            }
             [_, duration, note, velocity] => {
                 let duration: f64 = duration.parse().map_err(|_| fail("bad duration"))?;
                 let note: u8 = note.parse().map_err(|_| fail("bad note"))?;
@@ -71,7 +94,7 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
             }
             _ => {
                 return Err(fail(
-                    "expected `onset duration note velocity` or `onset bellows value`",
+                    "expected `onset duration note velocity`, `onset bellows value` or `onset direction pull|push`",
                 )
                 .into());
             }
@@ -88,7 +111,7 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
 fn rank(action: &Action) -> u8 {
     match action {
         Action::NoteOff { .. } => 0,
-        Action::Bellows { .. } => 1,
+        Action::Bellows { .. } | Action::Direction { .. } => 1,
         Action::NoteOn { .. } => 2,
     }
 }
@@ -141,7 +164,15 @@ mod tests {
         assert!(parse("0 500 60 0").is_err());
         assert!(parse("-5 500 60 64").is_err());
         assert!(parse("0 bellows 200").is_err());
+        assert!(parse("0 direction sideways").is_err());
         let error = parse("0 500 60 64\nnope").unwrap_err().to_string();
         assert!(error.starts_with("line 2"), "{error}");
+    }
+
+    #[test]
+    fn the_bellows_turns_by_name() {
+        let events = parse("1000 direction push\n2000 direction pull").unwrap();
+        assert_eq!(events[0].action, Action::Direction { push: true });
+        assert_eq!(events[1].action, Action::Direction { push: false });
     }
 }

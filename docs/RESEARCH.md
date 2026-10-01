@@ -228,8 +228,9 @@ Open access unless stated:
    CC 11.** Without a bellows controller the key velocity sets the bellows
    pressure for the phrase; once CC 11 arrives (an expression pedal, or a
    digital accordion's bellows, which is what Roland hardware sends) it
-   drives the pressure instead, accepting 14-bit CC 11 + CC 43. How direction
-   is signalled is still open, since no standard carries it.
+   drives the pressure instead, accepting 14-bit CC 11 + CC 43. **The
+   direction, decided 2026-09-30:** the Bellows Direction parameter, or CC 80
+   as a switch (ROADMAP, milestone 3), since no standard carries it.
 3. **Scope of the first instrument. Decided 2026-09-30: the treble side
    first**, a piano keyboard with L, M, M+, M− and H ranks; Stradella is a
    later stage. Whether a cassotto is part of it is still open.

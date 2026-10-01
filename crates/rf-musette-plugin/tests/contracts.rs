@@ -7,8 +7,8 @@ use rackforge_plugin_sdk::{
 };
 use rf_musette_dsp::{BellowsSource, parameters};
 use rf_musette_plugin::{
-    CC_EXPRESSION, CC_EXPRESSION_LSB, MAX_FRAMES, MusetteProcessor, PARAMETER_GAIN,
-    PROGRAM_RESEARCH, STATE_BYTES,
+    CC_BELLOWS_DIRECTION, CC_EXPRESSION, CC_EXPRESSION_LSB, MAX_FRAMES, MusetteProcessor,
+    PARAMETER_GAIN, PROGRAM_RESEARCH, STATE_BYTES,
 };
 use serde_json::Value;
 
@@ -106,6 +106,52 @@ fn a_seven_bit_origin_takes_the_byte_path_exactly() {
         upscaled.engine().unwrap().bellows()
     );
     assert!(upscaled.engine().unwrap().is_held(60));
+}
+
+#[test]
+fn the_direction_switch_turns_the_bellows_as_a_saved_parameter() {
+    let direction = parameters::BELLOWS_DIRECTION as u32;
+    let mut plugin = prepared();
+    assert_eq!(plugin.get_parameter(direction), Some(parameters::PULL));
+    run(
+        &mut plugin,
+        &[midi(0, [0xb0, CC_BELLOWS_DIRECTION, 64])],
+        &[],
+    );
+    assert_eq!(plugin.get_parameter(direction), Some(parameters::PUSH));
+    assert_eq!(
+        plugin
+            .engine()
+            .unwrap()
+            .parameter(parameters::BELLOWS_DIRECTION),
+        Some(parameters::PUSH)
+    );
+    let mut state = vec![0; STATE_BYTES];
+    assert_eq!(plugin.save_state(&mut state), Some(STATE_BYTES));
+    let mut restored = prepared();
+    assert!(restored.load_state(&state));
+    assert_eq!(restored.get_parameter(direction), Some(parameters::PUSH));
+
+    run(
+        &mut plugin,
+        &[midi(0, [0xb0, CC_BELLOWS_DIRECTION, 63])],
+        &[],
+    );
+    assert_eq!(plugin.get_parameter(direction), Some(parameters::PULL));
+    // At MIDI 2.0 width the upper half of the range pushes.
+    let wide = |value| MidiEvent2 {
+        frame: 0,
+        kind: MIDI2_KIND_CONTROL_CHANGE,
+        channel: 0,
+        index: CC_BELLOWS_DIRECTION,
+        flags: 0,
+        value,
+        extra: 0,
+    };
+    run(&mut plugin, &[], &[wide(0x8000_0000)]);
+    assert_eq!(plugin.get_parameter(direction), Some(parameters::PUSH));
+    run(&mut plugin, &[], &[wide(0x7fff_ffff)]);
+    assert_eq!(plugin.get_parameter(direction), Some(parameters::PULL));
 }
 
 #[test]

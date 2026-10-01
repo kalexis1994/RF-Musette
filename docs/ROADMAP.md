@@ -531,7 +531,11 @@ takes over and the valves flip.
 accordion found sends it:
 * the Roland FR-1x senses the bellows opening and closing but sends only
   CC 11;
-* Brendan Vavra's open MIDI accordion sends only CC 11.
+* the FR-8x and FR-4x MIDI implementation charts carry no direction message
+  (read in the survey, SYNTHESIS-AND-PRIOR-ART);
+* Brendan Vavra's open MIDI accordion sends only CC 11;
+* only Bandolibre, an open bandoneon, sends a direction, by SysEx, under a
+  non-commercial licence: a reference, not a standard.
 
 So the direction is a parameter, "Bellows Direction" (Pull / Push), live
 and automatable. A switch CC moves it too: below 64 pull, 64 and above
@@ -611,6 +615,48 @@ accordion. Milestone 3 then is:
 * the valves, which are measured only qualitatively (no study of valve
   dynamics exists, INSTRUMENT-ACOUSTICS §2.6);
 * the reversal.
+
+**As built.**
+* **Two reeds.** Each has its own state and the same design, behind the
+  key's one pallet.
+* **The bellows' pressure is signed.** Pull below zero, push above. Each
+  reed is blown by its own side and sees nothing from the other: its
+  valve is shut, taken as an ideal seal (F4 has a leather valve).
+* **The cell is one cell on an instrument.** Here each reed keeps its own
+  copy, which matters only while both still move, during a reversal.
+* **A reversal.** Turning the direction takes the signed pressure through
+  zero over "Reversal Time": the arm stopping and turning. It is assumed,
+  100 ms: nothing measures it, and players describe "a slight
+  interruption, like a bow change" (McMahan 2016; Llanos et al. 2002).
+  When the bellows controller itself passes through zero, as a digital
+  accordion's does, the ramp hides inside its dip.
+* **Direction.** The `bellows_direction` parameter (0 pull, 1 push,
+  default pull: the reed milestones 1-2 built), or CC 80.
+
+**More predictions** (written before building it):
+5. With the direction held, the other reed stays exactly at rest.
+6. A reversal at constant intent leaves a gap in the sound no longer than
+   the reversal time, and the new reed returns to the old reed's level
+   within 0.5 dB.
+
+**Status (2026-09-30): built (0.4.0); five met, one half met**
+(`tests/milestone_3.rs`, through the engine).
+* **Met:**
+  * the pull reed is unchanged (every earlier test passes);
+  * the push reed is its exact twin: the same samples, of opposite
+    polarity, because the hole's flow is reversed;
+  * the other reed stays exactly at rest;
+  * after a reversal the new reed comes back to the old one's level
+    (+0.05 dB).
+* **Not met:** the gap. It is about the turn plus ~150 ms (130, 190, 250,
+  410 ms for turns of 20, 50, 100, 200 ms), because the new reed starts
+  from rest and grows at the model's small-amplitude rate -- the slow
+  finger attack again, a known defect. Only a 5 ms turn leaves none, the
+  old reed still ringing down in its cell while the new one grows.
+
+The flap of the valves on a reversal, and the leak where a note has no
+valve, wait: the first for a measurement, the second for the notes above
+C6 (milestone 7).
 
 ## 4. Ranks, registers and the musette
 

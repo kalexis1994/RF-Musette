@@ -41,8 +41,9 @@ cargo run --release -p rf-musette-lab -- render --output renders/phrase.wav --sc
 cargo run --release -p rf-musette-lab -- inspect renders/a4.wav
 ```
 
-A score has one event per line: `onset_ms duration_ms note velocity`, or
-`onset_ms bellows 0..127` for Expression. `--help` lists every option. Every
+A score has one event per line: `onset_ms duration_ms note velocity`,
+`onset_ms bellows 0..127` for Expression, or `onset_ms direction pull|push`
+for the bellows' direction. `--help` lists every option. Every
 render starts with 1.5 s of silence by default, for listening; outputs use
 create-new semantics and nothing is overwritten. Each render writes a JSON
 report beside the WAV with the peak, the RMS and the score it played.

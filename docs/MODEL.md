@@ -6,10 +6,10 @@ stated rather than hidden; each constant says where its value came from. The
 tests hold the model to what this document claims -- it is allowed to be
 approximate, not to drift from what is written here.
 
-**Status (0.3.0, in progress): one reed behind its pallet.** The accordion
-F4 tongue the IfM Zwota measured, in its cell, on key 65, behind the pallet
-the key lifts, blown by a bellows that holds its pressure. Every other key is
-silent.
+**Status (0.4.0, in progress): one plate behind its pallet.** The accordion
+F4 the IfM Zwota measured, on key 65: its plate's two reeds, one for each
+way the bellows moves, behind the pallet the key lifts, blown by a bellows
+that holds its pressure and turns. Every other key is silent.
 
 ## How a value earns its place
 
@@ -77,6 +77,34 @@ rate over −9..12 mm.
 
 Millot & Baumann eqs. 5-7: what the tongue pumps plus a quasi-steady
 Bernoulli jet through the useful section, with a vena contracta α.
+
+### The plate's two reeds and the bellows' direction (tested)
+
+Each plate carries two reeds, one per bellows direction:
+* **pull:** the reed inside the cell, with the cell upstream (the reed of
+  milestones 1-2);
+* **push:** the reed on the bellows side, with the cell downstream.
+
+A valve on each slot's far face seals it when its reed would be blown the
+wrong way. Here that is an ideal seal: the idle reed sees nothing of the
+bellows. F4 has a leather valve; notes from C6 up have none on the
+instrument Llanos measured, and their leak waits for those notes.
+
+**The two reeds are the same model.** In a lumped loop the reed feels the
+loop's total impedance, near field + (hole ∥ cell), whatever its order. So
+a push reed with the cell downstream behaves exactly as a pull reed with
+it upstream: measured, to the pascal, for every cell (`tests/push_reed.rs`).
+Cottingham (ICA 2016) found push thresholds ten times higher on an
+artificial chamber. He calls that preliminary, and it is spatial physics
+this class of model cannot hold. On an instrument, Llanos found the attack
+independent of direction. Each reed keeps its own copy of the cell, which
+differs from the one real cell only while both still move.
+
+**The direction and the turn.** `bellows_direction` (or CC 80, a switch)
+chooses the side. A change takes the signed pressure through zero over
+`reversal_time`, assumed 100 ms: nothing measures it, and players describe
+"a slight interruption, like a bow change". The radiated sound is the
+hole's outward flow, so push and pull have opposite polarity.
 
 ### The swing limit (voiced: the one term that is not derived)
 
@@ -240,6 +268,7 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Pallet opening | 50 ms | Reported | "Los ataques usuales de dedo son realizados en unos 0.05 s" (Llanos-Vázquez, thesis 2015, p164) |
 | Pallet closing | 10 ms | Assumed | Not published |
 | Tone hole shape | 4 : 1 rectangle | Assumed | Not published; sets the pallet's rim |
+| Reversal time | 100 ms | Assumed | Not measured; "a slight interruption, like a bow change" (McMahan 2016; Llanos et al. 2002) |
 | Swing limit κ | 0.5 | Voiced by ear, 2026-09-30 | Heard on a continuous swell of the F4 (A/B against κ 0, the bellows to 1 kPa): preferred. The one underived term; chosen so the swing settles near 5 mm from ~1 kPa (Ziegenhals: > 4 mm at mf; Braasch & Cottingham: ~15 % of the length) and holds with pressure (Cottingham, Lilly & Reed 1999) |
 
 ## What it does (0.2.0, measured; `milestone_1.rs` and `diagnosis.rs`)
@@ -258,6 +287,8 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Closing the pallet | exact silence; −121 dB near the host's Nyquist | -- | Met |
 | Finger attack, −50 → −5 dB | 249 ms (400 Pa), 730 ms (100 Pa) | 50-110 ms mf, 60-140 ms p (Llanos 2014) | **Not met** |
 | Swing against pressure | κ 0.5: 3.7, 4.8, 5.2, 5.5, 5.65 mm at 0.3, 0.6, 0.9, 1.5, 3 kPa (κ 0: 4.9 → 11 mm) | within 3 % from 0.3 to 1.2 kPa, 12 % lower at 2.9 kPa (Cottingham, Lilly & Reed 1999, Fig. 2) | Met from 0.6 kPa (+19 % to 3 kPa), by the voiced term; still climbing at 0.3 kPa |
+| Push against pull | the same samples, opposite polarity | attacks independent of direction (Llanos); push thresholds ×10 on an artificial chamber (Cottingham 2016, preliminary) | Met for the instrument; the rig's difference is out of reach |
+| Bellows reversal, 400 Pa held | a gap of the turn + ~150 ms (250 ms at 100 ms), then the same level (+0.05 dB) | "a slight interruption" (McMahan; Llanos 2002); no gap is measured | Level met; gap long, by the slow attack |
 | Level against mean flow, past 600 Pa | +4.2-4.7 dB per doubling (κ 0: 2.6-2.8) | ~7.6 dB per doubling (Nussbaumer & Agarwal 2016) | **Not met** |
 
 ## Known defects

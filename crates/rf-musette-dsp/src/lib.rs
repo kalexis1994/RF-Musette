@@ -1,11 +1,12 @@
 //! The RF-Musette engine: a physically modelled accordion, treble side first.
 //!
-//! One reed so far: the accordion F4 tongue the IfM Zwota measured, in its
-//! cell, on key 65, behind the pallet that key lifts. The bellows holds its
-//! pressure whether or not a key is down; the pallet is what lets air
-//! through. Every other key is tracked and silent. The model and its sources
-//! are in [`reed`] and [`pallet`]; every mechanism and constant is entered
-//! in the ledger, `docs/MODEL.md`.
+//! One note so far: the accordion F4 the IfM Zwota measured, on key 65 --
+//! its plate's two reeds, the one inside the cell sounding when the bellows
+//! pulls and the one on the bellows side when it pushes, behind the pallet
+//! that key lifts. The bellows holds its pressure whether or not a key is
+//! down; the pallet is what lets air through. Every other key is tracked and
+//! silent. The model and its sources are in [`reed`] and [`pallet`]; every
+//! mechanism and constant is entered in the ledger, `docs/MODEL.md`.
 //!
 //! The crate is `no_std` and never allocates: it runs inside the plugin's
 //! WebAssembly component on every RackForge host, the Raspberry Pi included.
@@ -45,6 +46,11 @@ const RADIATION: f64 = reed::AIR_DENSITY / (4.0 * core::f64::consts::PI);
 /// is milestone 5.
 const SUPPLY_SMOOTHING_SECONDS: f64 = 0.001;
 
+/// The plate's reed that sounds when the bellows pulls: inside the cell.
+pub const PULL_REED: usize = 0;
+/// The one that sounds when it pushes: on the bellows side.
+pub const PUSH_REED: usize = 1;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EngineError {
     /// The sample rate is not a finite number inside [`SAMPLE_RATES`].
@@ -58,10 +64,18 @@ pub struct Engine {
     /// solving it takes milliseconds and the ratio rarely moves.
     mode: TongueMode,
     model: ReedModel,
-    state: ReedState,
+    /// The plate's two reeds, [`PULL_REED`] and [`PUSH_REED`]: the same
+    /// design, each with its own state. On an instrument they share one
+    /// cell; here each keeps its own copy of it, which differs only while
+    /// both still move, through a reversal (docs/MODEL.md).
+    states: [ReedState; 2],
     pallet: Pallet,
     pallet_design: PalletDesign,
+    /// The bellows' pressure, Pa, without its sign.
     supply: f64,
+    /// Which way the bellows moves: -1 pulling, +1 pushing, and in between
+    /// while it turns. The signed pressure is `turn × supply`.
+    turn: f64,
     decimator: Decimator,
     /// A reed parameter moved: rebuild before the next sample.
     dirty: bool,
@@ -82,10 +96,11 @@ impl Engine {
             parameters,
             mode,
             model,
-            state: ReedState::default(),
+            states: [ReedState::default(); 2],
             pallet: Pallet::default(),
             pallet_design: parameters.pallet_design(),
             supply: 0.0,
+            turn: parameters.direction(),
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
             held: [false; KEYS],
@@ -112,7 +127,24 @@ impl Engine {
         if !self.parameters.set(index, value) {
             return false;
         }
-        if index != parameters::GAIN {
+        // With no key down and nothing sounding, how long the bellows takes
+        // to turn cannot be heard: a loaded program or a fresh engine starts
+        // already turned.
+        if index == parameters::BELLOWS_DIRECTION
+            && self.held_count() == 0
+            && self
+                .states
+                .iter()
+                .all(|state| *state == ReedState::default())
+        {
+            self.turn = self.parameters.direction();
+        }
+        // The gain and the bellows' direction and turning time are read as
+        // the samples are made; everything else rebuilds the reed.
+        if !matches!(
+            index,
+            parameters::GAIN | parameters::BELLOWS_DIRECTION | parameters::REVERSAL_TIME
+        ) {
             self.dirty = true;
         }
         true
@@ -162,23 +194,26 @@ impl Engine {
         &mut self.bellows
     }
 
-    /// The reed as it stands, for measurement.
-    pub fn reed(&self) -> (&ReedModel, &ReedState) {
-        (&self.model, &self.state)
+    /// One of the plate's reeds as it stands ([`PULL_REED`] or
+    /// [`PUSH_REED`]), for measurement.
+    pub fn reed(&self, which: usize) -> Option<(&ReedModel, &ReedState)> {
+        Some((&self.model, self.states.get(which)?))
     }
 
-    /// The pressure the reed is being blown with, Pa.
+    /// The bellows' pressure, Pa: below zero pulling, above pushing.
     pub fn supply(&self) -> f64 {
-        self.supply
+        self.turn * self.supply
     }
 
-    /// Lets every key go and silences the reed. What the bellows was asked
-    /// stays asked: resetting the audio does not move the player's arm.
+    /// Lets every key go and silences the reeds. What the bellows was asked
+    /// stays asked: resetting the audio does not move the player's arm, nor
+    /// turn it.
     pub fn reset(&mut self) {
         self.held = [false; KEYS];
-        self.state = ReedState::default();
+        self.states = [ReedState::default(); 2];
         self.pallet = Pallet::default();
         self.supply = 0.0;
+        self.turn = self.parameters.direction();
         self.decimator.reset();
     }
 
@@ -206,40 +241,83 @@ impl Engine {
         // The bellows holds its pressure with or without a key down.
         let target = self.parameters.bellows_pressure(self.bellows.intent());
         let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
+        // Turning, the bellows takes its pressure through zero: the turn goes
+        // from -1 to +1, or back, at a steady rate over the reversal time.
+        let direction = self.parameters.direction();
+        let turning = 2.0 * h / self.parameters.reversal_time();
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
         let hole_area = self.model.design.tone_hole_area;
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
             if self.pallet.is_closed() && self.at_rest() {
                 // The pallet is shut, nothing moves and nothing is left in
-                // the filter. The supply keeps tracking the bellows.
+                // the filter. The bellows keeps moving as asked.
                 self.supply = target;
+                self.turn = toward(self.turn, direction, turning * factor as f64);
                 *sample = 0.0;
                 continue;
             }
             for slot in chunk.iter_mut().take(factor) {
                 self.supply += (target - self.supply) * smoothing;
+                self.turn = toward(self.turn, direction, turning);
+                let signed = self.turn * self.supply;
                 self.pallet.advance(&self.pallet_design, h);
                 let area = self.pallet.area(&self.pallet_design, hole_area);
-                let flow_rate = reed::step(&self.model, &mut self.state, self.supply, area, h);
-                *slot = (RADIATION * flow_rate) as f32;
+                // Each reed is blown only from its own side; the other's
+                // valve is shut, and its reed sees nothing of the bellows.
+                // The flow through the hole is inward on pull and outward
+                // on push; what radiates is the outward flow's rate.
+                let mut outward = 0.0;
+                for (which, state) in self.states.iter_mut().enumerate() {
+                    let (blow, sign) = if which == PULL_REED {
+                        ((-signed).max(0.0), -1.0)
+                    } else {
+                        (signed.max(0.0), 1.0)
+                    };
+                    if blow == 0.0 && *state == ReedState::default() {
+                        continue;
+                    }
+                    outward += sign * reed::step(&self.model, state, blow, area, h);
+                    // An unblown reed rings down; once it is negligible it
+                    // stops exactly, and is no longer computed.
+                    if blow == 0.0 && state.energy(&self.model) < 1.0e-12 {
+                        *state = ReedState::default();
+                    }
+                }
+                *slot = (RADIATION * outward) as f32;
             }
             *sample = self.decimator.decimate(&chunk[..factor]) * gain;
         }
     }
 
-    /// True once the reed has stopped and the filter has emptied. The state
-    /// is then zeroed exactly, so the silence that follows is exact too.
+    /// True once both reeds have stopped and the filter has emptied. A
+    /// reed's state is zeroed exactly once its energy is negligible, so the
+    /// silence that follows is exact too.
     fn at_rest(&mut self) -> bool {
-        if self.decimator.is_quiet() && self.state == ReedState::default() {
+        let still = self
+            .states
+            .iter()
+            .all(|state| *state == ReedState::default());
+        if self.decimator.is_quiet() && still {
             return true;
         }
         // A sounding F4 reed stores a few millijoules; 1e-12 J is about
         // 98 dB below it.
-        if self.state.energy(&self.model) < 1.0e-12 {
-            self.state = ReedState::default();
+        for state in self.states.iter_mut() {
+            if state.energy(&self.model) < 1.0e-12 {
+                *state = ReedState::default();
+            }
         }
         false
+    }
+}
+
+/// `from` moved toward `to` by at most `by`.
+fn toward(from: f64, to: f64, by: f64) -> f64 {
+    if from < to {
+        (from + by).min(to)
+    } else {
+        (from - by).max(to)
     }
 }
 

@@ -13,8 +13,11 @@ const RATE: f32 = 48_000.0;
 /// The intent that asks 300 Pa of the default bellows (1 kPa × intent²).
 const INTENT_300_PA: f32 = 0.547_722_6;
 
+/// The bellows stiff -- the intent is the pressure -- as when these
+/// predictions were written (milestone 5's prediction 1).
 fn engine(direction: f64) -> Engine {
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, parameters::STIFF));
     assert!(engine.set_parameter(parameters::BELLOWS_DIRECTION, direction));
     engine.bellows_mut().expression_wide(INTENT_300_PA);
     engine

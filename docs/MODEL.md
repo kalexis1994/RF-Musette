@@ -6,7 +6,7 @@ stated rather than hidden; each constant says where its value came from. The
 tests hold the model to what this document claims -- it is allowed to be
 approximate, not to drift from what is written here.
 
-**Status (0.5.0, in progress): one key, five ranks.** Key 65, F4, behind
+**Status (0.6.0, in progress): one key, five ranks, one bellows.** Key 65, F4, behind
 the pallet it lifts, with five plates: L (16′), M− M M+ (the 8′ tremolo
 and musette) and H (4′), each with a reed for each way the bellows moves.
 The registers open them. The M reed is the F4 the IfM Zwota measured.
@@ -125,12 +125,36 @@ pallet:
 The Register parameter opens ranks as Roland's FR-3x draws its 14 treble
 registers (Owner's Manual, p. 27).
 
-Two simplifications, both standing until milestone 5:
-* every reed sees the bellows' full pressure, so ranks add their powers;
-* each rank has its own copy of the pallet's curtain.
+Each rank keeps its own copy of the pallet's curtain: each rank's cell has
+its own hole under the key's pallet, and how much the ranks still share
+there depends on the pallet's geometry, unmeasured (ROADMAP 5).
 
 Each rank is set by its mode, not by where it sounds: L comes out 9.6
 cents flat of M's octave (ROADMAP 4).
+
+### One bellows for every reed (assumed constants, voiced by ear)
+
+    C P′ = A v(P) − Σ Q_holes − Q_vent,    F₀ (1 − v/v_max)/(1 + v/(k v_max)) = A P
+
+The intent, by default, is the player's push: F₀ = A P_ask, P_ask being
+what the intent asks of a still bellows. The arm's force falls as it moves
+faster, by Hill's force-velocity law (Proc. R. Soc. B 126, 1938; k = 0.25).
+So the air the reeds' holes pass, the leaks and the air button spend, make
+the bellows move faster and the same push hold less pressure. The air's
+compliance C = V/(ρc²) smooths it over milliseconds. The step is backward
+Euler on the law linearised at the step's start, stable at any step.
+
+What is left out:
+* the arm's and the bellows' masses: unmeasured, and with any plausible
+  value they would ring near 15-20 Hz, which no player reports.
+
+Every constant is assumed: the area 600 cm², the volume 12 L, v_max
+1 m/s, the leak 10 mm², the air button 400 mm². "Stiff" makes the intent
+the pressure itself, as before, for a digital accordion that measures it.
+
+Measured on F4 (ROADMAP 5):
+* M alone holds 4.0 % below the push, Master 13.6 %;
+* the air button fully open takes the pressure down 29 %.
 
 ### The swing limit (voiced: the one term that is not derived)
 
@@ -236,14 +260,16 @@ volume flow, and the tongue's own radiation is negligible. Ricot finds a
 bare reed dipole-dominated because the flow leaving one face enters from the
 other; in an accordion the other face is inside the bellows.
 
-### The bellows intent (decided, not modelled)
+### The bellows intent (decided)
 
 The player's intent reaches the engine as a fraction from 0 to 1: the latest
 key's velocity until Expression (CC 11, 14 bits with CC 43) arrives, then
-Expression for good. The supply pressure is `ceiling × intent^curve`, 1 kPa
-and 2 by default (assumed: half the push is 250 Pa, inside normal play). A
-1 ms smoothing keeps a stepped controller from reaching the reed as a step;
-it is numerical, not physics -- the bellows' own compliance is milestone 5.
+Expression for good. It asks `ceiling × intent^curve`, 1 kPa and 2 by
+default (assumed: half the push is 250 Pa, inside normal play). That is the
+push the arm makes, in pascals of a still bellows: the bellows (above)
+turns it into the pressure the reeds see, or, "Stiff", it is that pressure.
+A 1 ms smoothing keeps a stepped controller from reaching the bellows as a
+step; it is numerical, not physics.
 
 ## How it is computed (tested)
 
@@ -297,6 +323,10 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Tremolo | 4.1 Hz at A4 (M+), lines' shape | Measured (one instrument), a style to voice by taste | A Borsini Super Star LMMMH (Hergert 2024, Fig. 6) |
 | Registers | Roland FR-3x's 14 | Measured as a maker draws them | FR-3x Owner's Manual p. 27 |
 | L, H geometry | F4 × slot ratios 1.27 / 0.74 (length), 1.25 / 0.79 (width) | Assumed | A bayan maker's slots, RU2233009 Table 3 |
+| Bellows response | Arm | Decided | The intent is the push (Stiff: the pressure) |
+| Bellows area, volume | 600 cm², 12 L | Assumed, to be voiced | A full-size accordion's order; unmeasured |
+| Arm speed v_max, Hill's k | 1 m/s, 0.25 | Assumed; k from Hill 1938 | No arm-on-bellows measurement |
+| Bellows leak, air button | 10 mm², 400 mm² | Assumed | "Holds air > 30 s" (folklore) bounds the leak |
 | Reversal time | 100 ms | Assumed | Not measured; "a slight interruption, like a bow change" (McMahan 2016; Llanos et al. 2002) |
 | Swing limit κ | 0.5 | Voiced by ear, 2026-09-30 | Heard on a continuous swell of the F4 (A/B against κ 0, the bellows to 1 kPa): preferred. The one underived term; chosen so the swing settles near 5 mm from ~1 kPa (Ziegenhals: > 4 mm at mf; Braasch & Cottingham: ~15 % of the length) and holds with pressure (Cottingham, Lilly & Reed 1999) |
 
@@ -317,7 +347,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Finger attack, −50 → −5 dB | 249 ms (400 Pa), 730 ms (100 Pa) | 50-110 ms mf, 60-140 ms p (Llanos 2014) | **Not met** |
 | Swing against pressure | κ 0.5: 3.7, 4.8, 5.2, 5.5, 5.65 mm at 0.3, 0.6, 0.9, 1.5, 3 kPa (κ 0: 4.9 → 11 mm) | within 3 % from 0.3 to 1.2 kPa, 12 % lower at 2.9 kPa (Cottingham, Lilly & Reed 1999, Fig. 2) | Met from 0.6 kPa (+19 % to 3 kPa), by the voiced term; still climbing at 0.3 kPa |
 | Tremolo beats at 300 Pa | M+ +3.667, M− −3.146, M−/M+ 6.813 Hz | asked 3.666, −3.143 (Borsini lines at 355 Hz) | Met |
-| Ranks together | Celeste +3.01, Musette +4.77, Master +5.94 dB over Clarinet | powers add (no shared air yet) | Met |
+| Ranks together, bellows stiff | Celeste +3.01, Musette +4.77, Master +5.94 dB over Clarinet | powers add | Met |
+| One bellows, the arm pushing for 300 Pa | Clarinet 288.1 Pa (−4.0 %), Master 259.3 Pa (−13.6 %), +4.98 dB over Clarinet | more reeds draw the pressure down (McMahan; no measurement) | Met (as predicted) |
+| Air button fully open, note held | −29 % pressure, −2.9 dB | the bellows moves without sounding | Weaker than predicted (assumed arm and vent) |
 | L, H against M's octaves | −9.6, +2.4 cents | in tune, as a tuner sets them | L flat: set by its mode |
 | Push against pull | the same samples, opposite polarity | attacks independent of direction (Llanos); push thresholds ×10 on an artificial chamber (Cottingham 2016, preliminary) | Met for the instrument; the rig's difference is out of reach |
 | Bellows reversal, 400 Pa held | a gap of the turn + ~150 ms (250 ms at 100 ms), then the same level (+0.05 dB) | "a slight interruption" (McMahan; Llanos 2002); no gap is measured | Level met; gap long, by the slow attack |

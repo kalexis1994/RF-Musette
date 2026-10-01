@@ -1,0 +1,14 @@
+# Milestone 5: one bellows for every reed, the arm pushing steadily (CC 11
+# at 80, about 400 Pa in a still bellows), pulling. Render it twice, with
+# `--set bellows_response=0` (Arm) and `=1` (Stiff), to hear the arm give way.
+0 bellows 80
+# Clarinet, then Master on the same held note: five reeds draw the
+# pressure down a little.
+0 register clarinet
+0 5800 65 100
+2500 register master
+# The air button pressed with the note held, then let go.
+7000 register clarinet
+7000 6000 65 100
+9000 air 1
+11000 air 0

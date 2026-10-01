@@ -46,6 +46,8 @@ please say so: the ledger is meant to be accurate.
 | N. Puranik, G. Scavone: "Physical modelling synthesis of a harmonium", *PoMA* 49 (2022); DAFx-23; "Clamped bar model for free reeds", Forum Acusticum 2023 | The only published bellows-driven free-reed synthesis, and the instability that ended it | RESEARCH.md; the reason the scheme is passive | DAFx-23 and FA 2023 in full |
 | N. H. Fletcher, "Autonomous vibration of simple pressure-controlled valves in gas flows", *JASA* 93 (1993) 2172-2180 | The (−,+) / (+,−) classification of reed valves | `reed.rs` docs | In full (by the research survey) |
 | J. W. S. Rayleigh, *The Theory of Sound* | The flanged end correction, 8/(3π)·√(S/π), behind the near-field inertance | `reed.rs` | Standard result |
+| A. V. Hill, "The heat of shortening and the dynamic constants of muscle", *Proc. R. Soc. B* 126 (1938) 136-195 | The force-velocity law, F = F₀ (1 − v/v_max)/(1 + v/(k v_max)) with k ≈ 0.25, by which the player's arm gives way as the reeds draw air | `wind.rs` | Standard result, not re-read |
+| G. Ziegenhals, as above; R. Y. McMahan, *Composer's Guide to the Piano Accordion* (AAA 2016) | Reeds and leaks spend the bellows' air, more with more ranks; the air button vents it | `wind.rs`; ROADMAP 5 | In full (by the research survey) |
 
 ## The instrument
 

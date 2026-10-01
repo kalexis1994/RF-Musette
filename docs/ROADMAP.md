@@ -762,6 +762,88 @@ and the plates' leakage, so more ranks and more notes lower the pressure each
 reed sees; the air button. Bellows compliance and leak are unmeasured in the
 literature: voiced by ear, and stated so.
 
+**Decided (2026-09-30): the bellows control is the arm.** The user asked
+for whatever is most realistic, playable from a MIDI controller (the
+modulation wheel may be mapped later). So the intent -- velocity, or CC 11
+-- is the player's push, and the bellows makes the pressure from it. A
+"Stiff" response keeps the old meaning, the intent as the pressure itself,
+for a digital accordion whose sensor already measures it. "Arm" is the
+default.
+
+**What is measured, and what is not.** No study gives an accordion
+bellows' compliance, moving mass, the flow each reed draws, or how far the
+pressure falls when many reeds sound (INSTRUMENT-ACOUSTICS §2.7: a gap).
+What is known:
+* **The arm's force falls as it moves faster.** Hill's force-velocity law
+  (*Proc. R. Soc. B* 126, 1938, measured on muscle):
+  F = F₀ (1 − v/v_max)/(1 + v/(k v_max)), with k ≈ 0.25 in his data. The
+  push F₀ is the intent's pressure times the bellows' area.
+* **The bellows is a volume of air**, compliance V/(ρc²).
+* **Leaks:** a sealed accordion should hold air more than 30 s under
+  gentle pressure (repair folklore), and the reeds' clearances pass a DC
+  flow that adds up in chords (Ziegenhals 2009).
+* **The air button** vents the bellows so it moves without sounding.
+
+**The model.** The arm is taken as quasi-static: its mass, and the
+bellows' moving mass, are left out. Both are unmeasured, and with any
+plausible value they ring as a lightly damped resonance near 15-20 Hz
+that no player reports. The bellows pressure P then follows:
+* C Ṗ = A v(P) − Q_reeds − Q_leak − Q_air;
+* v(P) from Hill's law at the pushed force;
+* the leak and the air button are orifices, α a √(2P/ρ).
+
+The assumed constants are voiced by ear:
+* the bellows' area 600 cm² and volume 12 L, a full-size accordion's
+  order;
+* v_max 1 m/s, the arm's unloaded push;
+* the leak 10 mm², inside the "more than 30 s" folklore;
+* the air button 400 mm².
+
+**The key's pallet is shared.** A key's one pallet feeds every rank behind
+it, and milestone 4 gave each rank its own copy. Now each of the n open
+ranks sees the curtain's area over n -- exact when they draw alike, and
+milestone 2's single reed unchanged.
+
+**Predictions** (written before building it, 2026-09-30):
+1. With "Stiff", every earlier result stands: the earlier engine-level
+   tests are run with it.
+2. With "Arm" and M alone at the intent that asked 300 Pa, the steady
+   pressure falls ~3 % (~9 Pa): Hill's slope (1 + 1/k) F₀/v_max times the
+   reed's ~0.39 L/s, over A².
+3. With Master the fall is ~15 % (~45 Pa), so Master sits +4.5 to +5.5 dB
+   over Clarinet, against +5.94 with the bellows stiff.
+4. With the key part-way down, the shared curtain makes Musette's pitch
+   bend deeper than Clarinet's at the same depth: three reeds share the
+   throttle.
+5. The air button fully open, the intent held: the pressure falls by at
+   least half and the level by at least 6 dB.
+6. No reachable parameter set makes the engine blow up or produce a
+   non-number.
+
+**Status (2026-09-30): built (0.6.0); four met, one withdrawn, one not
+met** (`tests/milestone_5.rs`).
+1. **Met.** Every earlier result stands, the engine-level tests run with
+   "Stiff".
+2. **Met.** M alone holds 288.1 Pa against the 300 the push asks: 4.0 %
+   below.
+3. **Met.** Master holds 259.3 Pa (13.6 % below), +4.98 dB over Clarinet
+   against +5.98 stiff.
+4. **Withdrawn: its premise was wrong.** Built as written -- the open
+   ranks sharing one hole's curtain -- it silenced Master: five reeds
+   cannot draw through one 150 mm² hole. On an instrument each rank's cell
+   has its own hole under the key's pallet, and the curtain grows with the
+   holes it covers, so each rank keeps about its own. What they still share
+   depends on the pallet's geometry, unmeasured, so each rank keeps its
+   curtain.
+5. **Not met with the assumed constants.** The air button fully open
+   lowers the pressure 29 % (289 → 206 Pa) and the level 2.9 dB. The arm at
+   v_max 1 m/s keeps most of its push against the 5.4 L/s a 400 mm² vent
+   lets out. Neither constant is moved to meet the prediction.
+6. **Met.** 24 random bellows, Master at full push, render finite.
+
+The air button's size and the arm's speed on a bellows are what would
+settle 5, and the pallet's geometry 4.
+
 ## 6. Cassotto, grille and body
 
 The cassotto's resonance (0.8–1 kHz, Richter 1989) and its high-frequency loss

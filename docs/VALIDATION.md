@@ -298,3 +298,39 @@ target builds.
 
 **Render for listening.** `scores/registers.score`: the F4 through nine
 registers, then one held note switched Clarinet → Musette → Master.
+
+## 2026-09-30 -- Milestone 5: one bellows for every reed (0.6.0)
+
+**Decided.** The intent is the arm's push (user, 2026-09-30: "lo que sea
+más realista"). "Stiff" keeps it the pressure, for a digital accordion.
+
+**Built.** `wind.rs`: C P′ = A v(P) − Σ Q_holes − Q_vent, with v(P) from
+Hill's force-velocity law (k 0.25). The step is backward Euler on the
+linearised law; its unit tests check the push with nothing drawn, Hill's
+sag, an emptying vent, and finiteness at any step. Six parameters
+(indices 27-32): response, area 600 cm², volume 12 L, arm speed 1 m/s,
+leak 10 mm², air valve (400 mm² open); the state grows to 33 values (276
+bytes). The pallet split among the open ranks was tried and withdrawn (it
+silenced Master); each rank keeps its curtain.
+
+**Tests** (`tests/milestone_5.rs`, the push asking 300 Pa):
+* Clarinet holds 288.1 Pa (−4.0 %);
+* Master holds 259.3 Pa (−13.6 %), +4.98 dB over Clarinet against +5.98
+  stiff;
+* 24 random bellows at full push stay finite.
+
+Ignored:
+* the shared-pallet bend (withdrawn);
+* the air button: −29 % and −2.9 dB, short of the −50 % and −6 dB
+  predicted (assumed constants).
+
+Earlier engine tests run with "Stiff" and pass.
+
+**Package.** PLUGIN_PACKAGE_VALID 0.6.0, parameters=33, PLUGIN_SMOKE_OK,
+state_bytes=276; wasm 72796 → 61573 bytes optimised.
+
+**Checks.** All workspace tests pass; fmt and clippy clean; wasm builds.
+
+**Render for listening.** `scores/one-bellows.score`, rendered Stiff then
+Arm and joined (×0.48): Clarinet → Master on a held note, then the air
+button pressed and let go.

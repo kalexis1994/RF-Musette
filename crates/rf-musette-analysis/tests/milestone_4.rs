@@ -64,10 +64,12 @@ fn the_sixteen_and_four_foot_ranks_sound_their_octaves() {
 }
 
 /// The long-term level of key 65 through the engine at 300 Pa, with a
-/// register open, dB re 1 Pa at 1 m.
+/// register open, dB re 1 Pa at 1 m. The bellows stiff, as when these
+/// predictions were written (milestone 5's prediction 1).
 fn level(register: f64) -> f64 {
     let rate = 48_000.0f32;
     let mut engine = Engine::new(rate).unwrap();
+    assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, parameters::STIFF));
     assert!(engine.set_parameter(parameters::REGISTER, register));
     engine.bellows_mut().expression_wide(0.547_722_6);
     engine.note_on(REED_KEY, 1.0);

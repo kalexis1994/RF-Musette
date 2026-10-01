@@ -225,6 +225,9 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
             Action::Register { value } => {
                 engine.set_parameter(parameters::REGISTER, f64::from(value));
             }
+            Action::Air { opening } => {
+                engine.set_parameter(parameters::AIR_VALVE, opening);
+            }
         }
     }
     engine.render(&mut samples[cursor..]);

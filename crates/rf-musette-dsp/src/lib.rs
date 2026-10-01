@@ -20,6 +20,7 @@ pub mod pallet;
 pub mod parameters;
 pub mod reed;
 pub mod tongue;
+pub mod wind;
 
 pub use bellows::{Bellows, BellowsSource};
 pub use decimator::Decimator;
@@ -90,6 +91,13 @@ pub struct Engine {
     ranks: [Rank; parameters::RANKS],
     pallet: Pallet,
     pallet_design: PalletDesign,
+    /// What the intent asks, Pa: the pressure the push would make in a
+    /// still bellows, guarded against steps.
+    ask: f64,
+    /// The bellows' air, when the intent is the arm's push.
+    wind: wind::Wind,
+    /// The air the reeds drew in the last step, m³/s.
+    draw: f64,
     /// The bellows' pressure, Pa, without its sign.
     supply: f64,
     /// Which way the bellows moves: -1 pulling, +1 pushing, and in between
@@ -121,6 +129,9 @@ impl Engine {
             ranks,
             pallet: Pallet::default(),
             pallet_design: parameters.pallet_design(),
+            ask: 0.0,
+            wind: wind::Wind::default(),
+            draw: 0.0,
             supply: 0.0,
             turn: parameters.direction(),
             decimator: Decimator::new(parameters.oversampling()),
@@ -160,11 +171,19 @@ impl Engine {
         {
             self.turn = self.parameters.direction();
         }
-        // The gain and the bellows' direction and turning time are read as
-        // the samples are made; everything else rebuilds the reed.
+        // The gain, the bellows' direction and turning time, and its air are
+        // read as the samples are made; everything else rebuilds the reed.
         if !matches!(
             index,
-            parameters::GAIN | parameters::BELLOWS_DIRECTION | parameters::REVERSAL_TIME
+            parameters::GAIN
+                | parameters::BELLOWS_DIRECTION
+                | parameters::REVERSAL_TIME
+                | parameters::BELLOWS_RESPONSE
+                | parameters::BELLOWS_AREA
+                | parameters::BELLOWS_VOLUME
+                | parameters::ARM_SPEED
+                | parameters::BELLOWS_LEAK
+                | parameters::AIR_VALVE
         ) {
             self.dirty = true;
         }
@@ -223,7 +242,8 @@ impl Engine {
         Some((rank.model.as_ref()?, rank.states.get(which)?))
     }
 
-    /// The bellows' pressure, Pa: below zero pulling, above pushing.
+    /// The bellows' pressure the reeds see, Pa: below zero pulling, above
+    /// pushing.
     pub fn supply(&self) -> f64 {
         self.turn * self.supply
     }
@@ -237,6 +257,9 @@ impl Engine {
             rank.states = [ReedState::default(); 2];
         }
         self.pallet = Pallet::default();
+        self.ask = 0.0;
+        self.wind = wind::Wind::default();
+        self.draw = 0.0;
         self.supply = 0.0;
         self.turn = self.parameters.direction();
         self.decimator.reset();
@@ -279,21 +302,42 @@ impl Engine {
         let turning = 2.0 * h / self.parameters.reversal_time();
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
         let hole_area = self.parameters.reed_design().tone_hole_area;
+        // The bellows' air, when the intent is the arm's push; otherwise the
+        // intent is the pressure.
+        let wind = self.parameters.wind_design();
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
             if self.pallet.is_closed() && self.at_rest() {
                 // The pallet is shut, nothing moves and nothing is left in
-                // the filter. The bellows keeps moving as asked.
-                self.supply = target;
+                // the filter. The bellows keeps moving as asked, and only
+                // its leaks and the air button spend its air.
+                self.ask = target;
+                self.draw = 0.0;
+                self.supply = match &wind {
+                    Some(design) => self.wind.step(design, target, 0.0, h * factor as f64),
+                    None => target,
+                };
                 self.turn = toward(self.turn, direction, turning * factor as f64);
                 *sample = 0.0;
                 continue;
             }
             for slot in chunk.iter_mut().take(factor) {
-                self.supply += (target - self.supply) * smoothing;
+                self.ask += (target - self.ask) * smoothing;
+                self.supply = match &wind {
+                    Some(design) => self.wind.step(design, self.ask, self.draw, h),
+                    None => {
+                        // Kept in step, so turning the arm on never starts
+                        // from an empty bellows.
+                        self.wind.pressure = self.ask;
+                        self.ask
+                    }
+                };
                 self.turn = toward(self.turn, direction, turning);
                 let signed = self.turn * self.supply;
                 self.pallet.advance(&self.pallet_design, h);
+                // Each rank's cell has its own hole under the key's pallet,
+                // whose curtain grows with the holes it covers: each rank
+                // sees about its own (docs/MODEL.md).
                 let area = self.pallet.area(&self.pallet_design, hole_area);
                 // Each reed is blown only from its own side, and only while
                 // its rank's register is open; the other's valve is shut,
@@ -301,6 +345,8 @@ impl Engine {
                 // the hole is inward on pull and outward on push; what
                 // radiates is the outward flow's rate.
                 let mut outward = 0.0;
+                // The air every reed's hole passes, drawn from the bellows.
+                let mut drawn = 0.0;
                 for rank in self.ranks.iter_mut() {
                     let Some(model) = &rank.model else {
                         continue;
@@ -316,6 +362,7 @@ impl Engine {
                             continue;
                         }
                         outward += sign * reed::step(model, state, blow, area, h);
+                        drawn += state.hole_flow;
                         // An unblown reed rings down; once it is negligible
                         // it stops exactly, and is no longer computed.
                         if blow == 0.0 && state.energy(model) < 1.0e-12 {
@@ -323,6 +370,7 @@ impl Engine {
                         }
                     }
                 }
+                self.draw = drawn;
                 *slot = (RADIATION * outward) as f32;
             }
             *sample = self.decimator.decimate(&chunk[..factor]) * gain;

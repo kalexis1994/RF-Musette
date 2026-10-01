@@ -6,6 +6,7 @@
 //! 500   bellows 90        # onset_ms bellows 0..127 (Expression, CC 11)
 //! 1500  direction push    # onset_ms direction pull|push (CC 80)
 //! 3000  register musette  # onset_ms register NAME (as the parameter names it)
+//! 4000  air 1             # onset_ms air 0..1 (the air button, how far pressed)
 //! ```
 //!
 //! The same shape as the Concert Grand laboratory's scores, with the
@@ -32,6 +33,10 @@ pub enum Action {
     /// A register switch: the register parameter's value.
     Register {
         value: u32,
+    },
+    /// The air button, pressed this far (0..=1).
+    Air {
+        opening: f64,
     },
 }
 
@@ -78,6 +83,16 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
                     action: Action::Direction { push },
                 });
             }
+            [_, "air", opening] => {
+                let opening: f64 = opening.parse().map_err(|_| fail("bad air opening"))?;
+                if !(0.0..=1.0).contains(&opening) {
+                    return Err(fail("air is 0..1").into());
+                }
+                events.push(Event {
+                    at_ms,
+                    action: Action::Air { opening },
+                });
+            }
             [_, "register", name] => {
                 let spec = &rf_musette_dsp::PARAMETER_SPECS[rf_musette_dsp::parameters::REGISTER];
                 let Some((value, _)) = spec
@@ -113,7 +128,7 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
             }
             _ => {
                 return Err(fail(
-                    "expected `onset duration note velocity`, `onset bellows value`, `onset direction pull|push` or `onset register NAME`",
+                    "expected `onset duration note velocity`, `onset bellows value`, `onset direction pull|push`, `onset register NAME` or `onset air 0..1`",
                 )
                 .into());
             }
@@ -130,7 +145,10 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
 fn rank(action: &Action) -> u8 {
     match action {
         Action::NoteOff { .. } => 0,
-        Action::Bellows { .. } | Action::Direction { .. } | Action::Register { .. } => 1,
+        Action::Bellows { .. }
+        | Action::Direction { .. }
+        | Action::Register { .. }
+        | Action::Air { .. } => 1,
         Action::NoteOn { .. } => 2,
     }
 }
@@ -201,5 +219,12 @@ mod tests {
         assert_eq!(events[0].action, Action::Register { value: 8 });
         assert_eq!(events[1].action, Action::Register { value: 6 });
         assert!(parse("0 register kazoo").is_err());
+    }
+
+    #[test]
+    fn the_air_button_is_pressed_by_a_fraction() {
+        let events = parse("0 air 0.5").unwrap();
+        assert_eq!(events[0].action, Action::Air { opening: 0.5 });
+        assert!(parse("0 air 2").is_err());
     }
 }

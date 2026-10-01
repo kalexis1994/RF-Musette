@@ -76,8 +76,18 @@ pub const BELLOWS_DIRECTION: usize = 23;
 pub const REVERSAL_TIME: usize = 24;
 pub const TREMOLO: usize = 25;
 pub const REGISTER: usize = 26;
+pub const BELLOWS_RESPONSE: usize = 27;
+pub const BELLOWS_AREA: usize = 28;
+pub const BELLOWS_VOLUME: usize = 29;
+pub const ARM_SPEED: usize = 30;
+pub const BELLOWS_LEAK: usize = 31;
+pub const AIR_VALVE: usize = 32;
 
-pub const COUNT: usize = 27;
+pub const COUNT: usize = 33;
+
+/// [`BELLOWS_RESPONSE`]'s values.
+pub const ARM: f64 = 0.0;
+pub const STIFF: f64 = 1.0;
 
 /// The treble's ranks, in the order the engine keeps them.
 pub const RANK_LOW: usize = 0;
@@ -405,7 +415,63 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         11,
         "Measured as a maker draws it: the 14 treble registers of Roland's FR-3x, with the reeds each opens (Owner's Manual, p. 27): Bassoon L, Bandoneon LM, Cello L M M+, Harmonium LMH, Organ LH, Accordion L M− M H, Master L M− M M+ H, Tremolo M− M+, Musette M− M M+, Violin M M+ H, Oboe MH, Clarinet M, Celeste M M+, Piccolo H.",
     ),
+    choice(
+        "bellows_response",
+        "Bellows Response",
+        PAGE_AIR,
+        &[(0, "Arm"), (1, "Stiff")],
+        0,
+        "Decided 2026-09-30: what the intent (velocity, or CC 11) is. Arm: the player's push; the bellows makes the pressure from it, the arm's force falling as it moves faster (Hill 1938) and the air its reeds, leaks and air button spend. Stiff: the pressure itself, for a digital accordion whose sensor already measures it.",
+    ),
+    spec(
+        "bellows_area",
+        "Bellows Area",
+        PAGE_AIR,
+        "cm²",
+        (100.0, 2000.0, 600.0, 1.0),
+        Taper::Logarithmic,
+        "Assumed, voiced by ear: the bellows' cross-section, which turns the push into pressure and the air spent into the arm's speed. A full-size accordion's order (about 35 × 17 cm); no measurement published.",
+    ),
+    spec(
+        "bellows_volume",
+        "Bellows Volume",
+        PAGE_AIR,
+        "L",
+        (1.0, 40.0, 12.0, 0.1),
+        Taper::Logarithmic,
+        "Assumed, voiced by ear: the air in the bellows, whose compliance V/(ρc²) smooths the pressure over a few milliseconds. A full-size accordion half open; no measurement published.",
+    ),
+    spec(
+        "arm_speed",
+        "Arm Speed",
+        PAGE_AIR,
+        "m/s",
+        (0.1, 5.0, 1.0, 0.01),
+        Taper::Logarithmic,
+        "Assumed, voiced by ear: v_max of Hill's force-velocity law (Proc. R. Soc. B 126, 1938, k = 0.25), the speed at which the arm could move the bellows with no air to push. Slower makes the pressure sag more as more reeds draw.",
+    ),
+    spec(
+        "bellows_leak",
+        "Bellows Leak",
+        PAGE_AIR,
+        "mm²",
+        (0.0, 200.0, 10.0, 0.1),
+        Taper::Linear,
+        "Assumed: the bellows' and the closed valves' leaks, as one orifice. A sealed accordion should hold air for more than 30 s under gentle pressure (repair folklore, unverified), which bounds it to a few tens of mm².",
+    ),
+    spec(
+        "air_valve",
+        "Air Valve",
+        PAGE_AIR,
+        "",
+        (0.0, 1.0, 0.0, 0.001),
+        Taper::Linear,
+        "How far the air button is pressed: it vents the bellows through an orifice of up to 400 mm² (assumed), so the bellows moves without sounding (Llanos et al. 2002; McMahan 2016).",
+    ),
 ];
+
+/// The air button's opening when fully pressed, m²: assumed.
+pub const AIR_VALVE_AREA: f64 = 400.0e-6;
 
 /// Which ranks each [`REGISTER`] opens, in the order of its choices:
 /// L, M−, M, M+, H (Roland FR-3x Owner's Manual, p. 27).
@@ -528,6 +594,25 @@ impl Parameters {
             t * (1.0 + 1.4 / 4.1 * octaves),
             -t * (3.7 / 4.1 + 1.8 / 4.1 * octaves),
         )
+    }
+
+    /// The bellows' air, when the intent is the arm's push; `None` when it
+    /// is the pressure itself.
+    pub fn wind_design(&self) -> Option<crate::wind::WindDesign> {
+        if self.values[BELLOWS_RESPONSE] == STIFF {
+            return None;
+        }
+        let area = self.values[BELLOWS_AREA] * 1.0e-4;
+        let volume = self.values[BELLOWS_VOLUME] * 1.0e-3;
+        Some(crate::wind::WindDesign {
+            area,
+            compliance: volume
+                / (crate::reed::AIR_DENSITY
+                    * crate::reed::SPEED_OF_SOUND
+                    * crate::reed::SPEED_OF_SOUND),
+            arm_speed: self.values[ARM_SPEED],
+            vent: self.values[BELLOWS_LEAK] * 1.0e-6 + self.values[AIR_VALVE] * AIR_VALVE_AREA,
+        })
     }
 
     /// Which ranks the register lets the bellows reach.

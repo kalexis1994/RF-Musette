@@ -335,7 +335,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "",
         (0.0, 4.0, 0.5, 0.01),
         Taper::Linear,
-        "Voiced: the one voiced constant of the reed. A damping that grows with the tongue's swing and with the flow, standing in for the nonlinear dissipation St. Hilaire & Vaidya (J. Fluid Mech. 67, 1975) found limits a free reed and that this model does not derive. At 0.5 the swing settles near 5 mm from 1 kPa up, as this reed's is measured (Ziegenhals 2009: more than 4 mm at mf) and holds nearly constant with pressure (Cottingham, Lilly & Reed 1999). At 0 the model is as derived and its swing keeps growing with pressure.",
+        "Voiced: the one voiced constant of the reed. A damping that grows with the tongue's swing and with the flow, standing in for the nonlinear dissipation St. Hilaire & Vaidya (J. Fluid Mech. 67, 1975) found limits a free reed and that this model does not derive. At 0.5 the swing settles near 5 mm from 1 kPa up, as this reed's is measured (Ziegenhals 2009: more than 4 mm at mf) and holds nearly constant with pressure (Cottingham, Lilly & Reed 1999). At 0 the model is as derived and its swing keeps growing with pressure. Heard 2026-09-30 against 0 on a continuous swell of the F4: 0.5 preferred.",
     ),
 ];
 

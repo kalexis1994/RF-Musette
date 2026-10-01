@@ -525,8 +525,92 @@ model.
 Each note has one reed per bellows direction, the idle one closed by a valve —
 leather to G4, plastic to C6, none above on the instrument measured (Llanos).
 The top octave, with no valves, cannot bend. Bellows reversal: the other reed
-takes over and the valves flip. **Open decision:** how direction reaches the
-plugin, since no MIDI standard carries it.
+takes over and the valves flip.
+
+**Decided (2026-09-30): how direction reaches the plugin.** No MIDI
+accordion found sends it:
+* the Roland FR-1x senses the bellows opening and closing but sends only
+  CC 11;
+* Brendan Vavra's open MIDI accordion sends only CC 11.
+
+So the direction is a parameter, "Bellows Direction" (Pull / Push), live
+and automatable. A switch CC moves it too: below 64 pull, 64 and above
+push, on CC 80 (General Purpose 5, defined as a switch and otherwise
+unused). CC 11 (and CC 43) stays the pressure, unchanged.
+
+**Which reed is which.** The plate sits between the bellows and the cell,
+and the cell opens to the tone hole and its pallet:
+* **Pull** (the bellows opening): air goes outside → pallet → hole → cell →
+  plate → bellows, so the sounding reed is the one inside the cell, with
+  the cell **upstream**. That is the reed built so far.
+* **Push** (the bellows closing): air goes bellows → plate → cell → hole →
+  pallet → outside, so the sounding reed is the one on the bellows side,
+  with the cell **downstream** and only the bellows' open space upstream.
+* **The valves.** Each valve lies over its reed's slot on the far face of
+  the plate. It seals that slot when its reed would be blown the wrong
+  way, and its own reed's jet must lift it when that reed sounds.
+
+**What is measured of the push side.** Cottingham (ICA 2016, "Reed chamber
+resonances and attack transients", read in full) blew a Hohner Verdi I
+plate (622 Hz) under an artificial Helmholtz chamber, both ways:
+* **Flow through the chamber, then the plate** -- our pull: thresholds
+  0.06-0.11 kPa, highest when the chamber's resonance is near the reed's.
+* **Flow through the plate, then the chamber** -- our push: thresholds
+  **0.8-1.7 kPa**, ten times higher, and **lowest** near the reed's
+  frequency, the opposite trend Tonon predicted.
+
+Milestone 1 found the same order in this model: without the cell's air
+upstream, the reed was silent below ~3 kPa.
+
+**Predictions** (written before building it, 2026-09-30):
+1. The pull reed is unchanged: milestones 1, 2 and 2c hold.
+2. The push reed, with only the near field upstream and the cell
+   downstream, starts from rest only at the order of a kilopascal
+   (0.5-5 kPa), ten times its pull partner or more.
+3. Its threshold falls as the downstream cell's resonance approaches the
+   reed's frequency, the opposite of the pull reed (Cottingham 2016;
+   Tonon).
+4. If 2 holds, the push reed cannot speak at normal playing pressure (to
+   ~300 Pa), and a real accordion's does (Llanos: attacks do not depend on
+   the bellows' direction). Then something upstream of the push reed on an
+   instrument -- the narrow space between the reed blocks, the bellows'
+   own air -- supplies the inertia the open rig lacks. That would be the
+   next thing to find, not something to tune.
+
+**Result (2026-09-30): 2 and 3 refuted, and why it had to be so.**
+Measured by RK4 (`tests/push_reed.rs`), the push reed's threshold equals
+the pull reed's to the pascal, whatever the cell:
+* 32 Pa with the default cell;
+* 36, 53, 119, 217, 358, 761 Pa as the cell's resonance moves to 1.3,
+  1.1, 1.0, 0.95, 0.9, 0.8 of the reed's frequency.
+
+This is not a slip but a property of the class of model. The reed is one
+element in a single series loop with the bellows; what it feels is the
+loop's total impedance, near field + (hole ∥ cell), and a sum does not
+depend on its order.
+
+No lumped model can tell push from pull. Cottingham's tenfold difference
+must come from what the loop leaves out:
+* where the tongue sits relative to the cell (inside it on pull, outside
+  on push);
+* the jet discharging into a small cavity rather than open space;
+* the near field's own geometry on each side.
+
+Tonon's own account is spatial ("the effect depends on where the reed sits
+in the cavity").
+
+**What follows for the instrument.** On a real accordion, Llanos measured
+that the attack does not depend on the bellows' direction (thesis, p151,
+p219). Cottingham's figures are his own "preliminary" ones, on an
+artificial chamber, at pressures far above playing. So two identical
+reeds, one per direction, are what the measurements of the instrument
+support. The push side's own physics waits for a measurement taken on an
+accordion. Milestone 3 then is:
+* the second reed;
+* the direction (the parameter and CC 80);
+* the valves, which are measured only qualitatively (no study of valve
+  dynamics exists, INSTRUMENT-ACOUSTICS §2.6);
+* the reversal.
 
 ## 4. Ranks, registers and the musette
 

@@ -105,7 +105,8 @@ The form is chosen, not derived, for three properties:
   energy identity). The RK4 reference carries it too.
 
 κ 0.5 puts the swing near 5 mm from ~1 kPa up, inside what is measured of
-this reed. It is not yet set by ear.
+this reed. Heard on 2026-09-30 against κ 0 on a continuous swell, it was
+preferred and kept.
 
 ### The cell is not optional (tested)
 
@@ -239,7 +240,7 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Pallet opening | 50 ms | Reported | "Los ataques usuales de dedo son realizados en unos 0.05 s" (Llanos-Vázquez, thesis 2015, p164) |
 | Pallet closing | 10 ms | Assumed | Not published |
 | Tone hole shape | 4 : 1 rectangle | Assumed | Not published; sets the pallet's rim |
-| Swing limit κ | 0.5 | Assumed, to be voiced by ear | The one underived term; chosen so the swing settles near 5 mm from ~1 kPa (Ziegenhals: > 4 mm at mf; Braasch & Cottingham: ~15 % of the length) and holds with pressure (Cottingham, Lilly & Reed 1999) |
+| Swing limit κ | 0.5 | Voiced by ear, 2026-09-30 | Heard on a continuous swell of the F4 (A/B against κ 0, the bellows to 1 kPa): preferred. The one underived term; chosen so the swing settles near 5 mm from ~1 kPa (Ziegenhals: > 4 mm at mf; Braasch & Cottingham: ~15 % of the length) and holds with pressure (Cottingham, Lilly & Reed 1999) |
 
 ## What it does (0.2.0, measured; `milestone_1.rs` and `diagnosis.rs`)
 

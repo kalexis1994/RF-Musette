@@ -97,8 +97,9 @@ pub const SPLIT_POINT: usize = 41;
 pub const BELLOWS_SMOOTHING: usize = 42;
 pub const AUTO_REVERSE: usize = 43;
 pub const BELLOWS_TRAVEL: usize = 44;
+pub const MOD_WHEEL: usize = 45;
 
-pub const COUNT: usize = 45;
+pub const COUNT: usize = 46;
 
 /// The pressure below which the air is too weak to push a tongue into its
 /// frame at a key's opening, Pa: half the start is reached here. Assumed, of
@@ -108,6 +109,11 @@ pub const KICK_PRESSURE: f64 = 20.0;
 /// [`BELLOWS_RESPONSE`]'s values.
 pub const ARM: f64 = 0.0;
 pub const STIFF: f64 = 1.0;
+
+/// [`MOD_WHEEL`]'s values: the wheel as the push (milestone 8f), or as where
+/// the bellows is (milestone 8i).
+pub const WHEEL_PRESSURE: f64 = 0.0;
+pub const WHEEL_BELLOWS: f64 = 1.0;
 
 /// The treble's ranks, in the order the engine keeps them.
 pub const RANK_LOW: usize = 0;
@@ -608,7 +614,15 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "L",
         (2.0, 40.0, 12.0, 0.1),
         Taper::Logarithmic,
-        "Assumed, voiced by ear: the air the bellows gives in one direction before it must turn, when Auto Reverse is on. A full-size bellows' 600 cm² over some 20 cm of the stroke a player uses.",
+        "Assumed, voiced by ear: the air the bellows gives in one direction before it must turn, when Auto Reverse is on, and the air the modulation wheel's whole range moves when it is the bellows. A full-size bellows' 600 cm² over some 20 cm of the stroke a player uses.",
+    ),
+    choice(
+        "mod_wheel",
+        "Mod Wheel",
+        PAGE_PLAY,
+        &[(0, "Pressure"), (1, "Bellows")],
+        0,
+        "Decided 2026-10-01 (milestone 8i), at the player's asking: what the modulation wheel is. Pressure: how hard the arm pushes (milestone 8f). Bellows: where the bellows is, 0 shut and 127 open its whole travel -- moving the wheel moves the air, up opening (pull) and down closing (push), and a wheel standing still holds the bellows still.",
     ),
 ];
 
@@ -792,15 +806,12 @@ impl Parameters {
         )
     }
 
-    /// The bellows' air, when the intent is the arm's push; `None` when it
-    /// is the pressure itself.
-    pub fn wind_design(&self) -> Option<crate::wind::WindDesign> {
-        if self.values[BELLOWS_RESPONSE] == STIFF {
-            return None;
-        }
+    /// The bellows' air and the arm that moves it, whichever way the arm is
+    /// read.
+    pub fn bellows_air(&self) -> crate::wind::WindDesign {
         let area = self.values[BELLOWS_AREA] * 1.0e-4;
         let volume = self.values[BELLOWS_VOLUME] * 1.0e-3;
-        Some(crate::wind::WindDesign {
+        crate::wind::WindDesign {
             area,
             compliance: volume
                 / (crate::reed::AIR_DENSITY
@@ -808,7 +819,26 @@ impl Parameters {
                     * crate::reed::SPEED_OF_SOUND),
             arm_speed: self.values[ARM_SPEED],
             vent: self.values[BELLOWS_LEAK] * 1.0e-6 + self.values[AIR_VALVE] * AIR_VALVE_AREA,
-        })
+        }
+    }
+
+    /// Whether the modulation wheel is where the bellows is.
+    pub fn wheel_is_bellows(&self) -> bool {
+        self.values[MOD_WHEEL] == WHEEL_BELLOWS
+    }
+
+    /// The air the bellows gives in one direction, m³.
+    pub fn travel(&self) -> f64 {
+        self.values[BELLOWS_TRAVEL] * 1.0e-3
+    }
+
+    /// The bellows' air, when the intent is the arm's push; `None` when it
+    /// is the pressure itself.
+    pub fn wind_design(&self) -> Option<crate::wind::WindDesign> {
+        if self.values[BELLOWS_RESPONSE] == STIFF {
+            return None;
+        }
+        Some(self.bellows_air())
     }
 
     /// The cassotto's resonance, Hz, and Q, when the instrument has one.

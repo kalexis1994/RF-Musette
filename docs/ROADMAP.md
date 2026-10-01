@@ -1888,6 +1888,145 @@ R_p = max(ρ|a₀|/(2α²A_p²), √(ρΔp/2)/(αA_p)), with Δp = P − p_cell.
 2. **Met.** F4's steady peak is 0.4449 as before. Every earlier test
    passes, the tuning, load and duct tables current.
 
+## 8i. The wheel as the bellows
+
+The user's idea (2026-10-01): the modulation wheel as where the bellows is,
+not how hard it is pushed. 0 is the bellows shut, 127 open its whole
+travel; moving the wheel moves the air, and a wheel standing still holds
+the bellows still, so a key pressed then does not sound. It is how an
+accordionist's arm works: what sounds is the bellows moving.
+
+**The physics.** The arm becomes a source of flow, Q = Ẋ × travel, the
+wheel's speed times the air its whole range moves (Bellows Travel, 12 L).
+The air in the bellows takes what the reeds, the leaks and the air button
+do not, the same compliance as milestone 8e's, C = V/(ρc²):
+
+```text
+C P' = Q − Q_reeds(P) − Q_vent(P)
+```
+
+So the pressure is whatever pushes that flow through what is open: one
+note at a given speed sounds louder than a chord at the same speed, as an
+accordionist must move faster for a chord. A bellows with nothing open
+takes the wheel's air into its own compliance -- the arm compresses it, the
+"finger attack" a player prepares -- up to the most the arm can push: the
+ceiling, by Hill's law at that speed, as in the arm's other mode. The
+moving half's mass smooths the flow over the arm's 10 ms (8e). Which way
+the bellows moves is which way the wheel moves, up opening (pull), down
+closing (push); turning, the pressure drains through zero and only then
+builds on the other side, as long as the reeds take to drain it. Bellows
+Direction, Auto Reverse and Reversal Time are the other mode's; the ends of
+the wheel are the ends of the bellows.
+
+**The wheel's steps.** A wheel sends 128 positions. At 12 L each is 94 mL;
+delivered at once each would compress the bellows by γP₀ ΔV/V ≈ 1.1 kPa,
+a stutter at every step. So the position is not the input; the speed is,
+measured between messages: the last step over the time it took, held until
+that time has passed again, then no more than the step over the time since
+(a wheel that has not moved another step since cannot be moving faster),
+and still once four of its intervals pass with no step. (As built, the last
+two steps when they went the same way: see the status.) The first step
+after the wheel rested is taken over at most 0.2 s, assumed, so a bellows
+starting from rest answers at once. A jump of more than a sixteenth of the
+range after a rest is the wheel being placed, not moved, and moves no air.
+A low half (CC 33) arriving within 3 ms of its high half refines that step
+rather than making one.
+
+**The design:** a parameter "Mod Wheel": Pressure (the default, milestone
+8f as it is) or Bellows. In Bellows, the wheel takes the bellows over once
+it is heard, as Expression does; velocity no longer moves it, and
+Expression, moved, takes it back.
+
+**Predictions** (written before building it, 2026-10-01):
+1. Bellows mode, the wheel heard and still: a key pressed does not sound;
+   the bellows' pressure stays at zero.
+2. A 7-bit wheel moving at a steady 4 steps a second, one true 8′ held:
+   after the attack the pressure stays within ±5 % of its mean -- its steps
+   on the frames they fall on, or on a host's 256-frame blocks. The same
+   with the low half sent in the same frame or a millisecond later.
+3. Moving the wheel up then down with the note held: the pressure is below
+   zero (pull) while it rises and above (push) while it falls, crossing zero
+   once at the turn, and the push reed sounds after it.
+4. At the same wheel speed a four-note chord holds a pressure at least 6 dB
+   below one note's.
+5. The wheel stopping: the pressure falls below the reeds' 20 Pa start
+   within 1.5 s of the last step.
+6. Moving the wheel with nothing open: the pressure rises, but never above
+   the ceiling.
+7. Pressure mode is unchanged: every earlier test passes.
+
+**Status (2026-10-01): built (0.10.1); all seven met** (`tests/milestone_8i.rs`,
+`motion.rs`, the plugin's `the_wheel_can_be_where_the_bellows_is`).
+1. **Met.** The wheel heard at 64 and still, C4 pressed: the pressure and
+   the output stay exactly zero for 2 s.
+2. **Met.** One true 8′ at 4 steps a second: -169 Pa, within ±2.34 % on
+   the steps' frames, ±3.37 % on 256-frame blocks, ±2.34 % with the low
+   half in the frame or 1 ms later. The spread left is the reed's own
+   ripple in the bellows.
+3. **Met.** Up 3 s then down: pulling throughout the rise, pushing
+   throughout the fall, one crossing; the push reed swings 3.0 mm after it.
+4. **Met.** Note 169 Pa, C4, E4, G4 and C5 together 58 Pa: -9.3 dB.
+5. **Met.** 314 Pa while moving; under 20 Pa 1.02 s after the last step.
+6. **Met.** Nothing open, the wheel falling 20 steps a second: 862 Pa, the
+   ceiling 1 kPa.
+7. **Met.** Every earlier test passes; with Pressure, the wheel goes to
+   Expression's path exactly as before.
+
+Found in building, not predicted:
+* The first build took the wheel's position at seven bits as n/127 and, once
+  a low half came, as n·128/16383: the change of scale was a false step,
+  over an interval of zero, and drove the bellows to its ceiling. Both are
+  now one 14-bit scale, and a position refined before any step moves
+  nothing.
+* With the last step alone, a hand stepping unevenly -- each interval ±20 %
+  at random -- swung the pressure ±32 % at worst. Measured over the last two
+  steps when they go the same way, ±27 % at worst and ±9 % typical: the
+  flow such a hand moves. A turn is still taken alone, so a shake answers
+  at once.
+
+Heard: `scores/wheel-bellows.score` (C4 held still and then moved; "Frère
+Jacques" in Musette, pulled then pushed; a shaken chord), sent to the
+player.
+
+**Heard by the player (2026-10-01): the sound breaks up when the wheel
+moves slowly.** Measured (`diagnose_a_slow_wheel`, renders at 1-4 steps a
+second): at 2 and 4 steps a second the level holds within 3 dB; at one step
+a second, steady as a machine, it falls 22 dB below its median a quarter of
+the time. The cause is the speed's rule, not the steps: a step after a rest
+is taken over at most 0.2 s, and the wheel was taken as still after four of
+*that* interval, 0.8 s -- so a wheel slower than one step in 0.8 s rested
+before every step, and each step was a burst of air 5× too fast followed
+by nothing: ~260 Pa then zero, once a second.
+
+**The repair:** a step after a rest is not measured with the step before,
+and the wheel is taken as still only once its own steps stop -- four of its
+measured intervals -- or, after a step from rest, once no step comes for
+2 s. The guess for a first step becomes 0.5 s (assumed), so a slow start is
+not a burst; a fast start is measured right at its second step.
+
+**Predictions for the repair** (written before it, 2026-10-01):
+8. At one and two steps a second, steady or each interval ±30 % at
+   random, a held true 8′ never falls 6 dB below its median after its
+   first two seconds.
+9. From rest, a wheel moving 20 steps a second sounds -- the pressure past
+   the reeds' 20 Pa -- within 120 ms of its first step.
+10. Predictions 1-7 still hold.
+
+**Status of the repair (2026-10-01): built (0.10.2).**
+8. **Met, but for the hand at the reed's threshold.** Lowest level after
+   two seconds under the median: two steps a second -0.1 dB steady, -3.2 dB
+   ±30 % uneven; one step a second steady -1.6 dB. One step a second ±30 %
+   uneven: not met, -53 dB -- and not the measurement's doing. At 12 L of
+   travel one step a second is 94 mL/s, and C4's true 8′ sits at 16-30 Pa,
+   its threshold: when a step comes late the pressure falls under it and
+   the reed stops, as a reed at its threshold does. The prediction mixed the
+   rule's fault with the reed's threshold; only the first was the repair's
+   to remove. The wheel moves more air per step with a longer Bellows
+   Travel.
+9. **Met.** From rest at 20 steps a second the pressure passes 20 Pa 27 ms
+   after the first step.
+10. **Met.** Predictions 1-7 as before (5: 1.01 s).
+
 ## 9. The product
 
 A schema 3 package with branding, a PLAY surface, and factory programs.

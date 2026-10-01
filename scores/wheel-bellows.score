@@ -1,0 +1,272 @@
+# Milestone 8i: the wheel as the bellows. Render with
+#   --set mod_wheel=1
+# The modulation wheel is where the bellows is: 0 shut, 127 open its
+# whole travel (12 L); what sounds is the wheel moving, up pulling and
+# down pushing.
+# 1. C4 held with the wheel still: nothing, until the wheel moves at
+#    10 steps a second.
+# 2. "Frere Jacques" (traditional) in Musette, the wheel rising (pull),
+#    then turning at 11.5 s and falling (push).
+# 3. A C major chord, the bellows shaken: two steps up and down every
+#    70 ms.
+0 register musette
+0 wheel 0
+0 3000 60 100
+1000 wheel 1
+1100 wheel 2
+1200 wheel 3
+1300 wheel 4
+1400 wheel 5
+1500 wheel 6
+1600 wheel 7
+1700 wheel 8
+1800 wheel 9
+1900 wheel 10
+2000 wheel 11
+2100 wheel 12
+2200 wheel 13
+2300 wheel 14
+2400 wheel 15
+2500 wheel 16
+2600 wheel 17
+2700 wheel 18
+2800 wheel 19
+2900 wheel 20
+3500 478 60 100
+4020 478 62 100
+4540 478 64 100
+5060 478 60 100
+5580 478 60 100
+6100 478 62 100
+6620 478 64 100
+7140 478 60 100
+7660 478 64 100
+8180 478 65 100
+8700 956 67 100
+9740 478 64 100
+10260 478 65 100
+10780 956 67 100
+11820 239 67 100
+12080 239 69 100
+12340 239 67 100
+12600 239 65 100
+12860 478 64 100
+13380 478 60 100
+13900 239 67 100
+14160 239 69 100
+14420 239 67 100
+14680 239 65 100
+14940 478 64 100
+15460 478 60 100
+15980 478 60 100
+16500 478 55 100
+17020 956 60 100
+18060 478 60 100
+18580 478 55 100
+19100 956 60 100
+3500 wheel 21
+3600 wheel 22
+3700 wheel 23
+3800 wheel 24
+3900 wheel 25
+4000 wheel 26
+4100 wheel 27
+4200 wheel 28
+4300 wheel 29
+4400 wheel 30
+4500 wheel 31
+4600 wheel 32
+4700 wheel 33
+4800 wheel 34
+4900 wheel 35
+5000 wheel 36
+5100 wheel 37
+5200 wheel 38
+5300 wheel 39
+5400 wheel 40
+5500 wheel 41
+5600 wheel 42
+5700 wheel 43
+5800 wheel 44
+5900 wheel 45
+6000 wheel 46
+6100 wheel 47
+6200 wheel 48
+6300 wheel 49
+6400 wheel 50
+6500 wheel 51
+6600 wheel 52
+6700 wheel 53
+6800 wheel 54
+6900 wheel 55
+7000 wheel 56
+7100 wheel 57
+7200 wheel 58
+7300 wheel 59
+7400 wheel 60
+7500 wheel 61
+7600 wheel 62
+7700 wheel 63
+7800 wheel 64
+7900 wheel 65
+8000 wheel 66
+8100 wheel 67
+8200 wheel 68
+8300 wheel 69
+8400 wheel 70
+8500 wheel 71
+8600 wheel 72
+8700 wheel 73
+8800 wheel 74
+8900 wheel 75
+9000 wheel 76
+9100 wheel 77
+9200 wheel 78
+9300 wheel 79
+9400 wheel 80
+9500 wheel 81
+9600 wheel 82
+9700 wheel 83
+9800 wheel 84
+9900 wheel 85
+10000 wheel 86
+10100 wheel 87
+10200 wheel 88
+10300 wheel 89
+10400 wheel 90
+10500 wheel 91
+10600 wheel 92
+10700 wheel 93
+10800 wheel 94
+10900 wheel 95
+11000 wheel 96
+11100 wheel 97
+11200 wheel 98
+11300 wheel 99
+11400 wheel 100
+11500 wheel 99
+11600 wheel 98
+11700 wheel 97
+11800 wheel 96
+11900 wheel 95
+12000 wheel 94
+12100 wheel 93
+12200 wheel 92
+12300 wheel 91
+12400 wheel 90
+12500 wheel 89
+12600 wheel 88
+12700 wheel 87
+12800 wheel 86
+12900 wheel 85
+13000 wheel 84
+13100 wheel 83
+13200 wheel 82
+13300 wheel 81
+13400 wheel 80
+13500 wheel 79
+13600 wheel 78
+13700 wheel 77
+13800 wheel 76
+13900 wheel 75
+14000 wheel 74
+14100 wheel 73
+14200 wheel 72
+14300 wheel 71
+14400 wheel 70
+14500 wheel 69
+14600 wheel 68
+14700 wheel 67
+14800 wheel 66
+14900 wheel 65
+15000 wheel 64
+15100 wheel 63
+15200 wheel 62
+15300 wheel 61
+15400 wheel 60
+15500 wheel 59
+15600 wheel 58
+15700 wheel 57
+15800 wheel 56
+15900 wheel 55
+16000 wheel 54
+16100 wheel 53
+16200 wheel 52
+16300 wheel 51
+16400 wheel 50
+16500 wheel 49
+16600 wheel 48
+16700 wheel 47
+16800 wheel 46
+16900 wheel 45
+17000 wheel 44
+17100 wheel 43
+17200 wheel 42
+17300 wheel 41
+17400 wheel 40
+17500 wheel 39
+17600 wheel 38
+17700 wheel 37
+17800 wheel 36
+17900 wheel 35
+18000 wheel 34
+18100 wheel 33
+18200 wheel 32
+18300 wheel 31
+18400 wheel 30
+18500 wheel 29
+18600 wheel 28
+18700 wheel 27
+18800 wheel 26
+18900 wheel 25
+19000 wheel 24
+19100 wheel 23
+19200 wheel 22
+19300 wheel 21
+19400 wheel 20
+20000 3000 60 100
+20000 3000 64 100
+20000 3000 67 100
+20000 wheel 22
+20070 wheel 20
+20140 wheel 22
+20210 wheel 20
+20280 wheel 22
+20350 wheel 20
+20420 wheel 22
+20490 wheel 20
+20560 wheel 22
+20630 wheel 20
+20700 wheel 22
+20770 wheel 20
+20840 wheel 22
+20910 wheel 20
+20980 wheel 22
+21050 wheel 20
+21120 wheel 22
+21190 wheel 20
+21260 wheel 22
+21330 wheel 20
+21400 wheel 22
+21470 wheel 20
+21540 wheel 22
+21610 wheel 20
+21680 wheel 22
+21750 wheel 20
+21820 wheel 22
+21890 wheel 20
+21960 wheel 22
+22030 wheel 20
+22100 wheel 22
+22170 wheel 20
+22240 wheel 22
+22310 wheel 20
+22380 wheel 22
+22450 wheel 20
+22520 wheel 22
+22590 wheel 20
+22660 wheel 22
+22730 wheel 20
+22800 wheel 22
+22870 wheel 20
+22940 wheel 22

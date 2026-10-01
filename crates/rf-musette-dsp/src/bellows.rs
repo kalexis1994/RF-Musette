@@ -15,6 +15,9 @@
 //!   (CC 1, CC 33) does the same (decided 2026-10-01, milestone 8f): an
 //!   accordion has no vibrato control, and a keyboard player's free hand on
 //!   the wheel is the arm on the bellows. Of the two, the last moved leads.
+//! * with Mod Wheel set to Bellows (milestone 8i), the wheel is where the
+//!   bellows is instead, and its motion moves the air: the engine measures
+//!   it, and while it leads the intent here is not read.
 //!
 //! The intent is a fraction of the instrument's range, not a pressure. Which
 //! pressure in pascals a given intent means belongs to the model, and is
@@ -27,6 +30,8 @@ pub enum BellowsSource {
     Velocity,
     /// Expression (CC 11, with CC 43 as its low bits) owns the bellows.
     Expression,
+    /// The wheel, as where the bellows is, owns it (milestone 8i).
+    Motion,
 }
 
 /// The player's bellows intent, from 0 (no push) to 1 (the instrument's
@@ -103,6 +108,19 @@ impl Bellows {
         self.lsb = (fourteen & 0x7f) as u8;
     }
 
+    /// The wheel, moved as the bellows, takes it over.
+    pub fn take_by_motion(&mut self) {
+        self.source = BellowsSource::Motion;
+    }
+
+    /// The wheel is no longer the bellows: velocity sets the push again,
+    /// until a controller speaks.
+    pub fn release_motion(&mut self) {
+        if self.source == BellowsSource::Motion {
+            self.source = BellowsSource::Velocity;
+        }
+    }
+
     fn fourteen_bit(&self) -> f32 {
         f32::from(u16::from(self.msb) << 7 | u16::from(self.lsb)) / 16383.0
     }
@@ -147,6 +165,26 @@ mod tests {
             8192.0 / 16383.0,
             "a new high half clears the low one"
         );
+    }
+
+    #[test]
+    fn the_wheel_as_bellows_leads_until_expression_moves() {
+        let mut bellows = Bellows::new();
+        bellows.take_by_motion();
+        assert_eq!(bellows.source(), BellowsSource::Motion);
+        bellows.strike(1.0);
+        assert_eq!(bellows.intent(), 0.0, "velocity does not move it");
+        bellows.expression_msb(100);
+        assert_eq!(bellows.source(), BellowsSource::Expression);
+        bellows.release_motion();
+        assert_eq!(
+            bellows.source(),
+            BellowsSource::Expression,
+            "only the wheel's own"
+        );
+        bellows.take_by_motion();
+        bellows.release_motion();
+        assert_eq!(bellows.source(), BellowsSource::Velocity);
     }
 
     #[test]

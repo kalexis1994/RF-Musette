@@ -30,7 +30,8 @@ Usage:
 Render options:
   --score PATH      A score: `onset_ms duration_ms note velocity` per line,
                     `onset_ms bellows 0..127` or `onset_ms direction
-                    pull|push`. Without it, one note.
+                    pull|push`, `onset_ms wheel 0..127` for the
+                    modulation wheel. Without it, one note.
   --set ID=VALUE    Sets a parameter by its id, in its own units; repeat for
                     more. The ids are in package/metadata/parameters.json.
   --note N          MIDI 0..127 for the single note (default 65, F4; the
@@ -238,6 +239,7 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
             } => engine.channel_note_on(channel, note, f32::from(velocity) / 127.0),
             Action::NoteOff { note, channel } => engine.channel_note_off(channel, note),
             Action::Bellows { value } => engine.bellows_mut().expression_msb(value),
+            Action::Wheel { value } => engine.wheel_msb(value),
             Action::Direction { push } => {
                 let way = if push {
                     parameters::PUSH

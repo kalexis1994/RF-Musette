@@ -41,7 +41,7 @@
         "unit": "x"
       },
       "name": "Output Gain",
-      "order": 9,
+      "order": 10,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -578,7 +578,7 @@
         "type": "enum"
       },
       "name": "Bellows Direction",
-      "order": 4,
+      "order": 5,
       "page": "play",
       "suggested_control": "list"
     },
@@ -624,7 +624,7 @@
         "unit": "Hz"
       },
       "name": "Tremolo",
-      "order": 10,
+      "order": 11,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -842,7 +842,7 @@
         "type": "float"
       },
       "name": "Air Valve",
-      "order": 5,
+      "order": 6,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -870,7 +870,7 @@
         "type": "enum"
       },
       "name": "Cassotto",
-      "order": 11,
+      "order": 12,
       "page": "play",
       "suggested_control": "list"
     },
@@ -938,7 +938,7 @@
         "unit": "Hz"
       },
       "name": "Pitch A4",
-      "order": 12,
+      "order": 13,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -1104,7 +1104,7 @@
         "unit": "ms"
       },
       "name": "Bellows Smoothing",
-      "order": 8,
+      "order": 9,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -1132,7 +1132,7 @@
         "type": "enum"
       },
       "name": "Auto Reverse",
-      "order": 6,
+      "order": 7,
       "page": "play",
       "suggested_control": "list"
     },
@@ -1155,9 +1155,37 @@
         "unit": "L"
       },
       "name": "Bellows Travel",
-      "order": 7,
+      "order": 8,
       "page": "play",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": false,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "mod_wheel",
+      "index": 45,
+      "kind": {
+        "choices": [
+          {
+            "name": "Pressure",
+            "value": 0
+          },
+          {
+            "name": "Bellows",
+            "value": 1
+          }
+        ],
+        "default": 0,
+        "type": "enum"
+      },
+      "name": "Mod Wheel",
+      "order": 4,
+      "page": "play",
+      "suggested_control": "list"
     }
   ],
   "schema_version": 2,

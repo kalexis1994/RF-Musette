@@ -671,3 +671,36 @@ the stage light, no error logged.
 
 **Not checked.** The surface in RackForge Desktop's own frame, and a
 controller's knobs on real hardware.
+
+## 2026-10-01 -- Milestone 8i: the wheel as the bellows (0.10.1)
+
+**Built.** "Mod Wheel": Pressure (as before) or Bellows. On Bellows the
+wheel is where the bellows is; the arm is a source of flow, the wheel's
+speed times the travel, into the bellows' compliance, up to Hill's force at
+the ceiling; the direction is the wheel's, turning through zero. The speed
+is measured from the wheel's messages (`motion.rs`).
+
+**Measured** (`tests/milestone_8i.rs`): still, silent; one 8′ at 4 steps a
+second steady within ±2.3 % (±3.4 % on 256-frame blocks); one crossing at
+the wheel's turn; a chord -9.3 dB under a note at the same speed; stopped,
+silent within 1.02 s; shut, 862 Pa of a 1 kPa ceiling.
+
+**Checks.** Every earlier test passes; the plugin's routing of CC 1, CC 33
+and MIDI 2.0's wheel in both modes.
+
+## 2026-10-01 -- Milestone 8i, repaired: a slow wheel (0.10.2)
+
+**Heard by the player:** the sound broke up with the wheel moving slowly.
+
+**Measured:** at one step a second, steady, the level fell 22 dB a quarter
+of the time: a step after a rest was taken over 0.2 s and the wheel as
+still after 0.8 s, so every slow step was a burst and a silence.
+
+**Built.** A step from rest is guessed at 0.5 s, never measured with the
+next, and the wheel taken as still 2 s after it with no step; otherwise
+after four of its own intervals.
+
+**Measured after:** two steps a second within 3.2 dB, uneven or not; one
+step a second steady within 1.6 dB; from rest at 20 steps a second,
+sounding in 27 ms. One step a second ±30 % uneven still breaks off: the
+reed at its threshold (16-30 Pa), recorded, not repaired.

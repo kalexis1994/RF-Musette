@@ -6,6 +6,7 @@
 //! 0     2000  48  100  2  # ... and a MIDI channel 1..16: 2 bass, 3 chords
 //! 500   bellows 90        # onset_ms bellows 0..127 (Expression, CC 11)
 //! 1500  direction push    # onset_ms direction pull|push (CC 80)
+//! 1600  wheel 64          # onset_ms wheel 0..127 (the modulation wheel, CC 1)
 //! 3000  register musette  # onset_ms register NAME (as the parameter names it)
 //! 3000  bass-register 2'  # onset_ms bass-register NAME
 //! 4000  air 1             # onset_ms air 0..1 (the air button, how far pressed)
@@ -30,6 +31,11 @@ pub enum Action {
         channel: u8,
     },
     Bellows {
+        value: u8,
+    },
+    /// The modulation wheel (CC 1): the push or, with Mod Wheel on Bellows,
+    /// where the bellows is.
+    Wheel {
         value: u8,
     },
     /// The bellows turns: true pushing, false pulling.
@@ -80,6 +86,16 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
                 events.push(Event {
                     at_ms,
                     action: Action::Bellows { value },
+                });
+            }
+            [_, "wheel", value] => {
+                let value: u8 = value.parse().map_err(|_| fail("bad wheel value"))?;
+                if value > 127 {
+                    return Err(fail("wheel is 0..127").into());
+                }
+                events.push(Event {
+                    at_ms,
+                    action: Action::Wheel { value },
                 });
             }
             [_, "direction", way] => {
@@ -163,7 +179,7 @@ pub fn parse(text: &str) -> Result<Vec<Event>, Box<dyn Error>> {
             }
             _ => {
                 return Err(fail(
-                    "expected `onset duration note velocity [channel]`, `onset bellows value`, `onset direction pull|push`, `onset register NAME`, `onset bass-register NAME` or `onset air 0..1`",
+                    "expected `onset duration note velocity [channel]`, `onset bellows value`, `onset wheel value`, `onset direction pull|push`, `onset register NAME`, `onset bass-register NAME` or `onset air 0..1`",
                 )
                 .into());
             }
@@ -181,6 +197,7 @@ fn rank(action: &Action) -> u8 {
     match action {
         Action::NoteOff { .. } => 0,
         Action::Bellows { .. }
+        | Action::Wheel { .. }
         | Action::Direction { .. }
         | Action::Register { .. }
         | Action::BassRegister { .. }

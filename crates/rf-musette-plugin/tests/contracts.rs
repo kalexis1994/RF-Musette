@@ -167,6 +167,67 @@ fn the_wheel_is_the_bellows() {
     assert!(out.iter().all(|x| *x == 0.0), "a sound with the wheel down");
 }
 
+/// Milestone 8i: with Mod Wheel on Bellows, the wheel -- 7-bit, 14-bit or
+/// MIDI 2.0 -- is where the bellows is, and Expression stays the push.
+#[test]
+fn the_wheel_can_be_where_the_bellows_is() {
+    let source = |events: &[MidiEvent], wide: &[MidiEvent2]| {
+        let mut plugin = prepared();
+        assert!(Processor::set_parameter(
+            &mut plugin,
+            parameters::MOD_WHEEL as u32,
+            parameters::WHEEL_BELLOWS
+        ));
+        run(&mut plugin, events, wide);
+        plugin.engine().unwrap().bellows().source()
+    };
+    assert_eq!(
+        source(&[midi(0, [0xb0, CC_MOD_WHEEL, 90])], &[]),
+        BellowsSource::Motion
+    );
+    assert_eq!(
+        source(
+            &[
+                midi(0, [0xb0, CC_MOD_WHEEL, 90]),
+                midi(0, [0xb0, CC_MOD_WHEEL_LSB, 33])
+            ],
+            &[]
+        ),
+        BellowsSource::Motion
+    );
+    let wide = MidiEvent2 {
+        frame: 0,
+        kind: MIDI2_KIND_CONTROL_CHANGE,
+        channel: 0,
+        index: CC_MOD_WHEEL,
+        flags: 0,
+        value: 0x9000_0000,
+        extra: 0,
+    };
+    assert_eq!(source(&[], &[wide]), BellowsSource::Motion);
+    assert_eq!(
+        source(&[midi(0, [0xb0, CC_EXPRESSION, 90])], &[]),
+        BellowsSource::Expression
+    );
+
+    // The wheel heard and still: a key pressed, nothing sounds.
+    let mut plugin = prepared();
+    assert!(Processor::set_parameter(
+        &mut plugin,
+        parameters::MOD_WHEEL as u32,
+        parameters::WHEEL_BELLOWS
+    ));
+    let out = run(
+        &mut plugin,
+        &[midi(0, [0xb0, CC_MOD_WHEEL, 64]), midi(0, [0x90, 69, 100])],
+        &[],
+    );
+    assert!(
+        out.iter().all(|x| *x == 0.0),
+        "a sound with the wheel still"
+    );
+}
+
 /// Milestone 8, prediction 6: the channel picks the side, as a V-Accordion
 /// sends it -- the bass buttons on 2, the chords on 3, the treble on 1.
 #[test]

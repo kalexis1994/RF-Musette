@@ -18,6 +18,7 @@ pub mod cassotto;
 pub mod compass;
 mod decimator;
 pub mod math;
+pub mod motion;
 pub mod pallet;
 pub mod parameters;
 pub mod reed;
@@ -170,6 +171,15 @@ pub struct Engine {
     bass_held: [bool; KEYS],
     chord_held: [bool; KEYS],
     bellows: Bellows,
+    /// The modulation wheel as where the bellows is (milestone 8i): its
+    /// motion, the samples rendered to time it by, and the air the arm moves,
+    /// m³/s, above zero pushing, followed as the moving half's mass allows.
+    motion: motion::Motion,
+    clock: u64,
+    flow: f64,
+    /// The wheel's last high and low halves.
+    wheel_msb: u8,
+    wheel_lsb: u8,
 }
 
 impl Engine {
@@ -211,6 +221,11 @@ impl Engine {
             bass_held: [false; KEYS],
             chord_held: [false; KEYS],
             bellows: Bellows::new(),
+            motion: motion::Motion::default(),
+            clock: 0,
+            flow: 0.0,
+            wheel_msb: 0,
+            wheel_lsb: 0,
         };
         engine.rebuild();
         Ok(engine)
@@ -244,6 +259,12 @@ impl Engine {
             self.flipped = false;
             self.spent = 0.0;
         }
+        // What the wheel is changed: it starts afresh, and gives the bellows
+        // back to velocity until a controller moves it.
+        if index == parameters::MOD_WHEEL {
+            self.motion.forget();
+            self.bellows.release_motion();
+        }
         if index == parameters::BELLOWS_DIRECTION
             && !self.anything_held()
             && self.keys.iter().all(Key::is_still)
@@ -275,6 +296,7 @@ impl Engine {
                 | parameters::BELLOWS_SMOOTHING
                 | parameters::AUTO_REVERSE
                 | parameters::BELLOWS_TRAVEL
+                | parameters::MOD_WHEEL
         ) {
             self.dirty = true;
         }
@@ -419,6 +441,66 @@ impl Engine {
 
     pub fn bellows_mut(&mut self) -> &mut Bellows {
         &mut self.bellows
+    }
+
+    /// The modulation wheel's high seven bits (CC 1). With Mod Wheel on
+    /// Pressure it is the push, as Expression is (milestone 8f); on Bellows,
+    /// where the bellows is (milestone 8i).
+    pub fn wheel_msb(&mut self, value: u8) {
+        if !self.parameters.wheel_is_bellows() {
+            self.bellows.expression_msb(value);
+            return;
+        }
+        self.wheel_msb = value.min(127);
+        self.wheel_lsb = 0;
+        self.wheel_moved(false);
+    }
+
+    /// The wheel's low seven bits (CC 33). A low half with no high half
+    /// before it has nothing to refine and is ignored.
+    pub fn wheel_lsb(&mut self, value: u8) {
+        if !self.parameters.wheel_is_bellows() {
+            self.bellows.expression_lsb(value);
+            return;
+        }
+        if !self.motion.is_known() {
+            return;
+        }
+        self.wheel_lsb = value.min(127);
+        self.wheel_moved(true);
+    }
+
+    /// The wheel at MIDI 2.0 width, already a fraction of its range.
+    pub fn wheel_wide(&mut self, value: f32) {
+        if !self.parameters.wheel_is_bellows() {
+            self.bellows.expression_wide(value);
+            return;
+        }
+        if value.is_finite() {
+            self.bellows.take_by_motion();
+            self.motion.moved(
+                f64::from(value),
+                self.clock,
+                f64::from(self.sample_rate),
+                false,
+            );
+        }
+    }
+
+    /// The wheel's two halves as one 14-bit position, on one scale whether
+    /// or not the low half ever comes: a wheel that starts sending it does
+    /// not seem to jump.
+    fn wheel_moved(&mut self, refine: bool) {
+        let position =
+            f64::from(u16::from(self.wheel_msb) << 7 | u16::from(self.wheel_lsb)) / 16383.0;
+        self.bellows.take_by_motion();
+        self.motion
+            .moved(position, self.clock, f64::from(self.sample_rate), refine);
+    }
+
+    /// Whether the wheel, as where the bellows is, moves the air now.
+    fn driven(&self) -> bool {
+        self.bellows.source() == BellowsSource::Motion && self.parameters.wheel_is_bellows()
     }
 
     /// One reed as it stands: of `key`'s `rank` ([`parameters::RANK_LOW`] ..
@@ -618,8 +700,21 @@ impl Engine {
                     1.0
                 }
             }
-            BellowsSource::Expression => 1.0,
+            BellowsSource::Expression | BellowsSource::Motion => 1.0,
         };
+        // Driven by the wheel (milestone 8i), the arm moves air rather than
+        // pushing: the bellows' air and the most the arm can push.
+        let driven = self.driven();
+        let air = self.parameters.bellows_air();
+        let ceiling = self.parameters.bellows_pressure(1.0);
+        let wheel_travel = self.parameters.travel();
+        let rate = f64::from(self.sample_rate);
+        if driven {
+            // The bellows moves one way or the other: never half turned.
+            self.turn = if self.turn < 0.0 { -1.0 } else { 1.0 };
+        } else {
+            self.flow = 0.0;
+        }
         let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
         // Turning, the bellows takes its pressure through zero: the turn goes
         // from -1 to +1, or back, at a steady rate over the reversal time.
@@ -646,7 +741,14 @@ impl Engine {
             .map(|(resonance, q)| cassotto::CassottoTuning::new(resonance, q, h));
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
-            if let Some(travel) = travel {
+            // The wheel up opens the bellows -- pulls -- and down closes it.
+            let arm = if driven {
+                -self.motion.speed(self.clock, rate) * wheel_travel
+            } else {
+                0.0
+            };
+            self.clock = self.clock.wrapping_add(1);
+            if let Some(travel) = travel.filter(|_| !driven) {
                 self.turn_if_spent(travel);
             }
             let direction = self.direction();
@@ -658,28 +760,36 @@ impl Engine {
                 // the filter. The bellows keeps moving as asked, and only
                 // its leaks and the air button spend its air.
                 self.cassotto.reset();
-                self.ask = target;
                 self.draw = 0.0;
-                self.supply = match &wind {
-                    Some(design) => self.wind.step(design, target, 0.0, h * factor as f64),
-                    None => target,
-                };
-                self.turn = toward(self.turn, direction, turning * factor as f64);
+                if driven {
+                    self.drive(&air, ceiling, arm, h * factor as f64);
+                } else {
+                    self.ask = target;
+                    self.supply = match &wind {
+                        Some(design) => self.wind.step(design, target, 0.0, h * factor as f64),
+                        None => target,
+                    };
+                    self.turn = toward(self.turn, direction, turning * factor as f64);
+                }
                 *sample = 0.0;
                 continue;
             }
             for slot in chunk.iter_mut().take(factor) {
-                self.ask += (target - self.ask) * smoothing;
-                self.supply = match &wind {
-                    Some(design) => self.wind.step(design, self.ask, self.draw, h),
-                    None => {
-                        // Kept in step, so turning the arm on never starts
-                        // from an empty bellows.
-                        self.wind.pressure = self.ask;
-                        self.ask
-                    }
-                };
-                self.turn = toward(self.turn, direction, turning);
+                if driven {
+                    self.drive(&air, ceiling, arm, h);
+                } else {
+                    self.ask += (target - self.ask) * smoothing;
+                    self.supply = match &wind {
+                        Some(design) => self.wind.step(design, self.ask, self.draw, h),
+                        None => {
+                            // Kept in step, so turning the arm on never starts
+                            // from an empty bellows.
+                            self.wind.pressure = self.ask;
+                            self.ask
+                        }
+                    };
+                    self.turn = toward(self.turn, direction, turning);
+                }
                 let signed = self.turn * self.supply;
                 // Each reed is blown only from its own side, and only while
                 // its rank's register is open; the other's valve is shut,
@@ -760,6 +870,22 @@ impl Engine {
             }
             *sample = self.decimator.decimate(&chunk[..factor]) * gain;
         }
+    }
+
+    /// One step of the bellows the wheel drives: the arm's air, `arm` m³/s
+    /// (above zero pushing), followed over the moving half's time, into the
+    /// air the reeds draw from; turning when it drains through zero.
+    fn drive(&mut self, air: &wind::WindDesign, ceiling: f64, arm: f64, h: f64) {
+        self.flow += (arm - self.flow) * (h / wind::MEAN_TIME).min(1.0);
+        if self
+            .wind
+            .driven(air, ceiling, self.turn * self.flow, self.draw, h)
+        {
+            self.turn = -self.turn;
+        }
+        self.supply = self.wind.pressure;
+        // Kept in step, so the other mode never starts from elsewhere.
+        self.ask = self.supply;
     }
 
     /// True once every reed has stopped and the filter has emptied. A

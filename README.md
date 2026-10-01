@@ -28,7 +28,11 @@ reaches over Bellows Smoothing (150 ms) rather than at once; once
 Expression (CC 11, with CC 43 as its low bits) or the modulation wheel
 (CC 1, with CC 33) arrives, it drives the bellows instead -- the last moved
 leads. Digital accordions send Expression; a keyboard player can move the
-wheel as the arm, shaking it for the accordion's own vibrato. With Auto
+wheel as the arm, shaking it for the accordion's own vibrato. With Mod Wheel
+on Bellows the wheel is where the bellows is instead -- 0 shut, the top
+open its whole travel -- and what sounds is the wheel moving: up pulls,
+down pushes, a still wheel holds the bellows still, and a chord needs a
+faster hand than a note, as on the instrument. With Auto
 Reverse on, the bellows runs out after its travel (12 L) and turns on its
 own, at a gap between notes once 70 % is spent, as a player turns it. The push is the arm's: one bellows
 feeds every reed and gives way a little as more of them draw air (Bellows

@@ -238,7 +238,7 @@ impl App {
     }
 
     fn idle(&self, index: usize) -> bool {
-        panel::waits_on(index).is_some_and(|switch| self.values[switch] != 1.0)
+        panel::idle(index, &self.values)
     }
 
     fn render_control(&self, index: usize) -> String {
@@ -569,8 +569,9 @@ fn update_parameter_dom(app: &AppHandle, index: usize) {
         let _ = button.set_attribute("aria-checked", if chosen { "true" } else { "false" });
     }
     for waiting in panel::waiting_on(index) {
+        let idle = app.borrow().idle(waiting);
         for control in query(&document, &format!("[data-control-index='{waiting}']")) {
-            let _ = control.class_list().toggle_with_force("idle", value != 1.0);
+            let _ = control.class_list().toggle_with_force("idle", idle);
         }
     }
 }

@@ -38,7 +38,7 @@ most of them three controls turn RF-Musette as soon as it is loaded.
 | `synth.oscillator.*` | No oscillators: reeds, and their make is the model. |
 | `synth.amplifier.level`, `plugin.output.level`, `mixer.channel.level` | RackForge's master level owns the controller's volume, as on RF-5; Output Gain stays on the panel and in a hand-made link. |
 | `mixer.channel.pan` | RF-Musette is mono before RackForge's stereo. |
-| `performance.modulation`, `performance.expression`, `performance.sustain` | Performance MIDI, passed through to the plugin, which reads the wheel (CC 1/33) and Expression (CC 11/43) as the bellows itself. An accordion has no sustain. |
+| `performance.modulation`, `performance.expression`, `performance.sustain` | Performance MIDI, passed through to the plugin, which reads the wheel (CC 1/33) and Expression (CC 11/43) as the bellows itself -- the wheel as its push or, with Mod Wheel on Bellows, as where it is. An accordion has no sustain. |
 | `rackforge.master.level`, `rackforge.master.pan` | RackForge's own, never a plugin's. |
 
 Control Profile v1 has no role for a register, the bellows' direction or the

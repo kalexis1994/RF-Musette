@@ -50,6 +50,7 @@ pub const PAGES: &[Page] = &[
                 id: "bellows",
                 title: "Bellows",
                 parameters: &[
+                    "mod_wheel",
                     "bellows_direction",
                     "air_valve",
                     "auto_reverse",
@@ -155,13 +156,18 @@ pub const PAGES: &[Page] = &[
     },
 ];
 
-/// Controls that do nothing while another is off: shown dimmed then. Each
-/// is (the control, the switch it waits on).
-pub const IDLE_UNLESS: &[(&str, &str)] = &[
-    ("split_point", "left_hand"),
-    ("bellows_travel", "auto_reverse"),
-    ("cassotto_resonance", "cassotto"),
-    ("cassotto_q", "cassotto"),
+/// Controls that do nothing unless another is set so: shown dimmed
+/// otherwise. Each is the control and what it waits on -- any of the
+/// switches at its value.
+pub const IDLE_UNLESS: &[(&str, &[(&str, f64)])] = &[
+    ("split_point", &[("left_hand", 1.0)]),
+    // The travel is Auto Reverse's, and the wheel's range as the bellows.
+    (
+        "bellows_travel",
+        &[("auto_reverse", 1.0), ("mod_wheel", 1.0)],
+    ),
+    ("cassotto_resonance", &[("cassotto", 1.0)]),
+    ("cassotto_q", &[("cassotto", 1.0)]),
 ];
 
 /// The page with this id, or the first.
@@ -187,19 +193,29 @@ pub fn control(index: usize) -> Control {
     }
 }
 
-/// The switch a control waits on, if any.
-pub fn waits_on(index: usize) -> Option<usize> {
+/// Whether the control at `index` does nothing with these values.
+pub fn idle(index: usize, values: &[f64]) -> bool {
     IDLE_UNLESS
         .iter()
         .find(|(control, _)| index_of(control) == Some(index))
-        .and_then(|(_, switch)| index_of(switch))
+        .is_some_and(|(_, switches)| {
+            !switches.iter().any(|(switch, on)| {
+                index_of(switch)
+                    .and_then(|switch| values.get(switch))
+                    .is_some_and(|value| value == on)
+            })
+        })
 }
 
 /// The controls that wait on this switch.
 pub fn waiting_on(switch: usize) -> impl Iterator<Item = usize> {
     IDLE_UNLESS
         .iter()
-        .filter(move |(_, owner)| index_of(owner) == Some(switch))
+        .filter(move |(_, switches)| {
+            switches
+                .iter()
+                .any(|(owner, _)| index_of(owner) == Some(switch))
+        })
         .filter_map(|(control, _)| index_of(control))
 }
 
@@ -259,12 +275,34 @@ mod tests {
 
     #[test]
     fn idle_controls_wait_on_a_switch() {
-        for (control, switch) in IDLE_UNLESS {
-            let switch = index_of(switch).unwrap();
+        for (control, switches) in IDLE_UNLESS {
             assert!(index_of(control).is_some(), "{control}");
-            assert_eq!(super::control(switch), Control::Toggle);
-            assert!(waiting_on(switch).any(|index| Some(index) == index_of(control)));
+            for (switch, value) in *switches {
+                let switch = index_of(switch).unwrap();
+                assert!(
+                    SPECS[switch]
+                        .choices
+                        .iter()
+                        .any(|(v, _)| f64::from(*v) == *value),
+                    "{control} waits on a value {} does not have",
+                    SPECS[switch].id
+                );
+                assert!(waiting_on(switch).any(|index| Some(index) == index_of(control)));
+            }
         }
+    }
+
+    #[test]
+    fn the_travel_works_for_auto_reverse_or_the_wheel() {
+        let travel = index_of("bellows_travel").unwrap();
+        let mut values: Vec<f64> = SPECS.iter().map(|spec| spec.default).collect();
+        assert!(idle(travel, &values));
+        values[index_of("mod_wheel").unwrap()] = 1.0;
+        assert!(!idle(travel, &values));
+        values[index_of("mod_wheel").unwrap()] = 0.0;
+        values[index_of("auto_reverse").unwrap()] = 1.0;
+        assert!(!idle(travel, &values));
+        assert!(!idle(index_of("gain").unwrap(), &values));
     }
 
     #[test]

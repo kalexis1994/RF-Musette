@@ -49,7 +49,8 @@ cargo run --release -p rf-musette-lab -- inspect renders/a4.wav
 ```
 
 A score has one event per line: `onset_ms duration_ms note velocity`,
-`onset_ms bellows 0..127` for Expression, `onset_ms direction pull|push`
+`onset_ms bellows 0..127` for Expression, `onset_ms wheel 0..127` for the
+modulation wheel (the bellows' position with `--set mod_wheel=1`), `onset_ms direction pull|push`
 for the bellows' direction, `onset_ms register NAME` for a register
 (Clarinet, Musette, Master... as the parameter names them), or
 `onset_ms air 0..1` for the air button. `--help` lists every option. Every

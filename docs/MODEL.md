@@ -327,6 +327,46 @@ turns it into the pressure the reeds see, or, "Stiff", it is that pressure.
 A 1 ms smoothing keeps a stepped controller from reaching the bellows as a
 step; it is numerical, not physics.
 
+### The wheel as where the bellows is (decided; constants assumed)
+
+With Mod Wheel on Bellows (milestone 8i) the modulation wheel is the
+bellows' position, not its push: 0 shut, the top open its whole travel
+(Bellows Travel, 12 L). The arm becomes a source of flow, the wheel's speed
+times the travel, and the same air's compliance takes what the reeds and
+the vent do not:
+
+    C P′ = Q_arm − Σ Q_holes − Q_vent,    P ≤ P_ceiling (1 − u)/(1 + u/k),  u = Q_arm/(A v_max)
+
+The pressure is whatever passes that flow through what is open, up to the
+most the arm can push at that speed (Hill, as above). Turning, the flow
+out of the side drains the pressure through zero before it builds on the
+other; the direction is the wheel's, up pulling. The moving half's mass
+follows the arm's flow over the same 10 ms as the arm's hold (8e).
+
+The speed is measured from the wheel's messages, not taken as positions --
+at seven bits a step is 94 mL, a kilopascal of compression at once
+(`motion.rs`): the last two steps over the time they took when they went
+the same way, the last alone when it turned; held until the last step's
+time passes again, then no more than a step over the time since, and still
+after four intervals with no step -- or, after a step from rest, after 2 s
+with none. Assumed: a step after a rest taken over at most 0.5 s, so the
+bellows answers at once (a soft note's 188 mL/s at 12 L), and never
+measured with the step after it; a jump over a sixteenth of the range after
+a rest taken as the wheel placed; a low half within 3 ms refining its step.
+(First built with 0.2 s, and still after four of that guessed interval: a
+wheel slower than a step in 0.8 s rested before every step, and the player
+heard each step as a burst.)
+
+Measured (`tests/milestone_8i.rs`): one true 8′ at 4 steps a second,
+-169 Pa, steady within ±2.3 % (the reed's own ripple; ±3.4 % with a host's
+256-frame blocks); a four-note chord at the same speed -9.3 dB; stopped,
+the note under 20 Pa 1.02 s after the last step; a shut bellows driven to
+862 Pa of a 1 kPa ceiling. An uneven hand, each interval ±20 % at random:
+±9 % typical, ±27 % at worst -- the flow such a hand moves. Slow: two steps
+a second, 68 Pa, within 3.2 dB even ±30 % uneven; one step a second, 16-30
+Pa, the true 8′'s threshold, steady when the steps are and breaking off
+when they are not, as a reed at its threshold does.
+
 ## How it is computed (tested)
 
 Implicit midpoint on every linear part, with the jet's Bernoulli loss

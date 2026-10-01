@@ -327,9 +327,14 @@ pub fn reference_tone(design: ReedDesign, rate: f64, pressure: f64, seconds: f64
         let jet = u - model.effective_area * w;
         let v = jet / (d.contraction * model.section(zeta));
         let dp = 0.5 * reed::AIR_DENSITY * v * v.abs();
+        // The voiced swing limit, as `reed::step` documents it.
+        let lift = zeta / d.width;
+        let speed = (2.0 * p.max(0.0) / reed::AIR_DENSITY).sqrt();
+        let limit = d.swing_limit * reed::AIR_DENSITY * speed * d.width * d.length * lift * lift;
+        let damping = model.omega / d.q + limit / model.modal_mass;
         [
             w,
-            -model.omega / d.q * w - model.omega * model.omega * zeta + model.mu * dp,
+            -damping * w - model.omega * model.omega * zeta + model.mu * dp,
             (p - dp) / model.inertance,
             (pressure - p) / model.hole_inertance,
             (a - u) / model.cell_compliance,

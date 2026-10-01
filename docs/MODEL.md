@@ -78,6 +78,35 @@ rate over −9..12 mm.
 Millot & Baumann eqs. 5-7: what the tongue pumps plus a quasi-steady
 Bernoulli jet through the useful section, with a vena contracta α.
 
+### The swing limit (voiced: the one term that is not derived)
+
+    c = κ ρ v w L (ζ/w)²,        v = √(2p/ρ)
+
+A damping on the tongue, added to its own ω0/Q. It grows with the tip's
+displacement from rest ζ and with the jet speed v the cell's pressure gives;
+w and L are the tongue's width and length, and κ is a live knob ("Swing
+Limit").
+
+It stands in for the nonlinear dissipation St. Hilaire & Vaidya (J. Fluid
+Mech. 67, 1975) found limits a free reed's swing, which this model does not
+derive. Their paper could not be read: neither it nor its sequel could be
+bought. Every derived mechanism tried for the limit failed (ROADMAP 2c):
+* the tongue's drag in the air;
+* the tip coming through the plate;
+* the mean moving toward the plate;
+* the valves' measured series escape area.
+
+The form is chosen, not derived, for three properties:
+* **zero at small swings,** so the onset, the growth, the attack and the
+  bend stand as derived;
+* **in proportion to the flow, as the feed is,** so the swing it settles at
+  hardly depends on the pressure, as Cottingham, Lilly & Reed measured;
+* **dissipative,** so the scheme stays passive (an extra −c ζ′² in the
+  energy identity). The RK4 reference carries it too.
+
+κ 0.5 puts the swing near 5 mm from ~1 kPa up, inside what is measured of
+this reed. It is not yet set by ear.
+
 ### The cell is not optional (tested)
 
 A blown-closed free reed needs no resonator tuned to it, but it does need air
@@ -210,6 +239,7 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Pallet opening | 50 ms | Reported | "Los ataques usuales de dedo son realizados en unos 0.05 s" (Llanos-Vázquez, thesis 2015, p164) |
 | Pallet closing | 10 ms | Assumed | Not published |
 | Tone hole shape | 4 : 1 rectangle | Assumed | Not published; sets the pallet's rim |
+| Swing limit κ | 0.5 | Assumed, to be voiced by ear | The one underived term; chosen so the swing settles near 5 mm from ~1 kPa (Ziegenhals: > 4 mm at mf; Braasch & Cottingham: ~15 % of the length) and holds with pressure (Cottingham, Lilly & Reed 1999) |
 
 ## What it does (0.2.0, measured; `milestone_1.rs` and `diagnosis.rs`)
 
@@ -217,16 +247,17 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | --- | --- | --- | --- |
 | Onset from rest | 32 Pa | 10 Pa (Misdariis), 60-110 Pa (Cottingham, a 622 Hz reed), ~30 Pa (technicians) | Met |
 | Offset, let down from 300 Pa | 8 Pa (22 Pa from 65 Pa) | Below onset, always (Cottingham ICA 2016) | Met |
-| Tip swing at 300 Pa | 4.9 mm | > 4 mm "at mf" (Ziegenhals, this reed) | Met |
+| Tip swing | 3.7 mm at 300 Pa, 4.8 at 600 (κ 0.5; 4.9 at 300 with κ 0) | > 4 mm "at mf" (Ziegenhals, this reed; mf's pressure not stated) | Met if mf is above ~450 Pa |
 | Tongue motion | 2nd-4th harmonics 59-72 dB down | Sinusoidal (Misdariis; Ziegenhals) | Met |
 | Sound | Pulse train, harmonics within a few dB to the 7th | Pulse-like "Summton" (Ziegenhals) | Met |
-| Level, 60 → 3000 Pa | 40.9 dB | ~40 dB (Misdariis) | Met |
-| Pitch vs pressure, 100 → 900 Pa | −0.4 cents | about −9 cents (Cottingham) | **Not met** |
-| Bend, pallet part-way open (300 Pa) | down to −16.5 cents before silence, never up | 15-35 cents (Elejalde-García 2021) | Met |
+| Level, 60 → 3000 Pa | 36.0 dB (40.9 with κ 0) | ~40 dB (Misdariis) | Met, at the low side |
+| Pitch vs pressure, 100 → 900 Pa | −2.7 cents (−0.4 with κ 0) | about −9 cents (Cottingham) | **Not met** (a third, and by the voiced term) |
+| Bend, pallet part-way open (300 Pa) | down to −16.0 cents before silence, never up | 15-35 cents (Elejalde-García 2021) | Met |
 | Choking: cell resonance at 1.3, 1.0, 0.95, 0.9 of the reed | onset 35, 119, 217, 356 Pa | "far above normal" at or just below (Tonon; Cottingham ICA 2019) | Met in shape (see VALIDATION) |
 | Closing the pallet | exact silence; −121 dB near the host's Nyquist | -- | Met |
 | Finger attack, −50 → −5 dB | 249 ms (400 Pa), 730 ms (100 Pa) | 50-110 ms mf, 60-140 ms p (Llanos 2014) | **Not met** |
-| Swing against pressure | keeps growing: 4.9 mm at 300 Pa, 8.2 at 900, 11 at 3 kPa | jumps to several mm at onset, then nearly constant, falling at high pressure (Cottingham 1999) | **Not met** |
+| Swing against pressure | κ 0.5: 3.7, 4.8, 5.2, 5.5, 5.65 mm at 0.3, 0.6, 0.9, 1.5, 3 kPa (κ 0: 4.9 → 11 mm) | within 3 % from 0.3 to 1.2 kPa, 12 % lower at 2.9 kPa (Cottingham, Lilly & Reed 1999, Fig. 2) | Met from 0.6 kPa (+19 % to 3 kPa), by the voiced term; still climbing at 0.3 kPa |
+| Level against mean flow, past 600 Pa | +4.2-4.7 dB per doubling (κ 0: 2.6-2.8) | ~7.6 dB per doubling (Nussbaumer & Agarwal 2016) | **Not met** |
 
 ## Known defects
 
@@ -285,7 +316,8 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   Llanos-Vázquez, thesis, Fig. 4.11), and what supplies that is the force
   on the tongue's face about its rest position, whose coefficients only
   Ricot et al. 2005 gives.
-* **The swing does not saturate.** Past the onset a measured reed's swing
+* **The swing does not saturate by itself; a voiced term holds it**
+  (above, "The swing limit"; ROADMAP 2c). Past the onset a measured reed's swing
   jumps to several millimetres and then stays nearly constant, falling at
   high pressure (Koopman & Cottingham 1997, via Cottingham et al. 1999); the
   model's keeps growing, and at an extreme corner of the parameters -- a
@@ -300,6 +332,11 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
   only thing that takes it back is the tip emerging beyond the plate, past
   ~3.5 mm of travel. The one loss the model has, Q, does not grow with
   pressure or speed, so the swing grows until the tongue comes through.
+  The voiced limit (κ 0.5) now holds it near 5 mm from ~1 kPa; with κ at
+  0 the model is as derived and the defect is back. What the limit does
+  not fix: the swing is still climbing at 0.3 kPa, where the measured
+  reed had levelled off, and the level grows ~4.5 dB per doubling of flow
+  past 600 Pa, against Nussbaumer & Agarwal's ~7.6.
 * **One mode.** Accordion tongues carry their 2nd-4th bending modes and a
   torsional mode, most visibly in the attack (Behrens et al. 2009; Cottingham
   ICA 2019).

@@ -436,6 +436,69 @@ Hilaire & Vaidya's finite-amplitude potential flow would have to come in.
 The series area is kept as the better-measured law, to be built when
 something else limits the swing.
 
+**Decision (2026-09-30): a voiced swing limit, until the mechanism is
+derived.** A damping on the tongue that grows with its displacement and
+scales with the flow, as the feed does:
+* c = κ ρ v w L (ζ/w)², with v = √(2p/ρ) the jet speed the cell's
+  pressure gives, w and L the tongue's width and length, and ζ the tip's
+  displacement from rest;
+* one voiced constant, κ, a live knob ("Swing Limit");
+* zero at small swings, so the onset, growth, attack and bend stand as
+  derived;
+* in proportion to v, so the swing it settles at hardly depends on the
+  pressure, which is what Cottingham, Lilly & Reed measured;
+* dissipative, so the scheme stays passive (an extra −c ζ′² in the energy
+  identity).
+
+It stands in for St. Hilaire & Vaidya's nonlinear dissipation, and says so
+in MODEL.md: it is the one place where the model is voiced rather than
+derived.
+
+On the energy balance (`the_voiced_limit`), κ 0.5 settles at 3.7, 4.8,
+5.2, 5.5, 5.6 mm at 0.3, 0.6, 1, 1.5, 3 kPa: within the "more than 4 mm at
+mf" Ziegenhals measured on this reed and the ~15 % of the length (5.4 mm)
+Braasch & Cottingham report. It is therefore the default; the ear sets it
+after.
+
+**Predictions** (written before building it into the step, 2026-09-30):
+1. The free reed settles where the balance says, within 10 %, at 0.3, 1
+   and 3 kPa.
+2. From 0.6 to 3 kPa the swing changes by less than 20 %. Not met from
+   0.3 kPa: the balance still climbs there, where the measured reed had
+   levelled off.
+3. Milestones 1 and 2 stay met: onset, offset, growth, the bend,
+   choking, silence, passivity, and the scheme against RK4.
+4. The fundamental's level against flow climbs ≥ 5 dB per doubling above
+   600 Pa (now 2.6-2.8), and the fundamental stays the strongest component
+   to 3 kPa (now overtaken at 600 Pa).
+5. Watched, not asserted: whether the pitch now sags with pressure.
+
+**Result (2026-09-30), the free reed with κ 0.5 (`level_against_flow`,
+the shipping step):**
+
+| Supply | 100 Pa | 300 | 600 | 900 | 1500 | 3000 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Swing, mm | 1.51 | 3.72 | 4.76 | 5.16 | 5.50 | 5.65 |
+| Before (κ 0) | 1.58 | 4.93 | 6.99 | 8.17 | 9.59 | 11.1 |
+| dB per doubling of flow | +8.7 | +5.2 | +4.2 | +4.2 | +4.5 | +4.7 |
+| 2nd harmonic against the fundamental | −12.3 | −7.4 | −3.5 | −1.8 | −0.2 | +1.6 |
+
+1. **Met.** The free reed settles where the balance said, within 1 %.
+2. **Met, barely.** +19 % from 0.6 to 3 kPa.
+3. **Met.** Every milestone test passes, the scheme against RK4 included
+   (the reference integrator carries the term too).
+4. **Not met, improved.** The level climbs 4.2-4.7 dB per doubling past
+   600 Pa (from 2.6-2.8), short of 5 and of Nussbaumer's ~7.6. The second
+   harmonic now overtakes the fundamental only at 3 kPa (from 600 Pa).
+   With the swing held, what still grows is the flow. The mean flow at
+   3 kPa is 138 l/min, and nothing measured says what an accordion reed
+   spends.
+5. **Watched.** The pitch now falls 2.7 cents from 100 to 900 Pa (from
+   0.4), inside milestone 1's bound of −2 to −40 but a third of the
+   measured ~−9, and by the limit's own action rather than by a derived
+   mechanism. The known defect stands; the sink suction (A) can now be
+   re-tried on the held swing.
+
 **Where 2c stands.** Tried and not the limit: the tongue's drag in the air,
 the tip coming through the plate (a measured reed never does), and the mean
 moving toward the plate. What is left is the one thing all three leave

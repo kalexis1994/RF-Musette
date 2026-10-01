@@ -210,3 +210,28 @@ only the tip emerging beyond the plate returns it. Drag: 85 µJ per cycle at
 
 Measured (Nussbaumer & Agarwal, ICA 2016, Fig. 6, reed 2): ~+7.6 dB per
 doubling from 20 to 52 l/min, the fundamental always the strongest.
+
+## 2026-09-30 -- Milestone 2c: the voiced swing limit
+
+**Built.** c = κ ρ v w L (ζ/w)² added to the tongue's damping in
+`reed::step` (lagged, so the energy identity keeps an extra −c ζ′² and the
+scheme stays passive) and in the RK4 reference. A new parameter, `swing_limit`
+(index 22, default 0.5, "Assumed, to be voiced by ear"); the state grows to
+23 values and still loads the 22-value states of 0.3.0.
+
+**Calibrated** on the energy balance (`the_voiced_limit`), κ 0.5:
+3.71, 4.76, 5.24, 5.49, 5.64 mm at 0.3, 0.6, 1, 1.5, 3 kPa.
+
+**Free reed** (`level_against_flow`, the shipping step): 3.72, 4.76, 5.16,
+5.50, 5.65 mm at 0.3, 0.6, 0.9, 1.5, 3 kPa -- the balance within 1 %. Level
++4.2-4.7 dB per doubling of flow past 600 Pa; the second harmonic passes
+the fundamental only at 3 kPa.
+
+**Milestones** with κ 0.5: onset 32.3 Pa, offset 8.5 Pa; swing 3.73 mm at
+300 Pa; level span 36.0 dB from 60 Pa to 3 kPa; the scheme against RK4
+within 0.07 cents and 0.4 %; the deepest bend −16.0 cents; choking 35.5,
+119, 217, 356 Pa; closed pallet −105 dB or less. Pitch 100 → 900 Pa:
+−2.7 cents.
+
+**Checks.** The workspace's tests all pass; the sag and attack defects
+remain ignored.

@@ -111,6 +111,9 @@ pub struct ReedDesign {
     pub tone_hole_depth: f64,
     /// Tonon's end-correction factor k, times the hole's equivalent diameter.
     pub end_correction: f64,
+    /// κ of the voiced swing limit (see [`step`]); 0 leaves the model as
+    /// derived.
+    pub swing_limit: f64,
 }
 
 /// Speed of sound, m/s (20 °C).
@@ -327,8 +330,17 @@ impl ReedState {
 /// likewise with R_p. Whatever R and R_p are, the step satisfies exactly
 ///
 /// ```text
-/// H₁ - H₀ = h [ P u_h,m - M_r (ω0/Q) ζ'_m² - R ũ_m² - R_p u_h,m² ]
+/// H₁ - H₀ = h [ P u_h,m - (M_r ω0/Q + c) ζ'_m² - R ũ_m² - R_p u_h,m² ]
 /// ```
+///
+/// c ≥ 0 is the voiced swing limit, the one voiced term of the reed:
+/// c = κ ρ v w L (ζ/w)², with v = √(2p/ρ) the jet speed the cell's
+/// pressure gives, w and L the tongue's width and length, ζ the tip's
+/// displacement from rest, all taken at the start of the step like R. It
+/// stands in for the nonlinear dissipation St. Hilaire & Vaidya (J. Fluid
+/// Mech. 67, 1975) found limits a free reed's swing, which this model does
+/// not derive: zero at small swings, in proportion to the flow as the feed
+/// is (docs/ROADMAP.md, 2c).
 ///
 /// When a resistance grows much larger than 2M/h the midpoint values stay
 /// right but the end values alternate at the internal Nyquist frequency; the
@@ -346,7 +358,10 @@ impl ReedState {
 pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, pallet: f64, h: f64) -> f64 {
     let d = &model.design;
     let omega2 = model.omega * model.omega;
-    let damping = model.omega / d.q;
+    let lift = (state.zeta + 0.5 * h * state.velocity) / d.width;
+    let speed = math::sqrt(2.0 * state.cell_pressure.max(0.0) / AIR_DENSITY);
+    let limit = d.swing_limit * AIR_DENSITY * speed * d.width * d.length * lift * lift;
+    let damping = model.omega / d.q + limit / model.modal_mass;
     let s_r = model.effective_area;
     let (m_n, m_h, c) = (model.inertance, model.hole_inertance, model.cell_compliance);
     let jet_flow = state.flow - s_r * state.velocity;

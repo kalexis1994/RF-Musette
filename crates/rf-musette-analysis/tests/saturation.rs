@@ -30,6 +30,10 @@ struct Work {
     /// The part of the air's work done by the cell's pressure, ∮ S_r p ζ';
     /// the rest is the near field's inertia, -∮ S_r M_n u' ζ'.
     cell: f64,
+    /// What the voiced swing limit takes at κ = 1: ∮ c ζ'² dt with
+    /// c = ρ v w L (ζ/w)², v = √(2p/ρ) the jet speed the cell's pressure
+    /// would give. It scales with κ.
+    voiced: f64,
 }
 
 impl Work {
@@ -148,6 +152,7 @@ fn work_with(
         dissipated: 0.0,
         drag: 0.0,
         cell: 0.0,
+        voiced: 0.0,
     };
     let mode = TongueMode::with_ratio(d.mode_ratio);
     let dx = d.length / (SPAN_POINTS - 1) as f64;
@@ -169,6 +174,9 @@ fn work_with(
             let (zeta, w) = tongue(t);
             let power = s_r * jet_pressure(t, s[0]) * w * h;
             out.cell += s_r * s[2] * w * h;
+            let speed = (2.0 * s[2].max(0.0) / RHO).sqrt();
+            let lift = zeta / d.width;
+            out.voiced += RHO * speed * d.width * d.length * lift * lift * w * w * h;
             // Where the tip is, from flat: negative above the plate.
             let y = zeta - d.set;
             for i in 0..SPAN_POINTS {
@@ -206,6 +214,7 @@ fn work_with(
     out.beyond /= cycles;
     out.drag /= cycles;
     out.cell /= cycles;
+    out.voiced /= cycles;
     out.dissipated = PI * model.modal_mass * (model.omega / d.q) * omega * amplitude * amplitude;
     out
 }
@@ -479,5 +488,53 @@ fn the_series_area_against_the_cap() {
             "{label:>17}: swing at 0.1/0.3/0.6/0.9/1.5/3 kPa {:.2?} mm | 3 kPa over 0.3 kPa {ratio:.2}",
             swings
         );
+    }
+}
+
+/// Calibrating the voiced swing limit: where the balance settles, per
+/// pressure, for a range of κ.
+#[test]
+#[ignore = "calibration: prints, asserts nothing"]
+fn the_voiced_limit() {
+    let design = Parameters::default().reed_design();
+    let model = ReedModel::new(design);
+    let frequency = design.frequency * 2f64.powf(-6.5 / 1200.0);
+    let supplies = [60.0, 100.0, 300.0, 600.0, 1000.0, 1500.0, 3000.0];
+    let amplitudes: Vec<f64> = (1..=96).map(|i| 0.125e-3 * i as f64).collect();
+    // (air's work, damping, voiced at κ = 1) per supply and swing.
+    let table: Vec<Vec<(f64, f64, f64)>> = supplies
+        .iter()
+        .map(|&p| {
+            let mean = model.mu * p / (model.omega * model.omega);
+            amplitudes
+                .iter()
+                .map(|&a| {
+                    let w = work(design, p, mean, a, frequency);
+                    (w.total(), w.dissipated, w.voiced)
+                })
+                .collect()
+        })
+        .collect();
+    for kappa in [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0, 2.0] {
+        let swings: Vec<String> = table
+            .iter()
+            .map(|row| {
+                let ratio =
+                    |&(air, damping, voiced): &(f64, f64, f64)| air / (damping + kappa * voiced);
+                if ratio(&row[0]) < 1.0 {
+                    return "silent".to_owned();
+                }
+                for i in 1..row.len() {
+                    let (r0, r1) = (ratio(&row[i - 1]), ratio(&row[i]));
+                    if r0 >= 1.0 && r1 < 1.0 {
+                        let a = amplitudes[i - 1]
+                            + (amplitudes[i] - amplitudes[i - 1]) * (r0 - 1.0) / (r0 - r1);
+                        return format!("{:.2}", a * 1e3);
+                    }
+                }
+                ">12".to_owned()
+            })
+            .collect();
+        println!("κ {kappa:>5}: swing at 60/100/300/600/1000/1500/3000 Pa: {swings:?} mm");
     }
 }

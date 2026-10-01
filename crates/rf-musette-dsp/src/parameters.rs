@@ -71,8 +71,9 @@ pub const END_CORRECTION: usize = 18;
 pub const PALLET_LIFT: usize = 19;
 pub const PALLET_OPENING: usize = 20;
 pub const PALLET_CLOSING: usize = 21;
+pub const SWING_LIMIT: usize = 22;
 
-pub const COUNT: usize = 22;
+pub const COUNT: usize = 23;
 
 /// Steel, kg/m³. Tongues are tempered spring steel (Llanos-Vázquez et al.
 /// 2002; the maker Harmonikas.cz); the density of steel is not in doubt.
@@ -327,6 +328,15 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Logarithmic,
         "Assumed: fully open to closed when the key is let go, under the pallet's spring. Not published.",
     ),
+    spec(
+        "swing_limit",
+        "Swing Limit",
+        PAGE_AIR,
+        "",
+        (0.0, 4.0, 0.5, 0.01),
+        Taper::Linear,
+        "Voiced: the one voiced constant of the reed. A damping that grows with the tongue's swing and with the flow, standing in for the nonlinear dissipation St. Hilaire & Vaidya (J. Fluid Mech. 67, 1975) found limits a free reed and that this model does not derive. At 0.5 the swing settles near 5 mm from 1 kPa up, as this reed's is measured (Ziegenhals 2009: more than 4 mm at mf) and holds nearly constant with pressure (Cottingham, Lilly & Reed 1999). At 0 the model is as derived and its swing keeps growing with pressure.",
+    ),
 ];
 
 /// One engine's parameter values, in the units of [`SPECS`].
@@ -391,6 +401,7 @@ impl Parameters {
             tone_hole_area: v[TONE_HOLE_AREA] * 1.0e-6,
             tone_hole_depth: v[TONE_HOLE_DEPTH] * mm,
             end_correction: v[END_CORRECTION],
+            swing_limit: v[SWING_LIMIT],
         }
     }
 

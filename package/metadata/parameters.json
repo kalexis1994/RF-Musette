@@ -918,6 +918,51 @@
       "order": 9,
       "page": "model_cell",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "pitch_a4",
+      "index": 36,
+      "kind": {
+        "default": 440.0,
+        "maximum": 466.0,
+        "minimum": 415.0,
+        "step": 0.1,
+        "taper": "linear",
+        "type": "float",
+        "unit": "Hz"
+      },
+      "name": "Pitch A4",
+      "order": 11,
+      "page": "model_reed",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "q_slope",
+      "index": 37,
+      "kind": {
+        "default": 0.7,
+        "maximum": 1.5,
+        "minimum": 0.0,
+        "step": 0.01,
+        "taper": "linear",
+        "type": "float"
+      },
+      "name": "Q Slope",
+      "order": 12,
+      "page": "model_reed",
+      "suggested_control": "knob"
     }
   ],
   "schema_version": 1

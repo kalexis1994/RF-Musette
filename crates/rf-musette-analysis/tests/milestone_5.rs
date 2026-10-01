@@ -89,7 +89,9 @@ fn bent(register: f64, depth: f64) -> Option<f64> {
     for n in 0..(3.0 * RATE) as usize {
         engine.render(&mut one);
         if n >= (2.0 * RATE) as usize {
-            let (_, state) = engine.reed(parameters::RANK_MIDDLE, PULL_REED).unwrap();
+            let (_, state) = engine
+                .reed(REED_KEY, parameters::RANK_MIDDLE, PULL_REED)
+                .unwrap();
             zeta.push(state.zeta);
         }
     }

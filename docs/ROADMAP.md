@@ -917,6 +917,142 @@ Every key of a 41-key treble, every rank, and a full-register chord inside the
 Pi 4's budget — with `parallel_render_v1` if one core is not enough, decided
 by the fuel measured in milestone 1, not assumed.
 
+**Decided (2026-10-01).**
+* **The compass:** a full-size piano accordion's 41 keys, F3-A6 (MIDI
+  53-93) for the 8′ ranks; L sounds an octave below, H an octave above.
+* **The pitch:** A4 = 440 Hz, equal temperament, the IfM Zwota's reference
+  (Richter, "Stimmung", Demusa '90), with "Pitch A4" a parameter. The
+  measured F4 vibrates at 355 Hz, ~28 cents above A440's F4, so it is
+  retuned like any other.
+
+**The reeds across the compass (assumed, from the one measured reed).** No
+maker publishes tongue dimensions. The measured F4 is scaled to each pitch
+by a bayan maker's slots, patent RU2233009, Table 3:
+* slot length F3 35.4, F4 27.8, F5 20.5, F6 14.7, F7 9.6 mm;
+* root widths 4.23, 3.37, 2.66, 2.00, 1.25 mm;
+* plates 2.7, 2.7, 2.2, 2.2, 1.7 mm.
+
+Between those notes the ratios are interpolated in log-frequency, and
+beyond them extrapolated with the nearest octave's ratio, down to the
+16′'s F2 and up to the 4′'s A7. The set and clearances scale with the
+length, and the cell and tone hole with the reed: the cell's volume as the
+length cubed, the hole as the slot's area. A real treble's top cells are
+smaller and filled (Llanos's luthiers, p267-268). The profile is derived
+for each frequency, as at F4.
+
+**Tuned as a tuner tunes.** Each reed's mode is set so that it *sounds* at
+its pitch at 300 Pa, the IfM's playing pressure for its comparisons (2008
+poster). The correction, mode against sound, is computed by simulating
+every reed and kept as a generated table, checked by a test against a fresh
+computation. Moving a reed's constants afterwards detunes it, as it would
+on an instrument.
+
+**Memory and cost.** The engine never allocates. A whole treble -- 205
+designs, 410 reeds -- fits once each reed's section table is 256 entries
+over a range scaled to its length: measured unchanged against 1024 on F4
+(onset 32.3 Pa, swing 3.73 mm, the bend −16.0 cents, the octaves and beats
+alike). Only a sounding reed is computed.
+
+**Predictions** (written before building it, 2026-10-01):
+1. Every reed of every rank sounds within ±2 cents of its pitch at 300 Pa
+   (by construction of the table); the M rank at 100 and 600 Pa within
+   ±15 cents.
+2. Every one of the 205 reeds speaks from rest below 300 Pa.
+3. The tremolo's beats follow the Borsini's lines at every key, within
+   5 %.
+4. The swing at 300 Pa stays a similar share of each tongue's length
+   across the compass, 5-20 % (Braasch & Cottingham: about 15 %).
+5. Natively a four-note Master chord (20 reeds) costs under 10 µs per
+   48 kHz sample, half the real-time budget. The Pi is measured, not
+   predicted.
+6. Every earlier milestone's test still passes; key 65's M reed now
+   sounds F4 at 349.2 Hz.
+
+**The top did not speak (2026-10-01), and what was measured about it.**
+Built as above, with Q 250 for every reed, the tuner could not tune the top.
+Thresholds rise as about f^1.6 (`tests/compass_diagnosis.rs`):
+* 9 Pa at 175 Hz, 31 at 349, 100 at 698, 297 at 1397, 378 at 1760, 861 at
+  3520 Hz;
+* the 622 Hz point is 82 Pa, inside Cottingham's measured 60-110 Pa for a
+  622 Hz accordion reed (ICA 2016).
+
+From G6 the M ranks, and H from A5, stay silent at 300 Pa. What moves it:
+* **Q dominates.** ×4 takes A6 M from 378 to 154 Pa.
+* **The cell does not:** keeping it at F4's proportion even raises the
+  threshold.
+* The tone hole, near field and set move it little; a larger hole or gap
+  makes it worse.
+
+A real E7 8′ speaks from piano (Llanos, Table 4.12).
+
+The research (2026-10-01) found the following.
+* **No Q is measured above ~750 Hz.** Below:
+  * 83 at 137 Hz (Cottingham's reed-organ C3, ICA 1998, D = 0.012);
+  * ~233 at 598 Hz (Förtsch 2021, a harmonica draw reed's half-life of
+    85 ms in its instrument);
+  * 200-400 at 236-743 Hz (Nussbaumer & Agarwal 2016).
+
+  These rise with pitch.
+* **No damping mechanism falls for small reeds.** Steel's own loss gives Q
+  3,000-50,000 (Cremer & Heckl, via Irvine), viscous air and
+  thermoelasticity give thousands, and the clamp is negligible at these
+  slendernesses. So Q ≈ 250 is the mount's, gap's and radiation's, and how
+  those scale is unmeasured.
+* **Thresholds, from a tuner** (testimony, musiker-board 2014):
+  * a good plate's lower treble starts at 40-70 Pa;
+  * the top piccolos at 100-250 Pa, some near 300;
+  * "300 Pa is the tuning pressure because every reed is sure to sound
+    there".
+
+**Revised (before measuring).** Q follows the measured trend: Q ∝ f^0.7,
+the exponent of the two measured reeds, 83 at 137 Hz and 233 at 598. It is
+anchored at the F4's 250, so every earlier result stands. It is a trend
+from two reeds of different kinds, extrapolated above 750 Hz, and stated
+so: a parameter, "Q Slope".
+
+**Predictions** (written before building it, 2026-10-01):
+7. The lower treble's M reeds (F3-C5) start at 70 Pa or less (the tuner:
+   40-70).
+8. The top piccolos (H at A5-A6, 1.76-3.52 kHz) start at 100-300 Pa (the
+   tuner: 100-250, some near 300).
+9. Every reed speaks at the 300 Pa tuning pressure (the tuner's reason
+   for it).
+
+**Status (2026-10-01): built (0.8.0); six met, two not met at the top**
+(`tests/milestone_7.rs`, `tests/compass_diagnosis.rs`).
+1. **Met.** Every one of the 205 reeds sounds within ±2 cents of its pitch
+   where it is tuned (worst −0.01 cents). The true 8′ at 100 and 600 Pa
+   stays within ±15 cents. The tuning table is generated
+   (`rf-musette-lab tune`) and checked against a fresh tuning; its
+   corrections run from 4 to 20 cents, more for the larger reeds.
+2. and 9. **Not met at the very top.** 201 of 205 reeds speak at 300 Pa.
+   The 4′ reeds of keys 90-93 (F♯7-A7, ~3-3.5 kHz) need 350-440 Pa, and
+   are tuned at the lowest pressure they speak at, as a tuner would have
+   to.
+3. **Met.** The tremolo's beats follow the Borsini's lines at every key.
+4. **Not met above A5, and the cause measured.** At 300 Pa the swing falls
+   from 12.7 % of the tongue's length at F3 to 4.4 % at A5. At eight times
+   each reed's own threshold every reed swings ~9 % (8.8-10.1 %), so the
+   fall is only the high reeds sitting nearer their thresholds: the same
+   cause as 2.
+5. **Met.** A four-note Master chord costs 4.6 µs per 48 kHz sample
+   natively, 22 % of a core.
+6. **Met.** Every earlier test passes.
+7. **Met.** The lower treble's M reeds start at 13-48 Pa.
+8. **Met but at the top.** H at A5-F6 starts at 170-297 Pa; at G7 and A7,
+   356 and 438 Pa.
+
+**Built with it:**
+* the engine carries the whole treble (271 KiB) and builds a key's reeds
+  when it is first needed, or two keys per block after a parameter moves;
+* the WebAssembly component is linked with an 8 MiB stack (RackForge's
+  convention for a processor built by value), and the laboratory runs on
+  a 64 MiB thread: both overflowed their 1 MiB on the first build.
+
+What is left for the top: a measurement of what makes the smallest reeds
+speak on an instrument -- their cells, their set, the tip turned to the
+inlet (Tonon) -- or of their Q.
+
 ## 8. Stradella bass
 
 Bass and chord buttons on octave-wrapped ranks.

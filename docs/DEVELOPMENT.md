@@ -50,6 +50,20 @@ render starts with 1.5 s of silence by default, for listening; outputs use
 create-new semantics and nothing is overwritten. Each render writes a JSON
 report beside the WAV with the peak, the RMS and the score it played.
 
+## Tune
+
+Every reed is tuned as a tuner tunes: its mode set so it sounds on its pitch
+at 300 Pa. The corrections live in the generated
+`crates/rf-musette-dsp/src/tuning.rs`. After changing anything a reed is
+made of, regenerate it (about 25 s), then format:
+
+```text
+cargo run --release -p rf-musette-lab -- tune
+cargo fmt --all
+```
+
+`tests/milestone_7.rs` fails if the table no longer matches a fresh tuning.
+
 ## Package
 
 For the whole build, install and launch cycle use

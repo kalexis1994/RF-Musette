@@ -85,8 +85,10 @@ pub const AIR_VALVE: usize = 32;
 pub const CASSOTTO: usize = 33;
 pub const CASSOTTO_RESONANCE: usize = 34;
 pub const CASSOTTO_Q: usize = 35;
+pub const PITCH_A4: usize = 36;
+pub const Q_SLOPE: usize = 37;
 
-pub const COUNT: usize = 36;
+pub const COUNT: usize = 38;
 
 /// [`BELLOWS_RESPONSE`]'s values.
 pub const ARM: f64 = 0.0;
@@ -497,6 +499,24 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Logarithmic,
         "Assumed, voiced by ear: how sharp the cassotto's resonance is. Wood, felt and a slot that is no neck make it low; nothing measures it. Against Llanos-Vázquez's E4 at mf, whose 8′ centroid falls from 2013 Hz outside the cassotto to 1389 inside (thesis, Table 4.16).",
     ),
+    spec(
+        "pitch_a4",
+        "Pitch A4",
+        PAGE_REED,
+        "Hz",
+        (415.0, 466.0, 440.0, 0.1),
+        Taper::Linear,
+        "Decided 2026-10-01: the A every true 8′ reed is tuned to, in equal temperament, where it sounds at 300 Pa. 440 Hz is the IfM Zwota's reference (Richter, \"Stimmung\", Demusa '90).",
+    ),
+    spec(
+        "q_slope",
+        "Q Slope",
+        PAGE_REED,
+        "",
+        (0.0, 1.5, 0.7, 0.01),
+        Taper::Linear,
+        "A measured trend, extrapolated: each reed's Q is the F4's times (f / F4)^slope. 0.7 is the exponent between the two free reeds whose Q is measured, a reed-organ C3's 83 at 137 Hz (Cottingham, ICA 1998) and a harmonica reed's ~233 at 598 Hz (Förtsch 2021); Nussbaumer & Agarwal found 200-400 at 236-743 Hz. Nothing above ~750 Hz is measured, and no damping mechanism falls for small reeds.",
+    ),
 ];
 
 /// The air button's opening when fully pressed, m²: assumed.
@@ -616,9 +636,13 @@ impl Parameters {
     /// lines scaled to it -- M+ = t (1 + 0.341 log₂(f/440)), M− = −t (0.902 +
     /// 0.439 log₂(f/440)) (Hergert 2024, Fig. 6).
     pub fn tremolo_beats(&self) -> (f64, f64) {
+        self.tremolo_beats_at(self.values[REED_FREQUENCY])
+    }
+
+    /// The same beats for an M reed at `frequency`, Hz.
+    pub fn tremolo_beats_at(&self, frequency: f64) -> (f64, f64) {
         let t = self.values[TREMOLO];
-        let octaves =
-            crate::math::ln(self.values[REED_FREQUENCY] / 440.0) / core::f64::consts::LN_2;
+        let octaves = crate::math::ln(frequency / 440.0) / core::f64::consts::LN_2;
         (
             t * (1.0 + 1.4 / 4.1 * octaves),
             -t * (3.7 / 4.1 + 1.8 / 4.1 * octaves),

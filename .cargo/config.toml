@@ -3,6 +3,11 @@
 # executes it: wasmtime on desktop, Raspberry Pi and Android, and every browser
 # since 2021. See "Building a fast component" in RackForge's
 # docs/PLUGIN_DEVELOPMENT.md.
+#
+# The larger shadow stack is RackForge's convention for a processor built
+# by value: the engine carries the whole treble (41 keys, 410 reeds, ~271
+# KiB) and is moved a few times as it is built, which overflowed the default
+# 1 MiB (milestone 7).
 
 [target.wasm32-unknown-unknown]
-rustflags = ["-C", "target-feature=+simd128"]
+rustflags = ["-C", "target-feature=+simd128", "-C", "link-arg=-zstack-size=8388608"]

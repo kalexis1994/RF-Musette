@@ -5,6 +5,7 @@ mod audition;
 mod package;
 mod schema;
 mod score;
+mod tune;
 mod wav;
 
 use rf_musette_dsp::{Engine, PARAMETER_SPECS, REED_KEY, SAMPLE_RATES, parameters};
@@ -21,6 +22,7 @@ Usage:
   rf-musette-lab render --output PATH.wav [options]
   rf-musette-lab inspect PATH.wav
   rf-musette-lab schema
+  rf-musette-lab tune               tunes the treble, writes the tuning table
   rf-musette-lab package
   rf-musette-lab audition [--prepare-only]
 Render options:
@@ -29,8 +31,8 @@ Render options:
                     pull|push`. Without it, one note.
   --set ID=VALUE    Sets a parameter by its id, in its own units; repeat for
                     more. The ids are in package/metadata/parameters.json.
-  --note N          MIDI 0..127 for the single note (default 65, F4: the
-                    one reed milestone 1 has)
+  --note N          MIDI 0..127 for the single note (default 65, F4; the
+                    treble has reeds from 53, F3, to 93, A6)
   --velocity N      MIDI 1..127 for the single note (default 100)
   --hold S          Key hold of the single note, seconds (default 2)
   --lead-in S       Silence before the first event, 0..10 (default 1.5)
@@ -42,11 +44,25 @@ wireless headset wakes on the first sound and swallows it, so an attack at
 the very start of a file is heard as a fade.
 ";
 
+/// The laboratory's work runs on a thread with a large stack: the engine
+/// carries the whole treble by value (~271 KiB) and is moved a few times as it
+/// is built, more than a main thread's 1 MiB on Windows allows -- the same
+/// reason the WebAssembly component is linked with an 8 MiB stack.
+const STACK_BYTES: usize = 64 << 20;
+
 fn main() {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    if let Err(error) = dispatch(&arguments) {
-        eprintln!("rf-musette-lab: {error}");
-        std::process::exit(1);
+    let worker = std::thread::Builder::new()
+        .stack_size(STACK_BYTES)
+        .spawn(move || dispatch(&arguments).map_err(|error| error.to_string()))
+        .expect("the laboratory's thread starts");
+    match worker.join() {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => {
+            eprintln!("rf-musette-lab: {error}");
+            std::process::exit(1);
+        }
+        Err(_) => std::process::exit(101),
     }
 }
 
@@ -59,6 +75,7 @@ fn dispatch(arguments: &[String]) -> Result<(), Box<dyn Error>> {
         "render" => render(&Options::parse(rest)?),
         "inspect" => inspect(&single_path(rest)?),
         "schema" => schema::write(),
+        "tune" => tune::write(),
         "package" => package::build(),
         "audition" => audition::run(rest),
         "help" | "--help" | "-h" => {

@@ -120,7 +120,7 @@ fn clarinet_opens_the_measured_reed_alone() {
         parameters::RANK_HIGH,
     ] {
         for which in [rf_musette_dsp::PULL_REED, rf_musette_dsp::PUSH_REED] {
-            let (_, state) = engine.reed(rank, which).unwrap();
+            let (_, state) = engine.reed(REED_KEY, rank, which).unwrap();
             assert_eq!(*state, Default::default(), "rank {rank} moved");
         }
     }

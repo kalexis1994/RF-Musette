@@ -3,10 +3,12 @@
 A physically modelled accordion for [RackForge](https://github.com/kalexis1994/rackforge):
 free reeds driven by a bellows, computed rather than recorded.
 
-> **Status: one reed (0.3.0).** Key 65 plays the accordion F4 reed the IfM
-> Zwota measured, in its cell, behind its pallet; every other key is
-> silent. What it does and does not yet do against measurements:
-> [docs/MODEL.md](docs/MODEL.md).
+> **Status: the whole treble (0.8.0).** 41 keys, F3-A6, each with five ranks
+> -- L, M−, M, M+, H -- tuned to A440 where they sound, a reed for each way
+> the bellows moves, one bellows the arm pushes, and a cassotto. Every reed is
+> scaled from the accordion F4 the IfM Zwota measured. The Stradella bass and
+> the product's interface are still to come. What it does and does not yet do
+> against measurements: [docs/MODEL.md](docs/MODEL.md).
 
 ## What it is meant to be
 

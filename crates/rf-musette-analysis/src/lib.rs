@@ -361,3 +361,56 @@ pub fn reference_tone(design: ReedDesign, rate: f64, pressure: f64, seconds: f64
     }
     trace.tone(seconds * 2.0 / 3.0, seconds)
 }
+
+/// Where a reed sounds, Hz, blown steadily at `pressure` from rest: long
+/// enough for a low reed to settle, read over the last half second.
+pub fn sounding(design: ReedDesign, pressure: f64) -> Option<Tone> {
+    let seconds = (600.0 / design.frequency).clamp(1.5, 6.0);
+    steady(design, 192_000.0, pressure, seconds, 0.5).map(|(tone, _)| tone)
+}
+
+/// The pressure the treble is tuned at, Pa: the IfM Zwota's playing pressure
+/// for its comparisons (poster 2008, section 5.4).
+pub const TUNING_PRESSURE: f64 = 300.0;
+
+/// The pressure a reed is tuned at, Pa: [`TUNING_PRESSURE`], or for a reed
+/// that does not speak there, the lowest of a few steps above it that it
+/// speaks at -- as a tuner would have to. `None` if none does.
+pub fn tuning_pressure(design: ReedDesign) -> Option<f64> {
+    [TUNING_PRESSURE, 400.0, 500.0, 700.0, 1000.0]
+        .into_iter()
+        .find(|pressure| sounding(design, *pressure).is_some())
+}
+
+/// The tuning table for `parameters`, as a tuner makes it: for every rank
+/// and key, the cents a reed's mode must sit above its target so that it
+/// sounds on it at its [`tuning_pressure`]. Two passes, the second
+/// correcting the first. `None` in a cell whose reed does not speak.
+pub fn tune(
+    parameters: &rf_musette_dsp::Parameters,
+) -> [[Option<f64>; rf_musette_dsp::compass::KEYS]; rf_musette_dsp::parameters::RANKS] {
+    use rf_musette_dsp::compass::{FIRST_KEY, KEYS};
+    let mut table = [[None; KEYS]; rf_musette_dsp::parameters::RANKS];
+    for (rank, row) in table.iter_mut().enumerate() {
+        for (index, cell) in row.iter_mut().enumerate() {
+            *cell = tune_reed(parameters, FIRST_KEY + index as u8, rank);
+        }
+    }
+    table
+}
+
+/// One cell of [`tune`]: the cents `key`'s `rank` reed's mode must sit above
+/// its target.
+pub fn tune_reed(parameters: &rf_musette_dsp::Parameters, key: u8, rank: usize) -> Option<f64> {
+    use rf_musette_dsp::compass::{target, untuned};
+    let aim = target(parameters, key, rank);
+    let mut design = untuned(parameters, key, rank)?;
+    design.frequency = aim;
+    let pressure = tuning_pressure(design)?;
+    let mut correction = 0.0;
+    for _ in 0..2 {
+        design.frequency = aim * 2f64.powf(correction / 1200.0);
+        correction += cents(sounding(design, pressure)?.frequency, aim);
+    }
+    Some(correction)
+}

@@ -67,12 +67,15 @@ use crate::tongue::{SPAN_POINTS, TongueMode};
 /// Air density, kg/m³ (20 °C).
 pub const AIR_DENSITY: f64 = 1.204;
 
-/// Entries of the useful-section table.
-const SECTION_POINTS: usize = 1024;
-/// Deflections the section table covers, as tip displacement from flat, m.
-/// Beyond them the section has saturated at the slot's own area.
+/// Entries of the useful-section table: few enough that a whole treble of
+/// reeds fits the engine, which never allocates.
+const SECTION_POINTS: usize = 256;
+/// Deflections the section table covers for a 36 mm tongue, as tip
+/// displacement from flat, m; a tongue of another length covers them in
+/// proportion. Beyond them the section has saturated at the slot's own area.
 const DEFLECTION_LOW: f64 = -9.0e-3;
 const DEFLECTION_HIGH: f64 = 12.0e-3;
+const DEFLECTION_LENGTH: f64 = 36.0e-3;
 
 /// What one reed is made of and how it sits in its plate. All lengths in
 /// metres.
@@ -249,10 +252,16 @@ impl ReedModel {
         (sides + front).min(self.slot_area)
     }
 
+    /// The deflections the section table covers for this tongue, m.
+    fn deflections(&self) -> (f64, f64) {
+        let scale = self.design.length / DEFLECTION_LENGTH;
+        (DEFLECTION_LOW * scale, DEFLECTION_HIGH * scale)
+    }
+
     fn build_section(&mut self, mode: &TongueMode) {
+        let (low, high) = self.deflections();
         for i in 0..SECTION_POINTS {
-            let y = DEFLECTION_LOW
-                + (DEFLECTION_HIGH - DEFLECTION_LOW) * i as f64 / (SECTION_POINTS - 1) as f64;
+            let y = low + (high - low) * i as f64 / (SECTION_POINTS - 1) as f64;
             self.section[i] = self.section_at(y, mode) as f32;
         }
     }
@@ -261,8 +270,8 @@ impl ReedModel {
     #[inline]
     pub fn section(&self, zeta: f64) -> f64 {
         let y = zeta - self.design.set;
-        let position = (y - DEFLECTION_LOW) * ((SECTION_POINTS - 1) as f64)
-            / (DEFLECTION_HIGH - DEFLECTION_LOW);
+        let (low, high) = self.deflections();
+        let position = (y - low) * ((SECTION_POINTS - 1) as f64) / (high - low);
         if position <= 0.0 {
             return f64::from(self.section[0]);
         }

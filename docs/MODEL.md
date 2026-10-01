@@ -6,7 +6,12 @@ stated rather than hidden; each constant says where its value came from. The
 tests hold the model to what this document claims -- it is allowed to be
 approximate, not to drift from what is written here.
 
-**Status (0.7.0, in progress): one key, five ranks, one bellows, a
+**Status (0.8.0, in progress): the whole treble.** F3-A6, 41 keys, five
+ranks each (410 reeds), tuned to A440 where they sound, one bellows, a
+cassotto. The text below grew milestone by milestone around the one F4 the
+IfM Zwota measured; "The compass" says how every other reed comes from it.
+
+**Earlier status (0.7.0): one key, five ranks, one bellows, a
 cassotto.** Key 65, F4, behind
 the pallet it lifts, with five plates: L (16′), M− M M+ (the 8′ tremolo
 and musette) and H (4′), each with a reed for each way the bellows moves.
@@ -156,6 +161,33 @@ the pressure itself, as before, for a digital accordion that measures it.
 Measured on F4 (ROADMAP 5):
 * M alone holds 4.0 % below the push, Master 13.6 %;
 * the air button fully open takes the pressure down 29 %.
+
+### The compass (tested; geometry and Q's rise assumed)
+
+41 keys, F3-A6, with L an octave below and H an octave above. Every reed is
+the measured F4 scaled to the pitch it is made for, by the ratios of a
+bayan maker's slots (RU2233009, Table 3):
+* the length and width interpolated in log-frequency, and the plate;
+* the set with the length;
+* the cell with the length cubed, its hole with the slot's area;
+* the clearances as machined.
+
+Two further rules:
+* **Q rises with pitch as the measured reeds do,** Q = Q_F4 (f/F4)^0.7.
+  That is the exponent between a reed-organ C3's Q 83 (Cottingham, ICA
+  1998) and a harmonica reed's ~233 at 598 Hz (Förtsch 2021), extrapolated
+  above ~750 Hz where nothing is measured. No damping mechanism falls for
+  small reeds.
+* **Tuned as a tuner tunes.** Each reed's mode is set so it sounds on
+  equal temperament at "Pitch A4" (440 Hz) at 300 Pa, the pressure a tuner
+  uses because every reed sounds there. The reeds that do not speak there
+  are tuned at the lowest pressure they do. The corrections, 4-20 cents,
+  are a generated table, `tuning.rs`, checked against a fresh tuning.
+  Moving a reed's constants afterwards detunes it, as on an instrument.
+
+Thresholds climb with pitch, 13 Pa at F3 to 170 at A6 on the true 8′. The
+4′ reeds from ~3 kHz need 350-440 Pa (a known defect). Every reed swings
+~9 % of its length at eight times its own threshold.
 
 ### The cassotto (tested; Q assumed)
 
@@ -347,6 +379,10 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Tremolo | 4.1 Hz at A4 (M+), lines' shape | Measured (one instrument), a style to voice by taste | A Borsini Super Star LMMMH (Hergert 2024, Fig. 6) |
 | Registers | Roland FR-3x's 14 | Measured as a maker draws them | FR-3x Owner's Manual p. 27 |
 | L, H geometry | F4 × slot ratios 1.27 / 0.74 (length), 1.25 / 0.79 (width) | Assumed | A bayan maker's slots, RU2233009 Table 3 |
+| Compass | F3-A6, 41 keys | Decided | A full-size piano accordion |
+| Pitch A4 | 440 Hz, equal temperament, at 300 Pa | Decided; measured reference | Richter, "Stimmung", IfM Zwota |
+| Reed geometry across the compass | the F4 × a bayan maker's slot ratios | Assumed | RU2233009, Table 3 |
+| Q slope | 0.7 | Measured trend, extrapolated above ~750 Hz | Cottingham 1998 (83 at 137 Hz), Förtsch 2021 (~233 at 598 Hz) |
 | Cassotto | off; L and M when on | A choice of instrument | Pigini Sirius (Llanos p51); double cassotto (bassoon, clarinet) |
 | Cassotto resonance | 900 Hz | Measured range 800-1000 Hz | Richter, IfM Zwota 1989 |
 | Cassotto Q | 2 | Assumed, to be voiced | Unmeasured |
@@ -376,6 +412,9 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Tremolo beats at 300 Pa | M+ +3.667, M− −3.146, M−/M+ 6.813 Hz | asked 3.666, −3.143 (Borsini lines at 355 Hz) | Met |
 | Ranks together, bellows stiff | Celeste +3.01, Musette +4.77, Master +5.94 dB over Clarinet | powers add | Met |
 | One bellows, the arm pushing for 300 Pa | Clarinet 288.1 Pa (−4.0 %), Master 259.3 Pa (−13.6 %), +4.98 dB over Clarinet | more reeds draw the pressure down (McMahan; no measurement) | Met (as predicted) |
+| Tuning across the compass, at 300 Pa | all 205 reeds within ±2 cents (worst −0.01); M within ±15 cents at 100 and 600 Pa | in tune where a tuner tunes | Met |
+| Thresholds across the compass | M: 13 Pa (F3) → 48 (C5) → 170 (A6); H at F♯7-A7 350-440 Pa | lower treble 40-70 Pa, top piccolos 100-250 Pa (a tuner) | Low ends met; the top 4′ too high |
+| A four-note Master chord, native | 4.6 µs per sample, 22 % of a core | -- | Measured; the Pi not yet |
 | Cassotto, M at mf | centroid 1693 → 959 Hz (0.57); attack unchanged | 2013 → 1389 Hz (0.69, Llanos E4); attack unchanged (p174) | Met |
 | Air button fully open, note held | −29 % pressure, −2.9 dB | the bellows moves without sounding | Weaker than predicted (assumed arm and vent) |
 | L, H against M's octaves | −9.6, +2.4 cents | in tune, as a tuner sets them | L flat: set by its mode |

@@ -15,12 +15,14 @@
 
 mod bellows;
 pub mod cassotto;
+pub mod compass;
 mod decimator;
 pub mod math;
 pub mod pallet;
 pub mod parameters;
 pub mod reed;
 pub mod tongue;
+pub mod tuning;
 pub mod wind;
 
 pub use bellows::{Bellows, BellowsSource};
@@ -59,17 +61,15 @@ pub enum EngineError {
     SampleRate,
 }
 
-/// One rank's plate for the key: its reed's model, and its two reeds,
+/// One rank's plate for a key: its reed's model, and its two reeds,
 /// [`PULL_REED`] and [`PUSH_REED`] -- the same design, each with its own
 /// state. On an instrument a plate's reeds share one cell; here each keeps
 /// its own copy of it, which differs only while both still move, through a
 /// reversal (docs/MODEL.md).
 struct Rank {
-    /// `None` where the rank has no reed yet.
+    /// `None` until the key is first built, or where the rank has no reed.
     model: Option<ReedModel>,
     states: [ReedState; 2],
-    /// Its register is open: the bellows reaches it.
-    open: bool,
 }
 
 impl Rank {
@@ -80,17 +80,40 @@ impl Rank {
     }
 }
 
+/// A key of the compass: its pallet and its ranks' plates behind it.
+struct Key {
+    pallet: Pallet,
+    ranks: [Rank; parameters::RANKS],
+    /// Its reeds' models are out of date: built again before it next sounds,
+    /// or a few at a time while nothing asks.
+    stale: bool,
+}
+
+impl Key {
+    fn is_still(&self) -> bool {
+        self.ranks.iter().all(Rank::is_still)
+    }
+
+    /// Nothing to compute: the pallet shut and every reed at rest.
+    fn is_idle(&self) -> bool {
+        self.pallet.is_closed() && self.is_still()
+    }
+}
+
+/// Stale keys built per render while nothing asks for them: enough to catch
+/// up within a few blocks, few enough not to load one.
+const BUILDS_PER_BLOCK: usize = 2;
+
 pub struct Engine {
     sample_rate: f32,
     parameters: Parameters,
     /// The tongue's profile, solved from its mode ratio; kept, because
-    /// solving it takes milliseconds and the ratio rarely moves. The 8′
-    /// ranks share it.
+    /// solving it takes milliseconds and the ratio rarely moves. Every reed
+    /// shares it.
     mode: TongueMode,
-    /// The key's ranks, [`parameters::RANK_LOW`] .. [`parameters::RANK_HIGH`],
-    /// all behind its one pallet.
-    ranks: [Rank; parameters::RANKS],
-    pallet: Pallet,
+    /// The compass, F3-A6: each key's pallet and its ranks,
+    /// [`parameters::RANK_LOW`] .. [`parameters::RANK_HIGH`].
+    keys: [Key; compass::KEYS],
     pallet_design: PalletDesign,
     /// What the intent asks, Pa: the pressure the push would make in a
     /// still bellows, guarded against steps.
@@ -120,17 +143,19 @@ impl Engine {
         }
         let parameters = Parameters::default();
         let mode = TongueMode::with_ratio(parameters.reed_design().mode_ratio);
-        let ranks = core::array::from_fn(|_| Rank {
-            model: None,
-            states: [ReedState::default(); 2],
-            open: false,
+        let keys = core::array::from_fn(|_| Key {
+            pallet: Pallet::default(),
+            ranks: core::array::from_fn(|_| Rank {
+                model: None,
+                states: [ReedState::default(); 2],
+            }),
+            stale: true,
         });
         let mut engine = Self {
             sample_rate,
             parameters,
             mode,
-            ranks,
-            pallet: Pallet::default(),
+            keys,
             pallet_design: parameters.pallet_design(),
             ask: 0.0,
             wind: wind::Wind::default(),
@@ -171,15 +196,17 @@ impl Engine {
         // already turned.
         if index == parameters::BELLOWS_DIRECTION
             && self.held_count() == 0
-            && self.ranks.iter().all(Rank::is_still)
+            && self.keys.iter().all(Key::is_still)
         {
             self.turn = self.parameters.direction();
         }
-        // The gain, the bellows' direction and turning time, and its air are
-        // read as the samples are made; everything else rebuilds the reed.
+        // The gain, the register, the bellows' direction, turning time and
+        // air, and the cassotto are read as the samples are made; everything
+        // else rebuilds the reeds.
         if !matches!(
             index,
             parameters::GAIN
+                | parameters::REGISTER
                 | parameters::BELLOWS_DIRECTION
                 | parameters::REVERSAL_TIME
                 | parameters::BELLOWS_RESPONSE
@@ -220,8 +247,8 @@ impl Engine {
             return;
         };
         *held = depth > 0.0;
-        if key == REED_KEY {
-            self.pallet.press(depth);
+        if let Some(index) = compass_index(key) {
+            self.keys[index].pallet.press(depth);
         }
     }
 
@@ -241,11 +268,12 @@ impl Engine {
         &mut self.bellows
     }
 
-    /// One reed as it stands: of `rank` ([`parameters::RANK_LOW`] ..
+    /// One reed as it stands: of `key`'s `rank` ([`parameters::RANK_LOW`] ..
     /// [`parameters::RANK_HIGH`]), the plate's [`PULL_REED`] or
-    /// [`PUSH_REED`], for measurement. `None` where the rank has no reed.
-    pub fn reed(&self, rank: usize, which: usize) -> Option<(&ReedModel, &ReedState)> {
-        let rank = self.ranks.get(rank)?;
+    /// [`PUSH_REED`], for measurement. `None` outside the compass, or before
+    /// the key is first built.
+    pub fn reed(&self, key: u8, rank: usize, which: usize) -> Option<(&ReedModel, &ReedState)> {
+        let rank = self.keys.get(compass_index(key)?)?.ranks.get(rank)?;
         Some((rank.model.as_ref()?, rank.states.get(which)?))
     }
 
@@ -260,10 +288,12 @@ impl Engine {
     /// turn it.
     pub fn reset(&mut self) {
         self.held = [false; KEYS];
-        for rank in self.ranks.iter_mut() {
-            rank.states = [ReedState::default(); 2];
+        for key in self.keys.iter_mut() {
+            key.pallet = Pallet::default();
+            for rank in key.ranks.iter_mut() {
+                rank.states = [ReedState::default(); 2];
+            }
         }
-        self.pallet = Pallet::default();
         self.ask = 0.0;
         self.wind = wind::Wind::default();
         self.draw = 0.0;
@@ -273,18 +303,41 @@ impl Engine {
         self.decimator.reset();
     }
 
+    /// Builds one key's reeds from the parameters, tuned as the compass says.
+    fn build_key(&mut self, index: usize) {
+        let note = compass::FIRST_KEY + index as u8;
+        for (rank, slot) in self.keys[index].ranks.iter_mut().enumerate() {
+            slot.model = compass::design(&self.parameters, note, rank)
+                .map(|design| ReedModel::with_mode(design, &self.mode));
+        }
+        self.keys[index].stale = false;
+    }
+
+    /// Brings stale keys up to date: every key in use now, and a few others.
+    fn build_stale(&mut self) {
+        let mut spare = BUILDS_PER_BLOCK;
+        for index in 0..compass::KEYS {
+            if !self.keys[index].stale {
+                continue;
+            }
+            if !self.keys[index].is_idle() {
+                self.build_key(index);
+            } else if spare > 0 {
+                self.build_key(index);
+                spare -= 1;
+            }
+        }
+    }
+
+    /// A reed parameter moved: every key's reeds are out of date. They are
+    /// built again as they are needed, or a few per block meanwhile.
     fn rebuild(&mut self) {
         let design = self.parameters.reed_design();
         if design.mode_ratio != self.mode.ratio_asked {
             self.mode = TongueMode::with_ratio(design.mode_ratio);
         }
-        let open = self.parameters.open_ranks();
-        for (index, rank) in self.ranks.iter_mut().enumerate() {
-            rank.model = self
-                .parameters
-                .rank_design(index)
-                .map(|design| ReedModel::with_mode(design, &self.mode));
-            rank.open = open[index] && rank.model.is_some();
+        for key in self.keys.iter_mut() {
+            key.stale = true;
         }
         self.pallet_design = self.parameters.pallet_design();
         if self.decimator.factor() != self.parameters.oversampling() {
@@ -299,6 +352,7 @@ impl Engine {
         if self.dirty {
             self.rebuild();
         }
+        self.build_stale();
         let factor = self.decimator.factor();
         let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
         // The bellows holds its pressure with or without a key down.
@@ -309,7 +363,8 @@ impl Engine {
         let direction = self.parameters.direction();
         let turning = 2.0 * h / self.parameters.reversal_time();
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
-        let hole_area = self.parameters.reed_design().tone_hole_area;
+        // The ranks the register lets the bellows reach.
+        let open = self.parameters.open_ranks();
         // The bellows' air, when the intent is the arm's push; otherwise the
         // intent is the pressure.
         let wind = self.parameters.wind_design();
@@ -320,8 +375,8 @@ impl Engine {
             .map(|(resonance, q)| cassotto::CassottoTuning::new(resonance, q, h));
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
         for sample in output.iter_mut() {
-            if self.pallet.is_closed() && self.at_rest() {
-                // The pallet is shut, nothing moves and nothing is left in
+            if self.keys.iter().all(Key::is_idle) && self.at_rest() {
+                // Every pallet is shut, nothing moves and nothing is left in
                 // the filter. The bellows keeps moving as asked, and only
                 // its leaks and the air button spend its air.
                 self.cassotto.reset();
@@ -348,11 +403,6 @@ impl Engine {
                 };
                 self.turn = toward(self.turn, direction, turning);
                 let signed = self.turn * self.supply;
-                self.pallet.advance(&self.pallet_design, h);
-                // Each rank's cell has its own hole under the key's pallet,
-                // whose curtain grows with the holes it covers: each rank
-                // sees about its own (docs/MODEL.md).
-                let area = self.pallet.area(&self.pallet_design, hole_area);
                 // Each reed is blown only from its own side, and only while
                 // its rank's register is open; the other's valve is shut,
                 // and its reed sees nothing of the bellows. The flow through
@@ -363,31 +413,44 @@ impl Engine {
                 let mut boxed = 0.0;
                 // The air every reed's hole passes, drawn from the bellows.
                 let mut drawn = 0.0;
-                for (index, rank) in self.ranks.iter_mut().enumerate() {
-                    let Some(model) = &rank.model else {
+                for key in self.keys.iter_mut() {
+                    if key.is_idle() {
                         continue;
-                    };
-                    let into = if cassotto.is_some() && Parameters::in_cassotto(index) {
-                        &mut boxed
-                    } else {
-                        &mut outward
-                    };
-                    for (which, state) in rank.states.iter_mut().enumerate() {
-                        let (side, sign) = if which == PULL_REED {
-                            ((-signed).max(0.0), -1.0)
-                        } else {
-                            (signed.max(0.0), 1.0)
-                        };
-                        let blow = if rank.open { side } else { 0.0 };
-                        if blow == 0.0 && *state == ReedState::default() {
+                    }
+                    key.pallet.advance(&self.pallet_design, h);
+                    for (index, rank) in key.ranks.iter_mut().enumerate() {
+                        let Some(model) = &rank.model else {
                             continue;
-                        }
-                        *into += sign * reed::step(model, state, blow, area, h);
-                        drawn += state.hole_flow;
-                        // An unblown reed rings down; once it is negligible
-                        // it stops exactly, and is no longer computed.
-                        if blow == 0.0 && state.energy(model) < 1.0e-12 {
-                            *state = ReedState::default();
+                        };
+                        // Each rank's cell has its own hole under the key's
+                        // pallet, whose curtain grows with the holes it
+                        // covers: each rank sees about its own (MODEL.md).
+                        let area = key
+                            .pallet
+                            .area(&self.pallet_design, model.design.tone_hole_area);
+                        let into = if cassotto.is_some() && Parameters::in_cassotto(index) {
+                            &mut boxed
+                        } else {
+                            &mut outward
+                        };
+                        for (which, state) in rank.states.iter_mut().enumerate() {
+                            let (side, sign) = if which == PULL_REED {
+                                ((-signed).max(0.0), -1.0)
+                            } else {
+                                (signed.max(0.0), 1.0)
+                            };
+                            let blow = if open[index] { side } else { 0.0 };
+                            if blow == 0.0 && *state == ReedState::default() {
+                                continue;
+                            }
+                            *into += sign * reed::step(model, state, blow, area, h);
+                            drawn += state.hole_flow;
+                            // An unblown reed rings down; once it is
+                            // negligible it stops exactly, and is no longer
+                            // computed.
+                            if blow == 0.0 && state.energy(model) < 1.0e-12 {
+                                *state = ReedState::default();
+                            }
                         }
                     }
                 }
@@ -405,23 +468,31 @@ impl Engine {
     /// reed's state is zeroed exactly once its energy is negligible, so the
     /// silence that follows is exact too.
     fn at_rest(&mut self) -> bool {
-        if self.decimator.is_quiet() && self.ranks.iter().all(Rank::is_still) {
+        if self.decimator.is_quiet() && self.keys.iter().all(Key::is_still) {
             return true;
         }
         // A sounding F4 reed stores a few millijoules; 1e-12 J is about
         // 98 dB below it.
-        for rank in self.ranks.iter_mut() {
-            let Some(model) = &rank.model else {
-                continue;
-            };
-            for state in rank.states.iter_mut() {
-                if state.energy(model) < 1.0e-12 {
-                    *state = ReedState::default();
+        for key in self.keys.iter_mut() {
+            for rank in key.ranks.iter_mut() {
+                let Some(model) = &rank.model else {
+                    continue;
+                };
+                for state in rank.states.iter_mut() {
+                    if state.energy(model) < 1.0e-12 {
+                        *state = ReedState::default();
+                    }
                 }
             }
         }
         false
     }
+}
+
+/// Where `key` sits in the compass, if it has reeds.
+fn compass_index(key: u8) -> Option<usize> {
+    let index = usize::from(key.checked_sub(compass::FIRST_KEY)?);
+    (index < compass::KEYS).then_some(index)
 }
 
 /// `from` moved toward `to` by at most `by`.
@@ -477,16 +548,26 @@ mod tests {
         assert_eq!(engine.parameter(parameters::GAIN), Some(2.0));
     }
 
+    /// The whole treble lives inside the engine, which never allocates: it
+    /// must fit, with room, the 1 MiB stack a WebAssembly module starts with.
     #[test]
-    fn only_the_reed_key_sounds_and_silence_is_exact() {
+    fn a_whole_treble_fits_the_stack() {
+        let bytes = core::mem::size_of::<Engine>();
+        std::println!("Engine: {} KiB", bytes / 1024);
+        assert!(bytes < 384 * 1024, "{bytes} bytes");
+    }
+
+    #[test]
+    fn only_the_compass_sounds_and_silence_is_exact() {
         let mut engine = Engine::new(48_000.0).unwrap();
         let mut block = [1.0f32; 256];
-        engine.note_on(69, 1.0);
+        engine.note_on(40, 1.0);
         engine.render(&mut block);
         assert!(
             block.iter().all(|sample| *sample == 0.0),
-            "A4 has no reed yet"
+            "E2 is below the treble's compass"
         );
+        engine.note_off(40);
         engine.note_on(REED_KEY, 0.8);
         let mut sounding = [0.0f32; 48_000];
         engine.render(&mut sounding);

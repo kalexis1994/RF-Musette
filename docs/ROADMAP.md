@@ -3028,3 +3028,295 @@ fall above 3 kHz in any 1.5 ms is −6 to −23 dB (median −12; D4 −17); her
 the D4 fell −49 dB, and at τ = 12 ms −16. The whole fade stays quicker than
 the Hohner's (−10 dB at 10 ms against −1): Pallet Closing Time is 10 ms, the
 player's choice.
+
+## 9g. The keys' own dynamics
+
+The player (2026-10-02): a playing mode where the wheel is not the
+bellows' opening but each key has its own, from its velocity -- selectable
+against the wheel. Not a bellows per note: the accordion has one, and what
+a key opens is its pallet. The engine already holds a key part-way down
+(`Engine::press`, the pallet's curtain the rim times the lift times the
+depth), which is how a player bends a note. Before any mode is built: how
+much does a part-open pallet change a note's level, and what does it cost
+in pitch and attack?
+
+**Derived, before measuring.** The curtain is never more than the hole: at
+the defaults (100 mm², its rim 50 mm, a 3 mm lift) it reaches the hole at
+two thirds of the key's travel, the piccolo's 64 mm² at 0.43. Above that a
+key's depth changes nothing. Below it the curtain throttles the cell, and
+the reed hears less than the bellows' pressure; it stops where that falls
+under its threshold. Already measured (`milestone_2`, a lone F4 on a
+laboratory chamber, 300 Pa): the pitch bends −0.3 cents at depth 0.6, −3.6
+at 0.3, −16 at 0.15, and the reed stops by 0.12. So the range is the
+reed's own between the bellows' pressure and its threshold, squeezed into
+the bottom of the key's travel.
+
+**Predictions** (through the engine, Musette Paris -- three middle reeds --
+with Pallet Opening at 35 ms; the bellows resting at 300 Pa and at the
+wheel's 79 %; F3, D4, F4, A5; level over the steady tone):
+1. From full depth to two thirds, the level moves less than 0.5 dB and the
+   pitch less than 1 cent (the curtain is the hole).
+2. From full depth to the shallowest depth that still sounds, the F4 falls
+   8-15 dB at 300 Pa: its threshold is ~60-100 Pa, and the reed's level
+   climbs ~4-9 dB per doubling of what drives it in that span.
+3. The range shrinks with pitch: the A5 (threshold ~200 Pa) falls under
+   6 dB at 300 Pa; the F3 more than the F4.
+4. With the wheel at 79 % every range is wider than at 300 Pa.
+5. Most of the fall is in the bottom third of the travel: from two thirds
+   to a third, under a third of the range.
+6. At the shallowest sounding depth the pitch is 10-30 cents flat, and the
+   attack is slower than at full depth.
+
+If 2-3 hold, a velocity curve has a few decibels to work with, flat in
+pitch only over its upper part; the wheel's bellows spans far more. That
+is what decides whether the mode is worth building, and how velocity maps
+to depth.
+
+**Measured (2026-10-02, `tests/milestone_9g.rs`, run with `--ignored`).** A
+note counts as sounding when it holds its level (two windows within 1 dB)
+within 40 dB of the full tone; the first run counted tones still dying at
+the edge, and its "ranges" ran to 75 dB. The bellows read 297 and 601 Pa.
+Level and pitch from full depth to the shallowest steady tone:
+
+| note | 300 Pa: range, depth, bend | the wheel's 79 % (601 Pa) |
+| --- | --- | --- |
+| F3 | 16.5 dB, 0.17, −90 cents | 23.2 dB, 0.15, −214 cents |
+| D4 | 12.5 dB, 0.15, −27 cents | 19.7 dB, 0.13, −77 cents |
+| F4 | 13.7 dB, 0.13, −22 cents | 24.7 dB, 0.12, −74 cents |
+| A5 | 6.0 dB, 0.11, −5 cents | 9.4 dB, 0.09, −10 cents |
+
+1. **Met.** At 0.67, 0.8 and 1 every note is the same to 0.05 dB and
+   0.05 cents.
+2. **Met.** The F4 at 300 Pa spans 13.7 dB.
+3. **Met, at the edge.** A5 6.0 dB; F3 16.5 above F4's 13.7.
+4. **Met.** Every range is wider at 601 Pa.
+5. **Met but for the F3 at 300 Pa** (5.6 of 16.5 dB above a third).
+6. **Not met.** The pitch: the mid notes are within 10-30 cents at
+   300 Pa, but the F3 bends −90 and −214 cents and the mid notes −74 to −77
+   at 601 Pa; the A5 only −5 and −10. The attack: faster, not slower -- the
+   pallet travels at its own speed, so a shallow key reaches its depth
+   sooner (0.2 of 35 ms in 7), and the metric reads the smaller tone as
+   steady sooner. The premise was wrong, not the model.
+
+What it means for a velocity mode:
+* The quietest steady tone is 6-17 dB under the full one at the resting
+  bellows, 9-25 at the wheel's 79 %: a key gives an accent, not the 30-40
+  dB a keyboard player's velocity spans.
+* The decibels cost pitch, at every note, the more the softer: about
+  1.5-2 cents a dB in the middle at 300 Pa, ~3 at 601 Pa, and in the F3
+  5-9. Against Musette's ±23 cents a soft note detunes the chord.
+* Under the shallowest steady depth the note does not fade, it is gone,
+  and that depth moves with the note and the bellows (0.09-0.17): a
+  velocity curve must stop short of it.
+* The F3's −214 cents is past the "up to about a semitone" measured on
+  players' bends (Elejalde-García et al. 2021; milestone 2): the low reeds
+  may bend too far here. Open.
+
+## 8n. The cut at a release
+
+The player (2026-10-02): the noise as a note is cut is still loud against
+a real accordion. Measured first, with the player's combination (Musette
+Paris, the wheel's 79 %, Pallet Opening 35 ms), against FreePats' Hohner
+release samples (D4-D6), in four bands (50 Hz-1 kHz, 1-3, 3-8, 8-20 kHz),
+2 ms frames relative to the held tone:
+* The real releases' steepest fall in any 6 ms is −3.5 to −15 dB in every
+  band (median about −7); above 1 kHz no band reaches −20 dB within
+  120 ms in most notes (partly the recording's room, which is not known).
+* The instrument alone here: above 1 kHz −22 to −36 dB in 6 ms, −20 dB
+  reached 20-22 ms after the release, as the pad comes onto its felt; the
+  band under 1 kHz, which the bellows' walls pass, falls −7 to −12.
+* Through the microphones and the room (what the player hears) the room's
+  tail softens it: −4.5 to −16.6 dB in 6 ms, the D4's 1-3 kHz −13.5 and
+  the A5's −16.6 against the Hohner's −4.6 and −3.4.
+* A rise of 2-6 dB in some band in the first 24 ms is in both (the
+  tremolo's beat); nothing in the model rises above the held tone more
+  than the real ones do. The reed itself rings down slowly once sealed
+  (−10 dB at 40 ms, `release_diagnosis`); what collapses is the jet's
+  sound, the highs, at the seat.
+
+So the cut is the highs' collapse as the pad seats. Pad Seating (8m, τ
+12 ms) is voiced, against a 1.5 ms statistic; no pad's compression is
+published. Re-voiced here against the 6 ms one.
+
+**Predictions:**
+1. A longer seating brings the instrument alone's steepest 6 ms fall above
+   1 kHz within the Hohner's (no worse than −15 dB) for the D4, F4, A5
+   and D6, somewhere in 25-50 ms.
+2. The held tone does not move: the seating acts only on a key let go
+   (exact; every fingerprint of a held note unchanged).
+3. The note still ends: −30 dB within 150 ms above 1 kHz.
+
+**Measured (2026-10-02), the instrument alone; steepest 6 ms fall above
+1 kHz, worst band:** D4 −35.6 (12 ms), −20.3 (25), −18.1 (35), −14.1
+(50); F4 −35.1, −26.4, −17.5, −21.3; A5 −31.0, −19.5, −15.6, −19.5; D6
+−29.9, −20.6, −15.9, −20.8. −30 dB above 1 kHz is reached in 34-46 ms at
+35. Prediction 1 not quite met: at 35 ms every note is within 3 dB of the
+Hohner's −15, and 50 is worse again for three of the four. 3 met. The A5's
+band under 1 kHz -- its fundamental -- falls −22 dB in 6 ms at every
+seating: that fall comes before the felt, where the curtain no longer
+keeps the reed going (milestone 9g's edge, 0.09 of the travel). An A/B for
+the player, 12 against 35 ms through the microphones
+(`scores/releases-8n.score`).
+
+**The player located it (2026-10-02).** A file of the same releases by
+path and band: the noise is in the instrument alone, not the room, and
+nearly alone in 1-4 kHz -- "a very short, high puff, almost a click for
+how short it is". Measured in 4 ms windows: over the last 10-15 ms of the
+cut the sound brightens instead of darkening -- the 0.5-4.5 kHz centroid
+from ~1.1 to 1.5-1.7 kHz in the D4 (8-22 ms), from ~1.7 to 2.6 kHz in the
+A5 (10-24 ms) -- while the Hohner's G4 darkens (its highs −5 to −15 dB
+against its fundamental) and its D4 stays about even. The peaks stay on
+the note's harmonics: no separate ringing, a change of the spectrum's
+shape. Ruled out, each by an experiment reverted:
+* Pad Seating (12-50 ms): the brightening stays.
+* The curtain's Bernoulli floor (8h) only while opening: no change.
+* The walls' loss along the tube while the curtain throttles (Kirchhoff's
+  αL ≈ 2 % a pass): no change.
+* The engine putting a reed to rest: at 98 dB down, not a click.
+Open: the cell's resonance as the curtain shuts -- c/4L, 1.6 kHz for the
+D4 and 2.6 kHz for the A5, sits where the brightening does -- to be
+measured with one reed, no tremolo, pitch-synchronously.
+
+**One reed, cycle by cycle (2026-10-02, `release_diagnosis.rs`,
+`the_release_cycle_by_cycle`, `the_tone_at_fixed_curtains`,
+`the_burst_against_the_closing_time`).** At 601 Pa, Pallet Opening 35 ms:
+while the curtain passes ~55 to ~10 mm² the 8th harmonic -- 2.35 kHz in the
+D4, 2.8 in the F4 -- rises +8 to +12 dB above its held level for a few
+cycles as the fundamental falls 9-11 dB; in the A5 +2 to +5 dB across
+several. The same at any closing time, 3 to 100 ms (+11.0, +10.7, +12.3,
++8.7 dB in the D4): not the curtain's motion. Not the cell's filter either:
+held still at 60, 40 or 30 mm² the steady tone's 8th harmonic is −4 to +4
+dB. What differs is the tongue: let go, it still swings almost fully (its
+Q 250) while the curtain throttles the hole; held still, it has settled
+lower. Supposed, to be measured next: a full swing against a collapsing
+drop lets the air through in short spurts, bright. The Hohner D4's 8th
+harmonic also rises against its fundamental in the cut (+6 dB, 15-40 ms,
+noisy), so some of it is the instrument's; how much, and for how long, is
+the question.
+
+**The reed's own flow in the bright cycles (`the_reed_flow_in_the_burst`,
+D4, 601 Pa).** The supposition was wrong: the slot passes air for the same
+share of each cycle as held (67-71 % against 66 %) and its flow is less
+peaked, not more (crest 1.5-1.7 against 2.0). What changes is its 8th
+harmonic, +15 to +17 dB over its held level while the 1st falls 5-10 dB,
+and the hole flow's 8th +7 to +10: a ringing at ~2.35 kHz in the reed's
+flow and the hole's. Held still at 30 mm² the same flow has no such rise
+(−1.3 dB), and at 15 mm² the reed does not keep going at all. Read as: the
+cell's resonance, moving up from its open-hole place (~1.2 kHz) towards a
+closed end's (c/2L, 3.2 kHz) as the curtain shuts, crosses a harmonic of
+the reed still swinging, and while the hole's end turns from radiating to
+nearly closed it loses little -- so the crossing rings. Kirchhoff's wall
+loss along the tube (αL ≈ 2 % a pass) changed nothing (above); the slit's
+oscillatory viscous loss at 2.35 kHz, gap 0.2-1.1 mm against a 45 μm
+boundary layer, comes to ~2·10⁵ Pa·s/m³, an order under the curtain's
+other terms (estimated): neither is enough by itself.
+
+Whether a real cell rings as much is not known: the Hohner's D4 shows its
+8th harmonic up some 6 dB against its fundamental in the cut, but through
+an unknown room and in windows too short to be sure. A recording of the
+player's own instrument -- the same notes let go under a held bellows,
+close to the grille -- would settle how much, and the cell's end can then
+be measured against it rather than voiced.
+
+**No instrument to record (2026-10-02).** The player has no accordion:
+the cell's end is to be voiced by ear, its mechanism physical and its
+constants bounded. The two unmeasured constants that act only near the
+seat, swept (`the_burst_against_the_closing_time`, BURST_SWEEP=lift; the
+seat's width by a reverted edit), worst rise of h5-h10 at 10 ms closing:
+* Pallet Lift 1.5 / 2 / 3 / 4 / 6 mm: D4 +7.1 / +9.9 / +10.7 / +13.0 /
+  +13.4 dB; F4 +19.4 / +12.1 / +9.5 / +11.2 / +12.7; A5 about +5 at every
+  lift. No direction helps every note.
+* The seat's width 1 / 2 / 4 / 8 mm: D4 +11.3 / +10.7 / +8.9 / +6.8; F4
+  +9.3 / +9.5 / +13.3 / +3.6; A5 +4.9 / +5.1 / +6.1 / +4.2. Only 8 mm helps
+  all, wider than a pad's overlap of a 5 mm hole is likely to be, and the
+  curtain's mass it sets is there with the pallet open too: the held tone
+  would move.
+Neither is the cell's missing loss. What a real pad is, and the model's
+end is not: felt under leather, a surface that absorbs, which becomes the
+cell's end as it comes down.
+
+**The pad's absorption, bounded and tried (2026-10-02).** No measurement
+of a leather-faced felt pad's absorption was found (a pad patent, US
+4,114,500, speaks of pads' "detrimental sound absorbing qualities", no
+figure). Delany & Bazley's model for 3 mm of felt (flow resistivity ~30
+kPa·s/m², assumed) on a rigid back gives ~6 % at 2 kHz, less under
+leather (derived). Tried before building it, by a reverted edit: the wave
+the hole's end sends back loses 6, 20 or 50 % of its energy once the
+curtain is narrower than the hole. The burst stays: D4 +10.5, +10.1,
++10.5 dB; F4 +9.5, +9.4, +9.4. Not built. With the walls' loss before it,
+this rules out a resonance that rings for want of damping: the burst is
+driven.
+
+Nor is it the slot's flow reversing: it runs backwards 26-32 % of each
+bright cycle, 30 % of each held one. Open: what the reed's flow does
+differently in those cycles. What does change there is the drop across
+the reed, from 55 to 330-560 Pa below the bellows within 6 ms, its swing
+still nearly full: the tongue's mean place moves while it swings, so the
+slot's phases it passes through change.
+
+**Found by ear (2026-10-02).** The player heard five builds of the same
+releases (`scores` in the scratch; reed.rs edited and restored for each):
+A as it is; B without the curtain's air mass; C with it but without the
+momentum kept as it grows; D without the viscous slit; E without the
+Bernoulli floor while closing. "C reduces it, D reduces it, E removes it
+completely." The floor (8h) was put there for the opening, where the
+linearisation's lag let the first step through as if no pallet were
+there; while closing it read the drop across the curtain, which swings
+with the cell's tone, and so moved the curtain's resistance within every
+cycle of the last few. Now the floor is the opening's alone (0.13.9).
+
+The 8th-harmonic measure above did not see it: with the floor left to the
+opening it moved by under a decibel (the first experiment of this
+section). What it measured -- one harmonic's rise above its held level --
+is not what the player hears. Open: a measure that does.
+
+What the floor added, measured as the difference of the two builds (A
+less E, through the microphones; identical to the bit before each
+release): a component 15-19 dB under the held tone at its peak, 8-10 ms
+after the key is let go, 25-28 dB under it over 60 ms, 58-70 % of it in
+1-3 kHz (D4, F4, A5). The puff, as the player placed it.
+
+## 8o. The click at a note's start, where the curtain meets the hole
+
+The player (2026-10-02, 0.13.9): a small click as a note starts, placed on
+a render of four F4s at 25 ms after the second's onset (Pallet Opening
+35 ms). The curtain is the hole's area at two thirds of the travel, 23.3
+ms: there the area the reed sees, min(curtain, hole), turns a corner --
+its growth stops in one step -- and with it the opening's Bernoulli floor
+(8h, 8n) ends. Measured, the high band (> 4 kHz) in 0.5 ms frames against
+its own ±3 ms median: the largest rise of the onset, +11.1 dB at 24.0 ms
+at 35 ms opening, +13.8 dB at 34.0 ms at 50 ms (the corner at 33.3) -- it
+moves with the corner; the onset's other rises are ≤ 8 dB.
+
+The hole and the curtain are two orifices in series, 1/A² = 1/A_c² +
+1/A_h², which has no corner. Taken as it stands it narrows the open
+pallet too, 100 to 83 mm² at full lift: the held F4 −0.7 dB, its centroid
+1023 to 991 Hz. Taken with the hole's area as the open pallet's -- the
+parameter voiced with the pad lifted -- 1/A² = 1/A_c² + 1/A_h² − 1/A_c,full²
+is the hole's at full lift and the series law below it. Tried by a
+reverted edit: no rise at the corner at 35 or 50 ms; the held F4 66.54 dB
+and 1023 Hz, as before; left, a +7 dB rise as the pallet ends its travel
+(35-36 ms), as now (+6). An A/B for the player (`onsets-8o-AB`).
+
+Found by the suite meanwhile, not caused by it: `milestone_8b`'s
+`the_keyboard_splits_into_three` overflowed its 8 MiB test thread (two
+engines by value); its engines are now boxed, as the plugin's is.
+
+**Heard (2026-10-02).** The series law (B) kept the click. What also
+changes at the corner is the opening's floor: it held while the curtain
+moved and ended as it stopped -- at the corner with the plain minimum, at
+the end of travel with the series law. Two more builds: C, the curtain's
+Bernoulli loss solved at the step's own flow -- c₁a + c₂|a|a = b, one
+root of the sign of b -- with no floor; D, C and the series law. "In C and
+in D there is no click." C kept (0.13.10): it is the cause -- the
+linearisation's lag that 8h's floor stood in for -- and needs nothing
+else; the minimum stays. The quadratic needs the curtain's k, kept as
+before (10c), and one square root a sounding reed a step.
+
+Against 0.13.9's renders every sample of every scene moves -- the
+oscillation's phase -- but not the sound: each scene's total level within
+0.3 dB; the held F4, D4 and A5's third-octave levels within 0.13 dB (mean
+0.01); long-term spectra within 3 dB in their worst band, which the attacks
+and releases and the tremolo's beats account for. The one-ulp nudge, the
+yardstick of 10c, moved nothing this time (0.00 dB in every scene), so it
+could not judge. Fingerprints taken again.

@@ -12,10 +12,12 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 rf-musette-dsp.workspace = true
 rackforge-plugin-sdk.workspace = true
+rackforge-program-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 rackforge-plugin-api.workspace = true
-serde_json.workspace = true
 
 # The SDK export macro implements the raw ABI. Handwritten code is safe Rust.
 [lints.clippy]

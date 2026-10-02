@@ -74,6 +74,14 @@ five instruments by their build -- student 48- and 72-bass, an Italian
 for a 61-key keyboard, a bellows that turns by itself, and a digital
 accordion.
 
+SAVE on PLAY keeps the panel as a program of your own, up to 64, listed
+after the factory's; saved over the program it was turned from, it keeps
+what was turned. CONFIG carries them off the machine and back as
+`.rfmusette` files: a file holds one program or all of them, sealed with
+their SHA-256, and one changed or damaged after it was exported is refused
+whole. An imported program always comes in as a new one. A program saved by
+an older RF-Musette always loads: a setting it lacks takes its default.
+
 A controller's knobs reach it by meaning: where a controller package gives a
 knob the attack, release or LFO-rate role, it turns the pallet's opening and
 closing and the tremolo's beat. Everything else can be linked by hand from

@@ -671,6 +671,166 @@ output {
   font-size: 13px;
 }
 
+/* CONFIG: the same case, its programs listed on ivory, its actions on the
+   PLAY page's keys. */
+.surface-plate {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: rgba(10, 8, 9, 0.88);
+  box-shadow: inset calc(var(--shadow-x) * 2px) calc(var(--shadow-y) * 2px) 6px rgba(0, 0, 0, 0.8);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.config-panel {
+  padding-top: 16px;
+}
+
+.config-panel .group-pending,
+.config-panel .group-programs {
+  grid-column: 1 / -1;
+}
+
+.group-pending {
+  border-color: rgba(255, 210, 122, 0.45);
+}
+
+.group h2 .count {
+  margin-left: 8px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+
+.note {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.note b {
+  color: var(--ink);
+}
+
+.program-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.program-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--ivory), var(--ivory-shade));
+  color: var(--ivory-ink);
+  box-shadow: 0 2px 0 #8b7e64, calc(var(--shadow-x) * 3px) calc(var(--shadow-y) * 4px) 6px rgba(0, 0, 0, 0.45);
+}
+
+.program-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.program-name {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.program-category {
+  overflow: hidden;
+  color: rgba(43, 36, 32, 0.62);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.row-button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 17px;
+  background: linear-gradient(180deg, var(--lacquer), #2c2427);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: calc(var(--shadow-x) * 1px) calc(var(--shadow-y) * 2px) 3px rgba(0, 0, 0, 0.45);
+}
+
+.row-button:active {
+  transform: translateY(1px);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+button[disabled],
+button[disabled]:active {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
+.status {
+  margin: 16px max(16px, 3vw) 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.status:empty {
+  display: none;
+}
+
+.status.working,
+.status.done,
+.status.failed {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.status.working {
+  color: var(--ink-muted);
+}
+
+.status.done {
+  color: var(--ivory);
+}
+
+.status.failed {
+  color: #ffb4a6;
+}
+
 /* Narrow: the nameplate and the program bar each take the whole width. */
 @media (max-width: 640px) {
   .nameplate,

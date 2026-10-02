@@ -7,40 +7,45 @@
 
 use rf_musette_analysis::scenes::{compare, fingerprint, level_difference, nudged, render, scenes};
 
-/// Taken again 2026-10-02 after milestone 8m (the cell as a tube, the
-/// hole's and the slot's radiation, the set's shape, the curtain's slit and
-/// mass, the pad's seating), 9f (the instruments), the wheel as the bellows
-/// withdrawn and velocity no longer moving it -- each heard by the player.
-/// Before: 2026-10-01, after 10c and 8k; first taken at dd7e761.
+/// Taken again 2026-10-02 after 8o: the pallet's curtain solved as an
+/// orifice at its own flow, no floor -- the click 25 ms into every note gone,
+/// heard by the player. Every sample of every scene moved (the oscillation's
+/// phase), but not the sound: each scene's total level within 0.3 dB, the
+/// held tones' third-octave levels within 0.13 dB; the attacks and releases
+/// moved, as meant. Before: after 8n (the floor left to the opening, the
+/// release's puff gone), after milestone 8m (the cell as a tube, the hole's
+/// and the slot's radiation, the set's shape, the curtain's slit and mass,
+/// the pad's seating), 9f, the wheel as the bellows withdrawn and velocity no
+/// longer moving it; 2026-10-01, after 10c and 8k; first taken at dd7e761.
 const FINGERPRINTS: &[(&str, u64)] = &[
-    ("program research", 0xba569fdcade7d065),
-    ("program musette-paris", 0x79f8c0da4a2e18a2),
-    ("program scottish", 0x96ef06426a1fff30),
-    ("program italian", 0xc1f545a4196f7a82),
-    ("program alpine", 0x5dcf96362a1cb499),
-    ("program oberkrainer", 0x17a51dc78aae5ff5),
-    ("program cleveland", 0x7b2ff341cc1012bd),
-    ("program american", 0xe1db72b884ec5474),
-    ("program irish", 0x8366f477033c9b9a),
-    ("program jazz", 0xfd36a410b11a7cd4),
-    ("program tango", 0x1fa006b38bdfa414),
-    ("program concert", 0xeaae24afaee01a9b),
-    ("program keyboard-61", 0x97c2c0d64bdaceb1),
-    ("program auto-bellows", 0x70567b35ccd162fb),
-    ("program digital-accordion", 0xfcb7ea1b654b4fee),
-    ("program student-48", 0xb4e3f0375346b9d3),
-    ("program student-72", 0x5a1e92521ea52215),
-    ("program italian-80", 0x6a1c44d68fd1f6ae),
-    ("program full-120", 0xef1a72c5eb43892a),
-    ("program cassotto-pro", 0x7a4ec039aee52eb5),
-    ("master chord, mono", 0x7b34070c4b00e5e9),
-    ("master chord, mono, 1x", 0x07b1affbd899b591),
-    ("master chord, mono, 4x", 0x46470a9b706500c5),
-    ("phrase at 44.1 kHz, ORTF", 0x776739fd3ec04c83),
-    ("phrase at 96 kHz, dry", 0x483066a8c61521a5),
-    ("reversal and air button", 0xfb50af7fe1703b4f),
-    ("wheel as pressure", 0x835f0e927fa05446),
-    ("silence, a note, the hall's tail", 0xfdaf598e7e216740),
+    ("program research", 0xb9002bd128400d31),
+    ("program musette-paris", 0xd1faa5061d4ad02d),
+    ("program scottish", 0x7aff8b56bf2c55bd),
+    ("program italian", 0x088da7b9895aa30f),
+    ("program alpine", 0xc03c7e80b1e141e5),
+    ("program oberkrainer", 0x718830597ba023b1),
+    ("program cleveland", 0xe2f44780c47bbd24),
+    ("program american", 0x83d67c0ca487fcf2),
+    ("program irish", 0xb41704b69e11b8a9),
+    ("program jazz", 0x189ec62f1ebe747f),
+    ("program tango", 0x3a97fdc28cb285ac),
+    ("program concert", 0x6e3c763e5c86d722),
+    ("program keyboard-61", 0x37cfb7efdff79aa0),
+    ("program auto-bellows", 0xec5a0b6c5abb55ec),
+    ("program digital-accordion", 0x10319f1172ca35ca),
+    ("program student-48", 0x7186a92940aef7e3),
+    ("program student-72", 0xb9e4ce4c9f43c27b),
+    ("program italian-80", 0xb7b6f4e622081fd1),
+    ("program full-120", 0x83213abfb6ede50e),
+    ("program cassotto-pro", 0xacdd67b4939b82d0),
+    ("master chord, mono", 0xa4ab22ea07a28f69),
+    ("master chord, mono, 1x", 0x2e2edb347e6eda05),
+    ("master chord, mono, 4x", 0xec0d04a5f441acb5),
+    ("phrase at 44.1 kHz, ORTF", 0x6148ba268b8a58d3),
+    ("phrase at 96 kHz, dry", 0x6ff7d4ed6747251d),
+    ("reversal and air button", 0x432408df7207c848),
+    ("wheel as pressure", 0x5d1cb31cefe495d1),
+    ("silence, a note, the hall's tail", 0x7ca3f04cdb442362),
 ];
 
 #[test]

@@ -28,7 +28,7 @@ pub(crate) fn host_root() -> Result<std::path::PathBuf, Box<dyn Error>> {
 
 pub(crate) fn build_to(output: &Path) -> Result<(), Box<dyn Error>> {
     let root = workspace_root()?;
-    // The PLAY surface first, so the package never carries the page of an
+    // The surfaces first, so the package never carries the pages of an
     // earlier edit either.
     super::web::build()?;
     // The component is built here rather than taken from wherever the target

@@ -5,12 +5,14 @@ id = "org.rackforge.musette"
 name = "RF-Musette"
 short_name = "MUSETTE"
 vendor = "RackForge"
-version = "0.13.8"
+version = "0.13.10"
 description = "Physically modelled accordion: free reeds driven by the bellows, with no samples"
 kind = "instrument"
 state_version = 2
 capabilities = ["audio_output", "midi_input", "presets", "state"]
 ui_layouts = ["little@1"]
+# CONFIG exports and imports the player's own programs (.rfmusette).
+config_mode = true
 
 [api]
 major = 1
@@ -23,15 +25,19 @@ runtime_descriptor = "metadata/runtime.json"
 parameter_schema = "metadata/parameters.json"
 preset_catalog = "metadata/presets.json"
 
-# The PLAY surface: crates/rf-musette-ui, built into web/ by
-# `rf-musette-lab web-ui`. One surface: the instrument has nothing to load,
-# so no CONFIG.
+# The surfaces: crates/rf-musette-ui, built into web/ by
+# `rf-musette-lab web-ui`. PLAY is the instrument and saves programs; CONFIG
+# carries them off the machine and back.
 [web_ui]
 api_version = 1
 
 [[web_ui.surfaces]]
 kind = "play"
 entry = "web/play.html"
+
+[[web_ui.surfaces]]
+kind = "config"
+entry = "web/config.html"
 
 # docs/PLUGIN_BRANDING.md in RackForge: 512x512, 1600x400 and 1920x1080 PNG.
 # The colours are the panel's: the red sheet's deepest and the pearl's red.

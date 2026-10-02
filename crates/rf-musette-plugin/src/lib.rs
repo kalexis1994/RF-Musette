@@ -10,16 +10,25 @@
 //! Every parameter is the engine's own, in physical units, indexed as in
 //! `rf_musette_dsp::parameters::SPECS`; `package/metadata/parameters.json`
 //! is generated from that table.
+//!
+//! The player's own programs -- saved from PLAY, exported and imported from
+//! CONFIG -- are in [`program`].
+
+pub mod program;
 
 use rackforge_plugin_sdk::{
     MIDI_FAMILY_CONTROL, MIDI_FAMILY_NOTE, MIDI2_FLAG_ORIGIN_7BIT, MIDI2_KIND_CONTROL_CHANGE,
-    MIDI2_KIND_NOTE_OFF, MIDI2_KIND_NOTE_ON, MidiEvent, MidiEvent2, ParameterEvent, Processor,
-    export_processor,
+    MIDI2_KIND_NOTE_OFF, MIDI2_KIND_NOTE_ON, MidiEvent, MidiEvent2, PROGRAM_EDIT_BASIC,
+    PROGRAM_EDIT_DECLARATIVE, PROGRAM_EDIT_PREVIEW, ParameterEvent, Processor, export_processor,
 };
 use rf_musette_dsp::{Engine, PARAMETER_COUNT, Parameters, parameters};
 
 pub const MAX_FRAMES: u32 = 4096;
 pub const MAX_EVENTS: usize = 256;
+/// One JSON exchange with the host: the catalog, with the player's own
+/// programs after the factory ones, is the largest. 64 full-length own
+/// programs after the factory's need about 20 KiB.
+pub const MAX_TRANSFER_BYTES: usize = 64 * 1024;
 /// Version 2 carries every parameter; version 1 carried the gain alone and
 /// still loads.
 pub const STATE_VERSION: u32 = 2;
@@ -62,6 +71,12 @@ pub struct MusetteProcessor {
     /// The two channels the microphones hear (milestone 9b).
     left: [f32; MAX_FRAMES as usize],
     right: [f32; MAX_FRAMES as usize],
+    /// The player's own programs, as RackForge hands them back and SAVE
+    /// stores them.
+    programs: program::Library,
+    /// The program last loaded, by its catalog id: the one the panel was
+    /// set from, and so the one SAVE saves over.
+    loaded: Option<String>,
 }
 
 impl Default for MusetteProcessor {
@@ -73,6 +88,8 @@ impl Default for MusetteProcessor {
             channels: 0,
             left: [0.0; MAX_FRAMES as usize],
             right: [0.0; MAX_FRAMES as usize],
+            programs: program::Library::new(),
+            loaded: None,
         }
     }
 }
@@ -220,11 +237,57 @@ impl Processor for MusetteProcessor {
     }
 
     fn load_preset(&mut self, id: &str) -> bool {
-        let Some(program) = rf_musette_dsp::programs::program(id) else {
+        let values = if id.starts_with(program::CUSTOM) {
+            program::own_values(&self.programs, id)
+        } else {
+            rf_musette_dsp::programs::program(id).map(|program| program.parameters())
+        };
+        let Some(values) = values else {
             return false;
         };
-        self.apply(program.parameters());
+        self.apply(values);
+        self.loaded = Some(id.to_owned());
         true
+    }
+
+    fn write_program_catalog(&mut self, destination: &mut [u8]) -> Option<usize> {
+        program::catalog(&self.programs, destination)
+    }
+
+    fn program_editing_capabilities(&self) -> u32 {
+        PROGRAM_EDIT_BASIC | PROGRAM_EDIT_PREVIEW | PROGRAM_EDIT_DECLARATIVE
+    }
+
+    fn begin_program_edit(&mut self, request: &[u8], destination: &mut [u8]) -> Option<usize> {
+        program::begin(
+            &self.programs,
+            &self.parameters,
+            self.loaded.as_deref(),
+            request,
+            destination,
+        )
+    }
+
+    fn prepare_program_save(&mut self, document: &[u8], destination: &mut [u8]) -> Option<usize> {
+        program::prepare(document, destination)
+    }
+
+    fn install_program(&mut self, prepared: &[u8]) -> bool {
+        program::install(&mut self.programs, prepared, MAX_TRANSFER_BYTES)
+    }
+
+    fn preview_program(&mut self, prepared: &[u8]) -> bool {
+        let Some(values) =
+            program::validated_prepared(prepared).and_then(|document| program::values(&document))
+        else {
+            return false;
+        };
+        self.apply(values);
+        true
+    }
+
+    fn program_editor_view(&mut self, document: &[u8], destination: &mut [u8]) -> Option<usize> {
+        program::view(document, destination)
     }
 
     fn save_state(&self, destination: &mut [u8]) -> Option<usize> {
@@ -425,7 +488,7 @@ fn valid_midi1(event: &MidiEvent) -> bool {
 
 export_processor!(MusetteProcessor,
     max_frames = 4096, max_input_channels = 0, max_output_channels = 2,
-    max_midi_events = 256, max_parameter_events = 256, max_transfer_bytes = 4096,
+    max_midi_events = 256, max_parameter_events = 256, max_transfer_bytes = MAX_TRANSFER_BYTES,
     midi2 = {
         max_events = 256,
         families = MIDI_FAMILY_NOTE | MIDI_FAMILY_CONTROL

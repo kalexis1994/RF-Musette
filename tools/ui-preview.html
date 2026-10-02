@@ -19,10 +19,14 @@
       // (window.__consoleErrors). Serve the repository root over HTTP and
       // open tools/ui-preview.html; ?lighting=stage draws the stage light.
       // window.__hostSet(index, value) changes a value from outside, as a
-      // MIDI link would.
+      // MIDI link would. ?surface=config opens CONFIG, with a stand-in for
+      // RackForge's program drafts and three saved programs (?programs=0 for
+      // none); window.__programs holds what is saved, window.__fail names a
+      // method to refuse once.
       const protocol = "rackforge.plugin.web@1";
       const query = new URLSearchParams(location.search);
       const lighting = query.get("lighting") === "stage" ? "stage" : "day";
+      const surface = query.get("surface") === "config" ? "config" : "play";
       const frame = document.querySelector("#surface");
       const [schema, catalog] = await Promise.all([
         fetch("../package/metadata/parameters.json").then((response) => response.json()),
@@ -36,6 +40,41 @@
       }));
       const banks = catalog.banks;
       const values = new Map(schema.parameters.map((parameter) => [parameter.index, parameter.kind.default]));
+
+      // The plugin's own programs, as RackForge keeps them: documents by id.
+      const pluginId = "org.rackforge.musette";
+      const panelPayload = () => ({
+        parameters: Object.fromEntries(schema.parameters
+          .filter((parameter) => !["mod_wheel", "bellows_smoothing", "bellows_direction"].includes(parameter.id))
+          .map((parameter) => [parameter.id, values.get(parameter.index)])),
+      });
+      const programDocument = (id, name, category, payload) => ({
+        schema_version: 1, id, name, plugin_id: pluginId, plugin_version: "0.13.8",
+        plugin_state_version: 2, payload_version: 1, ...(category ? { category } : {}),
+        tags: ["musette", "user"], payload,
+      });
+      window.__programs = new Map();
+      const listProgram = (document) => {
+        const sound = { id: `custom.${document.id}`, name: document.name, bank: "user", category: document.category, editable: true };
+        const at = sounds.findIndex((existing) => existing.id === sound.id);
+        if (at >= 0) sounds[at] = sound; else sounds.push(sound);
+      };
+      if (query.get("programs") !== "0") {
+        for (const [id, name, category, tremolo] of [
+          ["user-01", "Bal du Samedi", "Musette", 5.9],
+          ["user-02", "Tango Bandoneón", "Bandoneon", 0],
+          ["user-03", "Glasgow Ceilidh — wet", "Musette", 6.7],
+        ]) {
+          const payload = panelPayload();
+          payload.parameters.tremolo = tremolo;
+          const document = programDocument(id, name, category, payload);
+          window.__programs.set(id, document);
+          listProgram(document);
+        }
+      }
+      let draft = null;
+      let nextDraftId = 1;
+      window.__fail = null;
       let selectedSoundId = sounds[0]?.id ?? "";
       window.__consoleErrors = [];
       window.__requests = [];
@@ -54,14 +93,15 @@
           frame.contentDocument.head.append(script);
         }
       });
-      frame.src = `../package/web/play.html?v=${Date.now()}`;
+      frame.src = `../package/web/${surface}.html?v=${Date.now()}`;
 
       const send = (message) => frame.contentWindow.postMessage(message, location.origin);
       const sendContext = () => send({
         protocol,
         kind: "context",
-        surface: "play",
+        surface,
         instance: { selected_sound_id: selectedSoundId, sounds, banks },
+        program_draft: draft,
         host: { active_mode: "play", master_level: 1000, master_pan: 0, lighting },
       });
       const respond = (requestId, result) => send({ protocol, kind: "response", request_id: requestId, ok: true, result });
@@ -96,6 +136,56 @@
           selectedSoundId = params.sound_id;
           respond(message.request_id, {});
           sendContext();
+        } else if (window.__fail === message.method) {
+          window.__fail = null;
+          reject(message.request_id, `The preview host refused ${message.method}, as asked.`);
+        } else if (message.method === "plugin.begin_program_edit") {
+          if (draft) return reject(message.request_id, "another audition or program edit is already active");
+          const programId = params.program_id ?? null;
+          let document;
+          if (programId === null) {
+            const used = new Set(window.__programs.keys());
+            let number = 1;
+            while (used.has(`user-${String(number).padStart(2, "0")}`)) number += 1;
+            if (number > 64) return reject(message.request_id, "the library is full");
+            document = programDocument(`user-${String(number).padStart(2, "0")}`, "New program", null, panelPayload());
+          } else {
+            document = window.__programs.get(String(programId).slice("custom.".length));
+            if (!document) return reject(message.request_id, "unknown program");
+          }
+          draft = {
+            draft_id: nextDraftId++, instance_id: "preview", name: document.name,
+            ...(programId ? { original_program_id: programId } : {}),
+            preview_sound_id: `custom.${document.id}`,
+            storage_path: `programs/${document.id}.rackforge-program.json`,
+            document_json: JSON.stringify(document),
+            editor: { schema_version: 1, title: "RF-Musette program", pages: [] }, dirty: false,
+          };
+          respond(message.request_id, undefined);
+          setTimeout(sendContext, 60);
+        } else if (message.method === "plugin.replace_program_draft") {
+          if (!draft || params.draft_id !== draft.draft_id) return reject(message.request_id, "program draft is missing or no longer valid");
+          const previous = JSON.parse(draft.document_json);
+          const document = params.document;
+          if (document.id !== previous.id || document.plugin_id !== previous.plugin_id) {
+            return reject(message.request_id, "program identity cannot change while editing");
+          }
+          if (new TextEncoder().encode(JSON.stringify(document)).byteLength > 16384) {
+            return reject(message.request_id, "The program document exceeds the plugin transfer limit.");
+          }
+          draft = { ...draft, name: document.name, document_json: JSON.stringify(document), dirty: true };
+          respond(message.request_id, undefined);
+          sendContext();
+        } else if (message.method === "plugin.save_program" || message.method === "plugin.cancel_program") {
+          if (!draft || params.draft_id !== draft.draft_id) return reject(message.request_id, "program draft is missing or no longer valid");
+          if (message.method === "plugin.save_program") {
+            const document = JSON.parse(draft.document_json);
+            window.__programs.set(document.id, document);
+            listProgram(document);
+          }
+          draft = null;
+          respond(message.request_id, undefined);
+          setTimeout(sendContext, 60);
         } else {
           reject(message.request_id, `The preview host does not handle ${message.method}.`);
         }

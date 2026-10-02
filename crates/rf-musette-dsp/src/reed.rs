@@ -760,16 +760,19 @@ pub fn step(
     // R_w the walls' resistance, R_e the radiating end's (below).
     // (Until 8m the cell was a volume, a fourth row: h u - h a + 2C p =
     // 2C p₀.)
-    // R_p is the pallet's curtain, an orifice linearised like the reed's own
-    // jet: R_p = ρ |a₀| / (2 α² A_p²) ≥ 0. A closed pallet is a seal: the
-    // hole passes nothing, and its row becomes a = 0. While the pallet moves,
-    // the linearisation lags a curtain that changes faster than the flow
-    // through it: as it first lifts, a₀ = 0 lets the hole pass for a step as
-    // if no pallet were there, and the flow bursts and collapses by turns,
-    // whose rate of change radiated as a click (docs/ROADMAP.md, 8h). So
-    // while it moves R_p is never less than Bernoulli's orifice at the drop
-    // across it, √(ρΔp/2)/(α A_p), which steady flow's linearisation equals.
-    // Settled, as before.
+    // The pallet's curtain is an orifice: its drop is Bernoulli's, k |a| a,
+    // k = ρ / (2 α² A_p²), solved at the step's own flow -- the row is then
+    // c₁ a + c₂ |a| a = b, a quadratic with one root of the sign of b (8o).
+    // A closed pallet is a seal: the hole passes nothing, and its row becomes
+    // a = 0. It was linearised at the last step's flow, R_p = k |a₀|, which
+    // lags a curtain that changes faster than the flow through it: as it
+    // first lifted, a₀ = 0 let the hole pass for a step as if no pallet were
+    // there (8h). A floor held R_p at Bernoulli's for the drop across it while
+    // the pallet moved, and that drop swings with the cell's tone: closing,
+    // it moved the curtain's resistance within every cycle, the player's short
+    // high puff at every release (8n); opening, it ended as the curtain
+    // reached the hole, a click 25 ms into every note (8o). Solved at its own
+    // flow the curtain has no lag, and needs no floor.
     let moving = pallet != state.pallet;
     // The curtain's air has mass too, ρw/A over the seat's width w (8m): the
     // hole's end correction grows as the pallet comes close (Tonon's k, higher
@@ -793,8 +796,8 @@ pub fn step(
         state.hole_flow *= before / m_h;
     }
     state.pallet = pallet;
-    // The hole's row solved for a: a = (b3 - h p) / dh, kept as 1/dh, which
-    // is zero for a closed pallet. While the curtain is all but shut the row
+    // The hole's row solved for a (above, the curtain's quadratic), and
+    // nothing for a closed pallet. While the curtain is all but shut the row
     // is stiff -- hR_p > 2M_h -- and the trapezoid answers a decay faster
     // than a step by flipping the flow's sign at every step, a burst at the
     // Nyquist frequency (8k; the "bursts by turns" of 8h). There the row is
@@ -810,18 +813,11 @@ pub fn step(
     let toward_mass = model.radiation_resistance / (radiation_weight + model.radiation_resistance);
     let radiating = model.radiation_resistance * (1.0 - toward_mass);
     let mut theta = 0.5;
-    let (b3, inverse_dh) = if pallet > 0.0 {
+    let a = if pallet > 0.0 {
         let alpha_pallet = d.contraction * pallet;
         if moving {
             state.pallet_factor = AIR_DENSITY / (2.0 * alpha_pallet * alpha_pallet);
         }
-        let linearised = state.pallet_factor * state.hole_flow.abs();
-        let bernoulli = if moving {
-            let drop = (supply - state.cell_pressure).abs();
-            linearised.max(math::sqrt(0.5 * AIR_DENSITY * drop) / alpha_pallet)
-        } else {
-            linearised
-        };
         // The curtain is also a thin slit, the pad's gap g = A/R over the
         // seat's width w, round the hole's rim R: laminar, its resistance is
         // Poiseuille's, 12 μ w/(g³ R) = 12 μ w R²/A³ (8m). Nothing while the
@@ -831,33 +827,34 @@ pub fn step(
         // hole passed the tone until the curtain was nothing, then cut it, a
         // click as a note was let go under the bellows' push.
         let viscous = model.seat_viscosity / (pallet * pallet * pallet);
-        let r_p = bernoulli + viscous;
-        let resistance = r_p + z + model.wall_resistance + radiating;
+        let linear = viscous + z + model.wall_resistance + radiating;
         let pushed =
             h * (supply + radiating * state.radiation_flow) - 2.0 * h * arriving_at_opening;
-        if h * resistance > 2.0 * m_h {
+        // The stiffness that sets θ, judged with the curtain's resistance at
+        // the last flow: θ only keeps the row from flipping, and a step's lag
+        // there is no click.
+        let resistance = state.pallet_factor * state.hole_flow.abs() + linear;
+        let weight = if h * resistance > 2.0 * m_h {
             theta = 1.0 - m_h / (h * resistance);
-            let weight = m_h / theta;
-            (
-                weight * state.hole_flow + pushed,
-                1.0 / (weight + h * resistance),
-            )
+            m_h / theta
         } else {
-            (
-                2.0 * m_h * state.hole_flow + pushed,
-                1.0 / (2.0 * m_h + h * resistance),
-            )
-        }
+            2.0 * m_h
+        };
+        // c₁ a + c₂ |a| a = b, its root in the form that keeps its digits as
+        // c₂ goes to nothing: a = 2b / (c₁ + √(c₁² + 4 c₂ |b|)).
+        let b = weight * state.hole_flow + pushed;
+        let c1 = weight + h * linear;
+        let c2 = h * state.pallet_factor;
+        2.0 * b / (c1 + math::sqrt(c1 * c1 + 4.0 * c2 * b.abs()))
     } else {
         state.hole_flow = 0.0;
         // Forgotten with the curtain, so a reed rung down to nothing is the
         // reed at rest again (`ReedState::default()`).
         state.pallet_factor = 0.0;
-        (0.0, 0.0)
+        0.0
     };
     // The hole alone; a shut pallet passes nothing and the tube's end is
     // rigid there, p_h = 2q⁻.
-    let a = b3 * inverse_dh;
     let hole_pressure = 2.0 * arriving_at_opening + z * a;
     let mass_flow = (1.0 - toward_mass) * state.radiation_flow + toward_mass * a;
     state.radiation_flow = 2.0 * mass_flow - state.radiation_flow;

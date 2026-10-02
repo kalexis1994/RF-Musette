@@ -8,8 +8,11 @@ use rf_musette_dsp::{Engine, PULL_REED};
 
 const RATE: f32 = 48_000.0;
 
-fn engine() -> Engine {
-    let mut engine = Engine::new(RATE).unwrap();
+/// On the heap, as the plugin keeps it: a test here builds several, and two
+/// 1.2 MiB engines by value with the render's frames overflowed even the
+/// 8 MiB test threads (.cargo/config.toml).
+fn engine() -> Box<Engine> {
+    let mut engine = Box::new(Engine::new(RATE).unwrap());
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     engine.bellows_mut().expression_wide(0.3f32.sqrt());
     render(&mut engine, 0.1);

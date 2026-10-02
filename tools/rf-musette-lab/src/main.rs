@@ -45,6 +45,10 @@ Render options:
   --sample-rate HZ  8000..384000 (default 48000)
   --program ID      A factory program's settings, before any --set (ids in
                     package/metadata/presets.json)
+  --key-depth       A study (ROADMAP 9g): a treble note's velocity sets how far
+                    its key goes down, 0.2 at 1 to 2/3 at 127, where the
+                    pallet's curtain reaches the hole; without it every key
+                    goes fully down, as the instrument plays.
   --stereo          Through the microphones and the room (Microphones page;
                     --set mic_layout=0..6), a stereo WAV; without it, the
                     instrument alone at 1 m, mono, as every measurement.
@@ -120,6 +124,8 @@ struct Options {
     stereo: bool,
     /// A factory program's settings, before any --set.
     program: Option<&'static rf_musette_dsp::programs::Program>,
+    /// Velocity sets a treble key's depth (milestone 9g's study).
+    key_depth: bool,
 }
 
 impl Options {
@@ -137,6 +143,7 @@ impl Options {
             sample_rate: 48_000.0,
             stereo: false,
             program: None,
+            key_depth: false,
         };
         let mut seen = std::collections::BTreeSet::new();
         let mut index = 0;
@@ -147,6 +154,11 @@ impl Options {
             }
             if flag == "--stereo" {
                 options.stereo = true;
+                index += 1;
+                continue;
+            }
+            if flag == "--key-depth" {
+                options.key_depth = true;
                 index += 1;
                 continue;
             }
@@ -270,6 +282,19 @@ fn render(options: &Options) -> Result<(), Box<dyn Error>> {
         span(&mut engine, cursor, at);
         cursor = at;
         match event.action {
+            Action::NoteOn {
+                note,
+                velocity,
+                channel,
+            } if options.key_depth
+                && channel != rf_musette_dsp::BASS_CHANNEL
+                && channel != rf_musette_dsp::CHORD_CHANNEL =>
+            {
+                // From just above where the shallowest key stops sounding
+                // (0.17, the F3 at 300 Pa) to where the curtain is the hole.
+                let share = f64::from(velocity - 1) / 126.0;
+                engine.press(note, 0.2 + (2.0 / 3.0 - 0.2) * share);
+            }
             Action::NoteOn {
                 note,
                 velocity,

@@ -29,14 +29,20 @@ pub struct Program {
 }
 
 /// The banks, in order: id and name.
-pub const BANKS: [(&str, &str); 4] = [
+pub const BANKS: [(&str, &str); 5] = [
     // The id kept from the research package, so sessions that recall its
     // one program still find it.
     ("research", "Factory"),
     ("styles", "Styles"),
     ("setups", "Setups"),
     ("instruments", "Instruments"),
+    // The player's own programs, which the plugin lists after the factory's;
+    // no program here is in it.
+    (USER_BANK, "User"),
 ];
+
+/// The bank the player's own programs are listed in.
+pub const USER_BANK: &str = "user";
 
 use parameters::{
     AUTO_REVERSE, BASS_REGISTER, BELLOWS_AREA, BELLOWS_CEILING, BELLOWS_LEAK, BELLOWS_RESPONSE,

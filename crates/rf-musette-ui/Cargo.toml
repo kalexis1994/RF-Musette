@@ -1,6 +1,6 @@
 [package]
 name = "rf-musette-ui"
-description = "RF-Musette's PLAY surface: a Rust WebAssembly client of RackForge's plugin web bridge"
+description = "RF-Musette's PLAY and CONFIG surfaces: a Rust WebAssembly client of RackForge's plugin web bridge"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,6 +13,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # The panel reads the engine's own parameter and register tables.
 rf-musette-dsp.workspace = true
+# The .rfmusette files (archive.rs): their JSON, and the seal over it.
+serde.workspace = true
+serde_json.workspace = true
+sha2 = { version = "0.10", default-features = false }
 
 [dev-dependencies]
 # Writes and checks the shipped pearl image (texture.rs).
@@ -20,18 +24,21 @@ png = "0.17"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json.workspace = true
 serde-wasm-bindgen = "0.6"
 # Pinned: tools/build-web-ui runs the wasm-bindgen CLI, whose version must
 # match this crate's exactly.
 wasm-bindgen = "=0.2.127"
 web-sys = { version = "0.3", features = [
+    "Blob",
+    "BlobPropertyBag",
     "Document",
     "DomTokenList",
     "Element",
     "Event",
     "EventTarget",
+    "File",
+    "FileList",
+    "HtmlAnchorElement",
     "HtmlElement",
     "HtmlInputElement",
     "KeyboardEvent",
@@ -41,6 +48,7 @@ web-sys = { version = "0.3", features = [
     "Node",
     "NodeList",
     "PointerEvent",
+    "Url",
     "Window",
 ] }
 

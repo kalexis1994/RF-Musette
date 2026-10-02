@@ -394,21 +394,35 @@ fn the_package_describes_this_build() {
     assert_eq!(runtime["state_version"], rf_musette_plugin::STATE_VERSION);
 }
 
-/// The PLAY surface the manifest declares is in the package, with what its
-/// page loads (milestone 9a).
+/// The surfaces the manifest declares are in the package, with what their
+/// pages load (milestone 9a): PLAY, and CONFIG, which the one app starts
+/// from its root's mark.
 #[test]
-fn the_play_surface_is_in_the_package() {
-    assert!(MANIFEST.contains("kind = \"play\"\nentry = \"web/play.html\""));
+fn the_surfaces_are_in_the_package() {
     let web = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../package/web");
-    let page = std::fs::read_to_string(web.join("play.html")).unwrap();
-    assert!(page.contains("id=\"plugin-root\""));
-    for asset in ["styles.css", "app.js"] {
+    for surface in ["play", "config"] {
         assert!(
-            page.contains(&format!("{asset}?v=")),
-            "play.html loads {asset}"
+            MANIFEST.contains(&format!(
+                "kind = \"{surface}\"\nentry = \"web/{surface}.html\""
+            )),
+            "the manifest declares {surface}"
         );
-        assert!(web.join(asset).is_file(), "{asset} is built");
+        let page = std::fs::read_to_string(web.join(format!("{surface}.html"))).unwrap();
+        assert!(page.contains("id=\"plugin-root\""));
+        assert_eq!(
+            page.contains("data-surface=\"config\""),
+            surface == "config",
+            "{surface}.html's root"
+        );
+        for asset in ["styles.css", "app.js"] {
+            assert!(
+                page.contains(&format!("{asset}?v=")),
+                "{surface}.html loads {asset}"
+            );
+            assert!(web.join(asset).is_file(), "{asset} is built");
+        }
     }
+    assert!(MANIFEST.contains("config_mode = true"));
     assert!(web.join("app_bg.wasm").is_file(), "app_bg.wasm is built");
     let glue = std::fs::read_to_string(web.join("app.js")).unwrap();
     assert!(

@@ -76,7 +76,7 @@ cargo fmt --all
 
 `tests/milestone_7.rs` fails if the table no longer matches a fresh tuning.
 
-## The PLAY surface
+## The PLAY and CONFIG surfaces
 
 ```text
 cargo run --release -p rf-musette-lab -- web-ui
@@ -84,12 +84,22 @@ cargo run --release -p rf-musette-lab -- web-ui
 
 builds `crates/rf-musette-ui` for wasm32 and writes `package/web/app.js` and
 `app_bg.wasm` with the wasm-bindgen CLI. Both are committed, so a checkout
-shows the page without the tools; `package` and `audition` rebuild them
-first. `play.html` and `styles.css` are written by hand. The panel map is
+shows the pages without the tools; `package` and `audition` rebuild them
+first. `play.html`, `config.html` and `styles.css` are written by hand; the
+one app draws CONFIG where the page's root says `data-surface="config"`.
+The panel map is
 `crates/rf-musette-ui/src/panel.rs`: it places every parameter, a test holds
 it to the parameter table, and `rf-musette-lab schema` takes its pages and
-order. What the page can be tested on off the browser -- the map, the knobs'
-taper, the register symbols -- is plain Rust under `cargo test`.
+order. What the pages can be tested on off the browser -- the map, the knobs'
+taper, the register symbols, the `.rfmusette` files (`archive.rs`) -- is
+plain Rust under `cargo test`.
+
+The player's own programs are the plugin's (`crates/rf-musette-plugin/src/program.rs`):
+RackForge stores the documents and hands each back when an instance starts,
+and an instance whose saved program is refused does not start, so the payload
+-- every parameter by its id -- is read leniently and forever. A parameter
+added later needs nothing; one removed or renamed must still be read from
+the old id.
 
 To see the page without RackForge, copy the host's plugin kit (the program
 selector and save dialog) next to the preview and serve the repository:
@@ -104,7 +114,10 @@ for the stage light). It plays RackForge's side of the bridge: the context,
 the parameters from the package's schema, each set echoed back. In the
 browser console, `__requests` lists what the page asked, `__consoleErrors`
 what failed, and `__hostSet(index, value)` changes a value from outside, as a
-MIDI link would.
+MIDI link would. `?surface=config` opens CONFIG, with a stand-in for
+RackForge's program drafts and three saved programs (`&programs=0` for none):
+`__programs` holds what is saved, and `__fail = "plugin.save_program"` (or
+any method) has the next such request refused, to see a job fail midway.
 
 ## Package
 

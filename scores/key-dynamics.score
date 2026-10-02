@@ -1,0 +1,45 @@
+# Milestone 9g's study: the same phrase with every key fully down (A) and
+# with each key's velocity setting how far it goes down (B, the lab's
+# --key-depth). Musette Paris, the wheel at 79 %. A waltz phrase with
+# accents, the same phrase soft, a scale rising in velocity, a low F3 and an
+# F major triad soft then hard.
+0 wheel 100
+# The phrase, accented.
+0 380 69 120
+400 380 72 50
+800 380 77 60
+1200 780 76 120
+2000 380 74 45
+2400 380 72 115
+2800 380 70 40
+3200 380 69 50
+3600 1180 67 110
+# The phrase, soft.
+4800 380 69 30
+5200 380 72 28
+5600 380 77 32
+6000 780 76 35
+6800 380 74 28
+7200 380 72 30
+7600 380 70 28
+8000 380 69 30
+8400 1180 67 30
+# A scale rising in velocity, 10 to 127.
+9800 480 65 10
+10300 480 67 27
+10800 480 69 44
+11300 480 70 61
+11800 480 72 78
+12300 480 74 95
+12800 480 76 112
+13300 1500 77 127
+# The low F3, soft then hard.
+15500 1900 53 20
+17500 1900 53 127
+# The F major triad, soft then hard.
+19600 1900 65 25
+19600 1900 69 25
+19600 1900 72 25
+21600 1900 65 127
+21600 1900 69 127
+21600 1900 72 127

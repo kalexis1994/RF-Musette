@@ -996,15 +996,26 @@ fn on_message(app: &AppHandle, event: &MessageEvent) {
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    let app = App::new()?;
+    let window = web_sys::window().ok_or_else(|| JsValue::from_str("missing window"))?;
+    let document = window
+        .document()
+        .ok_or_else(|| JsValue::from_str("missing document"))?;
     // One light for the whole panel: every shadow and gradient reads it.
-    if let Some(root) = app.borrow().document.document_element() {
+    if let Some(root) = document.document_element() {
         let existing = root.get_attribute("style").unwrap_or_default();
         root.set_attribute(
             "style",
             &format!("{existing}{}", crate::light::css_variables()),
         )?;
     }
+    // config.html marks its root; play.html is the panel.
+    let root = document
+        .get_element_by_id("plugin-root")
+        .ok_or_else(|| JsValue::from_str("missing #plugin-root"))?;
+    if root.get_attribute("data-surface").as_deref() == Some("config") {
+        return crate::config::start(window, document, root);
+    }
+    let app = App::new()?;
     app.borrow().render();
     install_events(&app)?;
     let ready = Ready {

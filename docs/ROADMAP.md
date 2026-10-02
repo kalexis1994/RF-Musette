@@ -2394,3 +2394,637 @@ the FR-3x's, the manual it cites. The difference is which side the second
 
 Heard: the same phrase through Accordion and the eleven styles, sent to the
 player.
+
+## 10. The cost of the audio path
+
+The user's ask (2026-10-01): the audio costs too much; cut it without
+losing the sound or the behaviour, by mathematics that answer bit for bit
+where they can, and with several cores, as RF-5 did (its methods:
+`rackforge-plugin-rf-5`, the audition fingerprints, the parallel render).
+
+**Measured first (x86-64, this server, native, release):** milestone 7's
+four-note Master chord costs 6.26 µs per 48 kHz sample (30 % of real
+time); both hands 8.85 µs (43 %); the stereo stage adds 0.8-1.0 µs. By
+part (`tests/cost.rs`): a reed step 71 ns, and the chord steps 20 reeds at
+two substeps a sample -- 2.85 µs, 46 %; the wind 66 ns a substep; the
+decimator 191 ns a sample per source (five in stereo); the stage 413 ns a
+sample. Some 3 µs were in none of these: the per-key loop.
+
+Found in the code:
+* The pallet's curtain takes the rim of its hole, `rim(hole_area)` -- a
+  square root, in software, of a number fixed by the design -- at every
+  substep for every rank.
+* Every key is asked whether it is idle at every substep, which compares
+  all ten of its reeds' states field by field: 53 keys, ~3000 comparisons
+  a substep while four sound.
+* `math::sqrt` is a software square root written for control rate ("never
+  per sample", it says) that the reed step calls every substep. It is not
+  the correctly rounded root: 1 ulp off for a quarter of the engine's
+  arguments, and wrong for subnormals (`the_software_square_root_against_
+  the_hardwares`).
+* The decimator walks a ring buffer with a branch per tap.
+
+**The guard (10a, built):** 24 scenes (`scenes.rs`) -- every program, mono
+and stereo, the three oversampling factors, 44.1/48/96 kHz, the bellows by
+velocity, expression, the wheel as pressure and as the bellows, turning by
+itself, a reversal, the air button, the idle path and a hall's tail --
+each rendered and folded into an FNV-1a fingerprint of every sample's bits,
+taken at dd7e761 (`tests/fingerprints.rs`). A change meant to be exact
+must leave all 24. One that is not is measured against the reference
+renders: samples that differ, the peak difference and the error's energy
+against the signal's, and the same over the last tenth of each scene, so
+a difference that grows shows.
+
+**10b, exact (predictions):**
+1. The rim kept in the reed's model, the idle keys kept in a list, the
+   loop-invariant arithmetic taken out of the loops, the decimator
+   without its branches: all 24 fingerprints unchanged.
+2. The four-note Master chord at most 4.5 µs per sample natively (−28 %),
+   the ORTF stereo of it at most 5.0 µs.
+
+**10c, not exact (predictions, before the code):**
+3. The correctly rounded square root (the hardware's: `f64.sqrt` in wasm)
+   in the reed step: every scene's error at least 120 dB below its signal,
+   and no more than 6 dB worse over the last tenth than over the whole --
+   a rounding, not a drift.
+4. Each such change heard by the player before it is kept.
+
+**Prediction 3, NOT MET as written -- and the prediction was the wrong
+measure (measured 2026-10-01).** With the correctly rounded root the
+scenes leave their references by −30 to −60 dB of waveform, not −120. The
+cause, measured: the instrument's own sensitivity, not the root. Each
+scene is bit-identical until a moment (0.36 s in Accordion), its first
+difference one f32 ulp (−150 dB), and from there the difference grows to
+−60 dB within 50 ms and wanders near −50 dB. The engine as it was, with A4
+moved one ulp from 440 Hz and nothing else, leaves itself the same way:
+identical to 0.35 s, −62 dB at 0.40 s, −47 to −57 dB after
+(`how_a_one_ulp_difference_grows`). The reeds coupled through the bellows
+amplify any rounding; no change that is not bit-exact can stay near its
+reference's waveform, however exact it is -- this one is more exact than
+what it replaces. Where the bellows takes no rounding of the root (the
+expression scenes) the scenes did not move at all.
+
+**Prediction 3, as it should have been asked:** a change that is not
+exact is the same instrument when it moves each scene no further than a
+one-ulp nudge moves it. Measured on what is heard: band levels, a third of
+an octave wide, 50 ms at a time, both channels, against the reference's;
+the 99th percentile of the level differences, where the reference band is
+within 60 dB of the scene's loudest. The change's at most 1.5 times the
+nudge's, plus 0.2 dB.
+
+**10d, several cores:** RackForge renders a plugin across cores in units
+(`docs/PARALLEL_RENDER.md` in RackForge): a coordinator's `begin_block`,
+units with no shared state, an `end_block` that sums them in order, and
+the same bits on any number of workers. Every reed here is coupled to
+every other through the bellows at every substep -- the air one draws
+lowers the pressure all are blown with. Units that run a block alone must
+see that coupling a block late, or not at all; Concert Grand took its
+sections' coupling a block late and kept its soundboard serial. Which the
+accordion can afford is measured before it is proposed, and is the
+user's call: it changes behaviour.
+
+**Built, exact (10b) -- all 24 fingerprints unchanged:**
+* The reed's model keeps what every step asked again: the hole's rim (a
+  square root per rank per substep), ω², ω/Q, the swing limit's ρ, the
+  section table's span.
+* The keys with anything to compute are listed once per render call:
+  between calls is the only time a key is pressed, and computing a key
+  that has fallen idle changes nothing.
+* The decimator reads its history from a doubled buffer, without a branch
+  per tap -- little gained (191 to 176 ns): its cost was the chain of
+  additions, kept in order.
+
+Prediction 1 MET; prediction 2 MET: the four-note chord 6.26 to 3.16 µs
+(−49 %), both hands 8.85 to 4.99 µs, the ORTF stereo 6.80 to 3.71 µs.
+
+**Built, not exact (10c) -- each scene moves no further than a one-ulp
+nudge moves it (prediction 3 as revised: all 24 "same"):**
+* The correctly rounded square root (`math::sqrt`): WebAssembly's
+  `f64x2.sqrt` lane in the plugin (the scalar one is not yet stable in
+  Rust), the standard library's natively -- the same bits on every target.
+* Reciprocals where the step divided by the same number again: the 2x2
+  determinant, the cell's and the hole's rows, the tongue's width and modal
+  mass, the section table's scale; the pallet's ρ/(2α²A²) kept while the
+  curtain does not move. Twelve divisions a step become five.
+* The decimator sums in four lanes, which WebAssembly's SIMD runs side by
+  side: 176 to 45 ns. Its output feeds nothing back, so its rounding stays
+  where it is made: −129 to −133 dB in the scenes the bellows does not
+  amplify.
+* A reed behind a shut pallet stops once its energy is negligible (below
+  1e-12 J, ~98 dB under a sounding reed), as an unblown one always did: the
+  shut pallet seals its cell and the bellows' pressure no longer reaches
+  it. It used to be computed until it underflowed -- tens of seconds of
+  silence at the cost of a chord.
+
+Measured, natively: the four-note chord 2.35 µs a sample (−62 %), both
+hands 3.93 µs (−56 %), ORTF 2.72 µs (−60 %), silence 1.03 to 0.12 µs.
+Through RackForge as the plugin runs (WebAssembly, `tail-cost`, x86-64,
+128-frame blocks, deadline 2667 µs), dd7e761 against now, twice each:
+a five-note chord 1245 to 436 µs a block (47 % to 16 % of the deadline),
+its ring-down 770 to 360 µs, silence 697 to 34 µs, the worst block 6.8 to
+2.4 ms. That worst block is the first press of a key: its reeds' models
+are built then, milliseconds each -- on the Pi, a dropout.
+
+**10d, measured before proposing:** the reeds' coupling through the
+bellows taken one block late -- what units on several cores would need --
+emulated in the serial engine: every scene whose bellows takes the reeds'
+draw moved 2.6-14.5 dB in its band levels (p99), against 0.0-0.4 dB for a
+nudge, several by more than their own signal: the delayed loop rings.
+Only Digital Accordion, whose bellows gives exactly the pressure asked,
+stayed the same. The emulation was not kept.
+
+## 8j. The start at an opening
+
+The user's report (2026-10-01): a short "chick" at the start of every
+opening of the bellows -- "the sound begins from a certain level, a jump
+from nothing to it".
+
+**Measured first** (`tests/opening_click.rs`, the wheel as the bellows, F4
+held, dry, the wheel opening from rest a step every 10 ms): the high band
+shows nothing, but the envelope does. The bellows' pressure rises from 0
+to ~600 Pa in ~12 ms; when the cell passes the kick's threshold (20 Pa,
+at 11-12 ms) the output jumps from −69 dB of the steady tone to −33 dB
+within a millisecond, then grows smoothly. With the start kick off there
+is no jump -- and no start within 40 ms either.
+
+The cause: a reed is given the share P/(P + P₀) of its start the moment its
+cell passes P₀. A key pressed into a blowing bellows meets ~400 Pa at once,
+and 0.95 of the start at once is what was meant (8h): the air arrives
+whole. A bellows that starts to move meets P₀ itself first, and is given
+0.57 of the start at 27 Pa -- the start of a full note, at a pressure whose
+tone is ~30 dB quieter.
+
+**Change:** the share (P − P₀)/P -- nothing at the threshold, the same as
+before where a note starts (0.950 against 0.952 at 400 Pa), the rest given
+as the pressure rises, as before.
+
+**Predictions:**
+1. An opening from rest: no millisecond more than 12 dB above the one
+   before it in its first 40 ms (36 dB before).
+2. The reed still starts: the level 40 ms into the opening within 3 dB of
+   before (−21.8 dB of the steady tone).
+3. A note's start into a blowing bellows unchanged: every test of 8h and
+   of the earlier attacks passes as it stands.
+
+## 8k. The release
+
+The user's report (2026-10-01): a noise as a note is let go -- heard on
+real accordions, sometimes, but here always and strongly.
+
+**Measured first** (`tests/opening_click.rs`, `the_release_of_a_note`, F4,
+C5, A3 under a steady push, dry): the tone holds near its level for ~8 ms
+after the key is let go, then collapses within 1-2 ms as the pallet's
+curtain closes the last of the hole; in that millisecond the band above
+3 kHz stands as high as the held tone's (A3: −1.3 dB) while the level is
+−53 dB -- a burst, a click -- and from 12 ms the output is exactly zero.
+Inside its sealed cell the tongue rings on: −10 dB at 50 ms, −20 dB at
+120 ms, −30 dB at 280 ms (`the_curtain_and_the_sealed_reed`). The model
+radiates only through the tone hole, so a ringing reed is silent.
+
+**What the sources say** (SOURCES.md, "The release"): no measurement of
+an accordion's release is published. Roland's patent (US6946594B2) and
+FR-8x manual describe the reed ringing on after its valve shuts, "metallic
+and partially distorted", fading exponentially, louder for low reeds and
+higher pressure, and model the valve's closing noise apart. Accordion reed
+plates ring with Q 200-400 unblown (Nussbaumer & Agarwal 2016): tens to
+hundreds of milliseconds, not one or two. Blown, a reed radiates mostly as
+the monopole of its pulsing flow; plucked without air, far more weakly.
+Technicians: the release "clack" comes from the pallet's felt and leather;
+internal microphones take it, distant ones hardly.
+
+**Changes:**
+1. The reed's flow into the bellows is heard too, through the bellows'
+   walls: a second, muffled path that sounds while the note does and
+   carries the tongue's ringing once the pallet has shut. Through a wall
+   that obeys the mass law the radiated pressure follows the volume
+   velocity itself (6 dB per octave below the hole's path); the walls pass
+   nothing steady, a high-pass at 60 Hz. Its level is voiced: no
+   measurement exists.
+2. The pallet seats on felt and leather: over the last tenth of its
+   travel it slows as the pad compresses (an exponential approach), so the
+   hole is not chopped shut. Voiced likewise.
+
+**Predictions:**
+1. No millisecond after the release whose band above 3 kHz exceeds the
+   held tone's while its level is more than 20 dB below it (the burst:
+   A3 −1.3 dB at −53 dB).
+2. A tail: 50 ms after the release the output lies between −50 and −25 dB
+   of the held tone, and falls with the tongue.
+3. The held tone moves no more than 1 dB in its band levels (p99).
+4. Every earlier test of attacks and starts passes as it stands.
+**8j, the start at an opening -- withdrawn (measured 2026-10-01).** The
+share (P − P₀)/P took the 36 dB step out of an opening, at ~20 ms more to
+reach the tone; predictions 1 and 2 were NOT MET as written (a 17 dB rise
+remained at 10-11 ms, below −50 dB and there with no kick at all: the
+corner where the wheel's flow starts; 3.8 dB quieter at 40 ms). Worse, it
+was not limited to openings: with the bellows on velocity the pressure
+rises from zero with the note too, and the attacks of every such scene
+moved by up to 73 dB in a band; and a wheel at one step a second no longer
+held its note -- held before by half-starts at every crossing of P₀, at
+17-21 Pa, the very mechanism of the click. Spreading the start over
+1-4 ms instead did not work: an impulse spread over a reed's period
+partly cancels itself, and the reed was slower still. The old share is
+back; the click at an opening remains open.
+
+**8k, results (2026-10-01):** prediction 1 MET -- no millisecond after a
+release with its band above 3 kHz over the held tone's while its level is
+20 dB under it (the last: high band 23-38 dB under the held tone).
+Prediction 2 NOT MET as written: 50 ms after the release the tail is at
+−55 to −58 dB of the held tone, not −25 to −50 -- the level is voiced, and
+the player hears 30 and 20 dB under the hole's path. Prediction 3 MET with
+the felt taken only on the way down: the held tone 0.13-0.17 dB from the
+reference, as a nudge moves it; taken both ways the felt slowed the
+attacks and moved the held stretches 2.5-14 dB (measured by switching each
+piece off). Prediction 4 MET: every earlier test passes.
+
+What the click was, measured (`the_flow_as_the_pallet_seals`): not the flow
+cut -- it falls to −55 dB before the seal -- but its rate of change: the
+pallet's curtain ended the flow's fall in a corner, and the rate stepped
+from a tenth of the tone to nothing; and as the curtain all but shut the
+trapezoid flipped the hole's flow at every step. The θ weighting ends the
+flipping; the seat on felt ends the corner; the path through the bellows
+carries the tongue on after both.
+
+**Heard (2026-10-01):** the player listened to the A/B of 10c (Accordion
+and Musette Paris, before and after) and to 8k's releases, and kept them:
+prediction 4 of 10 MET; 8k's tail kept at 30 dB under the hole's path.
+The fingerprints were taken again for that sound.
+
+## 9f. Instruments
+
+The user's ask (2026-10-01): programs that are other accordions -- an
+Italian 80-bass like the player's own among them -- not by taking reeds
+from the panel but by their mechanics: sizes, air, build.
+
+**Research first** (SOURCES.md, "The instruments"): makers' sheets give
+size, weight and voices for every class; nothing published gives a
+bellows' inside dimensions, a cell, a tone hole or a pallet spring by
+class. What the programs take:
+* The bellows' cross-section from the body's height and depth less ~3 cm
+  of fold (derived): 26/48 ≈ 430 cm², 34/72 ≈ 560, 37/80 ≈ 600, 41/120
+  ≈ 700, a cassotto professional ≈ 880 (Hohner, Paolo Soprani sheets). The
+  default, 600 cm², is an 80-bass's. Its air in proportion (derived).
+* The leak from technicians' drop test -- the open bellows closing under
+  its own weight, keys up: 70 s tight, 35 s typical, 20 s leaky -- as an
+  orifice: ≈ 10-15, 25-35, 50 mm² (derived). The default, 10 mm², is a
+  tight instrument; a played student instrument 30-40.
+* The same arm on a smaller bellows makes more pressure ("same force,
+  smaller bellows", stated; derived as the force over the area): the
+  ceiling 1 kPa × 600 cm² / area.
+* Tremolo: 4 Hz / 15 cents "standard, German, Italian", 6 Hz "old
+  Italian" (Liberty Bellows' chart); 15 cents at A4 is 3.8 Hz.
+* Voices by size (makers' sheets): 48 MM, 72 LMM, 80 MM or LMM, 120 LMMH,
+  the cassotto professional five voices with the cassotto.
+
+Not taken, for want of a number: plate thickness, the clearances of
+machine reeds ("more tolerance", no figure), tone holes, pallet springs.
+
+**Programs (a new bank, Instruments):** Student 48-Bass (MM: Celeste),
+Student 72-Bass (LMM: Cello), Italian 80-Bass (LMM: Cello, Italian 4 Hz),
+Full-Size 120-Bass (LMMH: Master), Cassotto Professional (Accordion through
+the cassotto); each with the bellows, leak and ceiling of its size and the
+microphones of where it is played.
+
+**Predictions:**
+1. Every setting is a value its parameter takes; the catalog is the table
+   (the contract tests as they stand).
+2. The arm on the smaller bellows sags further: under a full Master chord
+   pushed hard, the 48-bass's pressure falls further below its ceiling, as
+   a share of it, than the cassotto professional's.
+3. Heard by the player before they are kept.
+
+**8k, the bellows' walls derived (2026-10-01).** The player: the cut at a
+release is still there. Measured: no burst now, but the tone falls 38 dB
+within 3 ms as the pallet seats, onto a tail at 30 dB under the hole's
+path; a tail at −15 dB makes that fall 22 dB, a slower pallet (25 ms) only
+delays it. The player asked that the tail's level come from something
+real. It does: the bellows' walls are 0.8-1 mm manila card (makers;
+`How to make Bellows`), solid board ~615 g/m² a millimetre, with a cloth
+lining: m ≈ 0.75 kg/m². A limp wall passes 1/(1 + jωm/2ρc) of the
+pressure on it -- the mass law, its corner at ρc/(πm) ≈ 176 Hz, −7 dB at
+350 Hz, −15 dB at 1 kHz. The 30 dB voiced before was a wall of
+~10 kg/m². The path becomes the tongue's own monopole, S_r ζ'', through
+that wall: derived, not voiced. Neither the bellows' air between tongue
+and wall nor the walls' area is in it -- a cavity and its walls make a
+resonance, near 270 Hz by a rough estimate, which this leaves out.
+
+**Predictions:**
+1. After a release no 3 ms falls more than 25 dB (38 dB now).
+2. The held tone moves no more than 3 dB in its band levels (p99): the
+   path sounds while the note does too.
+3. Every earlier test passes.
+
+**8i withdrawn (2026-10-01).** The player: the wheel as the bellows does
+not play well; the choice need not be shown. Taken out of the engine --
+the wheel's motion (`motion.rs`), the driven bellows, the Wheel as Bellows
+program, the 8i tests -- and the Mod Wheel parameter retired in its place
+(index 45: states and links are by index, and parameters are only ever
+added at the end), one value, Pressure, not on the panel, read-only in the
+schema; a state saved with Bellows loads as Pressure (contract test
+`a_state_with_the_wheel_as_the_bellows_still_loads`). Exact: every other
+scene's fingerprint unchanged by the removal. 8j's click at an opening,
+heard on the wheel, goes with it.
+
+## 8l. The cell as a tube
+
+The player (2026-10-01): the highs lack brightness -- perhaps equalisation,
+perhaps the model. Measured first: a held F4, dry, keeps its harmonics 2-6
+within 7 dB of the fundamental and then falls -- −24 dB at 2.8 kHz, −30 at
+4.2, −47 at 5.6, −50 at 8.4 -- before any microphone; the microphones and
+the room take only a few dB more. Halving the cell or doubling its hole
+moved the fall up an octave (`tests/cost.rs` renders, 2026-10-01): the
+cell's Helmholtz resonance, ~2 kHz, and its −12 dB/octave above, set it.
+
+The sources (SOURCES.md, "The cell"): an A4 of a concert accordion, one
+8′ reed outside the cassotto at 50 cm, keeps its harmonics within −1 to
+−21 dB of the fundamental to ~4.8 kHz and −25 to −40 dB to 10 kHz
+(Elejalde-García, Macho-Stadler & Llanos-Vázquez 2021, Fig. 1): the model
+lies 10-20 dB under it from 3.5 to 9 kHz. A cell may be taken as a lumped
+volume only while every dimension is under ~0.15 of a wavelength (Tonon,
+PICA 2, 2005): a 50 mm cell, under ~1 kHz. Above, a tube.
+
+**Change:** the cell becomes a tube, closed at the reed and open to the
+hole -- a waveguide, its waves either way delayed by its length over c --
+its length 1.4 times the tongue's (Tonon's G4 cell is 46 mm; an F4
+tongue is 36 mm), its section the cell's volume over that length, so its
+compliance at low frequencies is the volume's as before; the walls' losses
+Kirchhoff's at 2 kHz (Fletcher & Rossing).
+
+**Predictions:**
+1. The held F4, dry: its harmonics from 2 to 5 kHz between −10 and −22 dB
+   of the fundamental, from 5 to 9 kHz between −25 and −40 dB.
+2. The low end as before: the tube's compliance at low frequency is the
+   volume's (a test), and the F4's pitch within 3 cents of the lumped
+   cell's.
+3. The reed step costs no more than a quarter more.
+4. Every earlier test passes, or says how the cell was in it.
+
+**8l, tried and withdrawn (2026-10-01).** Built as above, the tube gave
+the highs back: the F4's harmonics from 2 to 5 kHz at −9 to −25 dB
+(mean −16, the measured A4's −18), from 5 to 9 kHz at −17 to −34 (mean
+−25, the measured −30); the centroid 1.49 to 2.16 kHz. Prediction 1 met
+in the mean, a few harmonics 5-8 dB over above 5 kHz. Prediction 2 NOT
+MET: the F4 sounded 12 cents flat -- a short closed tube is the volume's
+compliance and a third of its air as mass besides, as a lumped cell is
+not -- which a maker's finishing would file out; but the finishing failed
+(`rf-musette-lab tune`: a reed that does not speak). Prediction 4 NOT
+MET, and the reason it was withdrawn: from ~1.3 kHz up the reeds no longer
+spoke at 300 Pa (E6's middle reeds needed 1 kPa; with the volume, 300 Pa),
+and the top piccolos not at all (`tests/tube_diagnosis.rs`, against
+dd7e761) -- where real players start them softly. The tube, as joined to
+the reed here (at the cell's closed end, the reed's flow into the tube's
+impedance ρc/S at once), loads the short high cells' reeds wrongly; where
+along the cell the reed sits, and how its slot's flow enters a cell that
+is no straight tube, are not modelled, and nothing measured says how a
+cell loads a reed at those frequencies. Reverted exactly (every scene's
+fingerprint as before). The brightness stays open, its cause measured:
+the cell, lumped.
+
+## 8m. The cell as a tube, the reed along it
+
+The player (2026-10-01): build the tube properly, as real as it can be.
+
+What the sources give (SOURCES.md, "The cell"): the reed plate is one long
+face of its cell; the cell opens through a hole in the block's foot at one
+end; a reed is mounted with its rivet toward that opening and its tip
+toward the closed end, except the highest -- from A#6 -- which makers turn
+round, tip to the opening, because they speak better so (patents US2051621,
+US5824927; technicians). Tonon (PICA 2005): in a cell long enough to be a
+tube, a tip at the closed end hinders the reed, a tip at the opening helps
+it. The slot's air enters along the whole tongue, through its sides, as
+the tongue bends: nothing at the rivet, most at the tip (Misdariis, Ricot
+& Caussé 2000, water visualisation; the mode shape). A blown-closed reed
+is helped by an inertive load (Tarnopolsky, Fletcher & Lai 2000; Millot &
+Baumann). And what a player meets: the low treble starts at 40-70 Pa, the
+highest piccolos at 100-250, "at 300 Pa all notes speak" (a technician,
+musiker-board 2014).
+
+8l's tube put the whole slot at the closed end, where Tonon says it hinders
+most, and the reed met the tube's impedance ρc/S at once: the high reeds no
+longer started.
+
+**Change:** the cell a tube, its opening at one end and closed at the
+other, 1.4 times the tongue long; the tongue along it, rivet near the
+opening and tip near the closed end (turned round from A#6, ~1.8 kHz); its
+slot giving and taking air at four points along the tongue, each by the
+tongue's mode shape there, and the tongue feeling those points' pressure
+the same way. The section the cell's volume over the length, so the
+compliance at low frequency is the volume's; Kirchhoff's losses.
+
+**Predictions:**
+1. The tube's compliance at low frequency is the volume's (a test).
+2. Every treble reed speaks at 300 Pa, the highest piccolos too (the
+   volume needs a kilopascal for them); none needs more than it did.
+3. The held F4, dry: harmonics from 2 to 5 kHz between −10 and −22 dB of
+   the fundamental, from 5 to 9 kHz between −25 and −40 dB.
+4. Finished again (`rf-musette-lab tune`), every reed in tune, as the
+   tuning test asks.
+5. The reed step costs no more than a third more.
+6. Every earlier test passes, or says how the cell was in it.
+
+**On the way (2026-10-01).** The hole made the reported one: about a
+centimetre, the same under every treble key (100 mm², a piccolo's 64), the
+bass side's still 150 mm² scaled, assumed. Finishing then failed on a few
+reeds about 1.5 kHz. The builders' remedy Tonon reports -- a shallower
+cell -- was tried as a finishing step and made every one of them worse
+(the G6 M− reed: 600 Pa in its scaled cell, 1 kPa in a third of it, never
+in a fifth; 300 Pa in one and a half times it): in this model they are
+not choked by their cell's resonance, so the step was not kept. Their
+threshold rises smoothly with pitch instead (`tests/tube_diagnosis.rs`,
+`the_thresholds`): the true 8′ speaks from 50 Pa to 311 Hz, 100 Pa to
+587, 150 to 831, 200 to 1047, 300 to 1.3 kHz and 400 above; the piccolos
+to 600 Pa at A6, the last not turned round, and 300-400 once turned. The
+tuner had been tuning such reeds on a dying tone at 300 Pa, which moved by
+its correction vanished: `tuning_pressure` now asks the reed to hold its
+tone, as its documentation said.
+
+Measured, finished again: prediction 3 met in the mean -- the held F4's
+harmonics from 2 to 5 kHz at −12.5 to −28.9 dB (mean −18.7; the measured
+A4's −18), from 5 to 9 kHz at −18.5 to −50.6 (mean −33; measured −30).
+Prediction 2 NOT MET: ~25 of the 205 treble reeds need 400-600 Pa. The
+tube lowers each reed further than the volume did, which the tuner files
+out: 10-63 cents against 4-19. The low reeds speak more easily -- the
+loads and ducts they need fell (the bass side's ducts from 9.1 to 2.5
+times at most). A passage rendered against dd7e761 (`tube-ab.score`): the
+tube 3-7 dB quieter note for note, its 4 kHz octave 6 dB and its 8 kHz
+octave 25 dB up against 250 Hz. Prediction 6 NOT MET as it stands: the
+attacks slower (finger attack 18 ms, bellows starts 32-46 ms, over their
+bounds), the peaks louder, the L rank's octave 28 cents off, the reference
+integrator and the convergence test still the lumped cell's, the energy
+test failing by f32 rounding in the lines, and the engine over its stack
+budget (1.2 MB) by the lines' 275 KB. Awaiting the player's ear before
+any of it is worked further.
+
+**The player (2026-10-02):** the tube approved by ear -- Greensleeves,
+Mutopia's accordion setting (public domain), rendered both ways -- "but
+there is a kind of squeal in the long notes, like a piano's beating".
+
+Measured: a single reed's held A4 carried tones that were not harmonics,
+-26 dB under them (the volume's -45), and sidebands 16-20 Hz apart round
+every harmonic. Alone, at a steady pressure, the reed was clean at 192
+kHz (-70 dB) and not at 96 (-25): numerical. The tones lay at fs/2 - n f0.
+The near field's row had turned stiff -- the tube's Z_s now in it, h(R +
+Z_s) > 2M_n -- and the trapezoid flipped the flow's end value at the
+internal Nyquist frequency, which the jet's nonlinearity beat against the
+tone. Weighted as the hole's row is (8k), θ = 1 - M_n/(h(R + Z_s)): -58
+dB at 96 kHz, no change of level or pitch. Heard: "better".
+
+Then made robust:
+- The tube's length is no longer rounded to whole steps -- a different
+  tube, and different lifted harmonics, at every host rate: the waves back
+  toward the opening take ⌊D⌋ steps, those toward the closed end the rest
+  of 2D, read between two steps by a straight line, which is passive.
+  The F4 at 96 and 192 kHz: 440.00 Hz both (439.67 before).
+- Slot points falling on one step of a short tube are merged: given air
+  twice over, a step gained the cross term 2g₁g₂ from nowhere (a 10 mm
+  reed's four points all fell on one).
+- The walls' losses were the waves multiplied by e^(-αL) at the ends,
+  which leaked even the cell's still air -- the reed saw ~2 % less
+  pressure. Now one resistance in series with the hole, Z₀αL, half the
+  distributed R'L.
+- The reference integrator is the tube's too, by the method of lines (40
+  segments; 80 agree); the scheme meets it within 0.7 % and 0.1 cent, and
+  converges, 96 against 384 kHz, within 0.9 % and 0.2 cent.
+- The tuner tunes what the engine builds: the loads and ducts kept as
+  the tables keep them, f32 to three places.
+- The lines are 64 steps, the engine 1187 KiB, inside a sixth of the 8 MiB
+  stack; the recording level -18.7 dB (-22 before), the loudest case again
+  at -6.0 dBFS.
+
+Measured against the volume (dd7e761), what the earlier milestones checked
+against measurements:
+
+| | volume | tube | measured |
+|---|---|---|---|
+| F4's swing at 300 Pa | 3.73 mm | 2.41 mm | > 4 mm (Ziegenhals) |
+| deepest bend, part-open pallet | −16 c | −7 c | 15-35 c |
+| Master's pressure fall, arm | 13.4 % | 3.8 % | ~15 % |
+| F4's finger attack | 80-96 ms | 18 ms | 50-140 ms (Llanos) |
+| A3-B4 attacks, bellows | 81-99 ms | 34 ms | 50-140 ms |
+| L under M's octave (untuned) | −9.6 c | −28.3 c | -- |
+
+All four move one way: the reed more strongly loaded, swinging less,
+drawing less air, starting faster. The likely cause, not yet measured:
+the tube's air between the hole and the slot, a mass ρL/S some 2.5 times
+the hole's own inertance for the A4, in series with it -- with the hole
+itself made smaller (150 to 100 mm²) in the same milestone. Real cells
+have that air; whether this one-dimensional tube, its section the volume
+over 1.4 tongues, puts the right amount of it in the slot's way is the
+question. Open; these tests fail and say so.
+
+**The investigation (2026-10-02).** What moves the F4 (`tests/coupling_probe.rs`,
+192 kHz, 150 mm² hole): the cell's volume hardly (doubled, swing 2.78 →
+2.65 mm); its length much (a quarter as long, the same volume: 3.49 mm,
+325 cm³/s); and where the tongue lies most of all -- turned round, its tip
+to the opening, the tube is the volume again (3.61 mm against 3.77, 326
+cm³/s against 371, growth 7.2/s at 100 Pa against 7.2). The slot's air
+passes mostly at the tip, and the tip lies at the closed end, some 40 mm of
+the cell's air from the hole -- a mass ρL/S beside which the hole's own is
+small, because an accordion's hole is about as wide as its cell. Tonon's
+Helmholtz cell puts all the mass in the hole, right only for a hole much
+narrower than the cell; he reports the tip's end only as interference or
+amplification near the cell's resonances, with no attack or swing. Where
+the tongue lies is sourced (patents; a technician files inside reeds
+"through the soundhole... towards the tip"): kept.
+
+The attack is mostly the voiced start (7b): at Attack Kick 1 the F4's
+finger attack is 18 ms at 100 Pa and 31 at 400; 0.5, 68 and 41; 0.25, 125
+and 51; 0, 427 and 101. Re-voiced to Llanos's 50-140 ms against which it
+was voiced: 0.3, chosen by ear on Greensleeves (the player, 2026-10-02) --
+110 ms and 49, the second a millisecond under. The swing's measurements
+never agreed (±0.72 mm, Nussbaumer & Agarwal; > 4 mm, Ziegenhals); 2.4 mm
+lies between: not acted on. The part-open pallet's bend (−7 c against
+15-35) and the treble above 1.4 kHz needing 400-600 Pa stay open.
+
+Built as 0.13.0 for the player to try. The plugin keeps its engine on the
+heap, allocated once in `prepare`: at 1.2 MiB, four processors held by
+value in one test overflowed the 8 MiB stack. The component through the
+host (`tail-cost`, 128 frames, this machine): 615 µs a block playing (436
+before the tube: prediction 5, a third more, NOT MET -- 41 %), 27 µs
+silent; the first block 2.48 ms of its 2.67, the models built at a key's
+first press, the open risk of 10.
+
+**The silbido and the release (2026-10-02).** The player, always with
+Musette Paris, the wheel at 79 % and a quick pallet, heard a fine whistle
+through the long notes, and a cut as a note was let go with the bellows
+still pushing. Measured through the plugin's WebAssembly (`wasm-render`,
+a scratch example of the host): the cell's longitudinal modes, every c/2L
+(2.7 kHz for the F3's 64 mm), rang as narrow bands up to 20 kHz, the three
+detuned reeds' harmonics beating in them. In turn:
+- The hole's outer end radiates: its end correction's air beside ρc/A
+  (the classic piston approximation), so the cell's high modes lose energy
+  through the hole. −2 to −5 dB on the bands; heard as "a little better".
+- The slot's far side the same, ρc/S_slot beside the near field's mass:
+  0-3 dB, kept for the same physics. The slot's flow no longer carries a
+  mass of its own, so the near-field flip of the first squeal cannot
+  return.
+- A continuous slot, the cell's volume halved (real cells are as deep as
+  the tip's swing, a Soviet maker's text), and wall losses: none helped
+  without dulling the tone; the first was heard as "it takes the
+  brightness", the second made the bands stronger. Not kept.
+- The source: the pulse. With the tongue's rest shape the mode's, every
+  element crossed the plate at once and cut the flow in microseconds. A
+  technician's set -- two thirds flat, the last third curving up -- closes
+  the slot from the rivet toward the tip: −8 to −16 dB on the bands, −2 to
+  −3 in 2-5 kHz, as the IfM found a gap opening toward the tip lowering
+  the upper partials. Kept (0.13.1); heard as better, "some brightness
+  lost".
+- The release: no click is added; the hole stayed whole until the pad
+  seated and then the tone stopped. Pallet Closing Time 30 ms by ear
+  (0.13.2). The curtain's slit is viscous, Poiseuille's 12μw/(g³R)
+  (0.13.3). And its air has mass, ρw/A, which grows as the pad comes down
+  (Tonon's k, higher with the pallet near). Against FreePats' Hohner
+  releases (CC0, 17 notes; a D4 fades −1, −4, −8, −11 dB at 10-40 ms, −10
+  dB taking 30-140 ms across them) the model's D4 now fades −1, −8, −22,
+  −28 dB: no longer a cut. The part-open pallet's bend came back to −27
+  cents (measured 15-35), its test passing again; the F4's finger attack
+  117 and 72 ms.
+
+Open: the onset at threshold heard as a blow; the first new chord's block
+over its deadline (3.4 ms of 2.67); the fingerprints.
+
+**No velocity (2026-10-02).** The player: "sometimes the strength drops as
+I play, as if it ran out of air -- when I play a note softly; accordions'
+keys have no velocity", and the wheel is for that. Until then key velocity
+set the push while no controller had spoken, and a controller speaks only
+when it moves: a wheel left at 79 % since the plugin was built had never
+spoken, so each soft note took the air from the whole instrument. Now
+velocity moves nothing; the bellows rests at 300 Pa (the defaults' push
+for the IfM's playing pressure) until the wheel or Expression moves, and
+the plugin carries the bellows into every engine it builds again. Bellows
+Smoothing, which only smoothed velocity's push, is retired.
+
+Found running the suite after the day's changes, not caused by this one:
+the 16′ C2's attack at 400 Pa is 391 ms (50-140 measured; 130 in 8e), and
+the 16′ C's threshold 21 Pa (under 20 asked). Open.
+
+**The slow bass (2026-10-02).** Turning off each of the day's changes in
+turn (`coupling_probe.rs`, `the_bass_attack_against_the_kick`): the set's
+shape alone slowed the 16′ C2 (391 ms at 400 Pa; 79 with the mode's shape
+at Attack Kick 1). Two thirds flat left a low tongue's slot all but shut at
+rest. The player chose a third flat and Attack Kick 0.5: retuned, the 16′
+C2 attacks in 143 ms, A2-B2 in 84-101 (Llanos 70-100), the 16′ thresholds
+9-10 Pa; the F4 58 ms at 100 Pa and 46 at 400; the part-open pallet −16
+cents. Pallet Closing Time back to 10 ms by ear (30 set the closing's
+sound apart).
+
+**The grille (2026-10-02).** The player's thought: the closing's sound may
+be right, its reaching the microphone so strongly not. The stage sends
+each hole's radiation straight to the capsules. No measurement of a treble
+grille's transmission was found; Richter (IfM Zwota, the summary page)
+writes that through the open grille the highs radiate "unhindered", his
+closed dome reinforcing ~500 Hz, and no accordion's directivity is
+measured. A grille filter would be invented, and would dull every note.
+Measured instead, at half a millisecond: at 10 and at 30 ms the highs stay
+whole to the pad's seat and then fall 65 dB in 1.5 ms -- the closing's
+sound -- where the Hohner's releases fade over ~40 ms. Open.
+
+**The pad's seating (2026-10-02).** The pallet came down at constant speed,
+the felt only shaping its curtain over the last tenth of the travel -- a
+millisecond at 10 ms -- and that last tenth is where the tone is shut off.
+Now the pad slows on its felt, e^(-t/τ), Pad Seating (a new parameter,
+voiced against a measurement). On FreePats' Hohner releases the steepest
+fall above 3 kHz in any 1.5 ms is −6 to −23 dB (median −12; D4 −17); here
+the D4 fell −49 dB, and at τ = 12 ms −16. The whole fade stays quicker than
+the Hohner's (−10 dB at 10 ms against −1): Pallet Closing Time is 10 ms, the
+player's choice.

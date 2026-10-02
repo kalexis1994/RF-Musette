@@ -23,7 +23,7 @@ pub const HELP: &[(&str, &str)] = &[
     ),
     (
         "mod_wheel",
-        "What the modulation wheel does. Pressure: how hard the bellows is pushed. Bellows: where the bellows is -- moving the wheel moves the air, up opens and down closes, and a still wheel is a still bellows.",
+        "The modulation wheel is how hard the bellows is pushed.",
     ),
     (
         "bellows_direction",
@@ -39,11 +39,11 @@ pub const HELP: &[(&str, &str)] = &[
     ),
     (
         "bellows_travel",
-        "How much air the bellows holds in one direction: with Auto Reverse, how long it plays before turning; with the wheel as the bellows, how much air the wheel's whole range moves.",
+        "How much air the bellows holds in one direction: with Auto Reverse, how long it plays before turning.",
     ),
     (
         "bellows_smoothing",
-        "How gently the bellows follows key velocity when no bellows controller is used: higher is smoother.",
+        "Retired: key velocity no longer moves the bellows, so there is nothing to smooth.",
     ),
     ("gain", "The output level."),
     (
@@ -222,6 +222,10 @@ pub const HELP: &[(&str, &str)] = &[
     (
         "pallet_closing",
         "How quickly a key's pad closes: shorter is a quicker release.",
+    ),
+    (
+        "pad_seating",
+        "How gently the pad settles on its felt at the end of a release: longer fades the note out, shorter cuts it.",
     ),
     (
         "cassotto_resonance",

@@ -301,6 +301,15 @@ opens in 50 ms, the time Llanos-Vázquez's thesis gives for a normal finger
 attack (p164). A key held part-way holds the pallet part-way open
 (`Engine::press`); no MIDI control is mapped to it yet.
 
+**The seat (8k; voiced).** The pad comes down onto felt and leather: over
+the last tenth of the lift (`pallet::FELT`) the curtain goes as
+2p²/F − p³/F², to nothing with no slope at the seat, so the flow's fall
+ends without a corner -- a corner there was a step in its rate of change,
+what radiates, and a click at every release. Taken only as the pad comes
+down (the key up): on the way up the same law slowed every attack, which
+8h voiced with the curtain as it was. The felt is there both ways; this is
+a choice, stated as one.
+
 **The bend emerges.** Nothing about pitch is written into the pallet. Held
 part-way open at 300 Pa, it lowers the pitch monotonically -- −0.7 cents at
 60 % of the lift, −4.7 at 30 %, −15.1 at 20 % (with a 10 ms opening;
@@ -316,56 +325,42 @@ volume flow, and the tongue's own radiation is negligible. Ricot finds a
 bare reed dipole-dominated because the flow leaving one face enters from the
 other; in an accordion the other face is inside the bellows.
 
+**Through the bellows (8k; voiced).** That other face is heard too, faintly:
+the tongue moves air into the bellows with its own face, S_r ζ', and that
+reaches the listener through the bellows' walls. Through a wall under the
+mass law the pressure outside follows the volume velocity itself, so the
+path is `INSIDE_RATE` × S_r ζ' (where the hole's is u_h'), high-passed at
+60 Hz, below which the walls hold. Only the tongue's own motion: the jet
+already sounds through the hole, and its slow swings would come through
+as a rumble. It is what carries the tongue's ringing after the pallet has
+shut -- Roland's patent (US6946594B2) describes that ringing, and unblown
+accordion reeds ring with Q 200-400 (Nussbaumer & Agarwal 2016) -- where
+the hole alone fell silent within 12 ms. Its level, 30 dB under the hole's
+path at 400 Hz, is voiced: no transmission through an accordion's bellows
+is published.
+
 ### The bellows intent (decided)
 
-The player's intent reaches the engine as a fraction from 0 to 1: the latest
-key's velocity until Expression (CC 11, 14 bits with CC 43) arrives, then
-Expression for good. It asks `ceiling × intent^curve`, 1 kPa and 2 by
+The player's intent reaches the engine as a fraction from 0 to 1: the
+modulation wheel's or Expression's (CC 1 or 11, 14 bits with CC 33 or 43),
+whichever moved last, and until either moves the resting push, 300 Pa with
+the defaults. Key velocity moves nothing -- an accordion's keys have none
+(2026-10-02; until then the latest key's velocity set the push while no
+controller had spoken). It asks `ceiling × intent^curve`, 1 kPa and 2 by
 default (assumed: half the push is 250 Pa, inside normal play). That is the
 push the arm makes, in pascals of a still bellows: the bellows (above)
 turns it into the pressure the reeds see, or, "Stiff", it is that pressure.
 A 1 ms smoothing keeps a stepped controller from reaching the bellows as a
 step; it is numerical, not physics.
 
-### The wheel as where the bellows is (decided; constants assumed)
+### The wheel as where the bellows is (withdrawn)
 
-With Mod Wheel on Bellows (milestone 8i) the modulation wheel is the
-bellows' position, not its push: 0 shut, the top open its whole travel
-(Bellows Travel, 12 L). The arm becomes a source of flow, the wheel's speed
-times the travel, and the same air's compliance takes what the reeds and
-the vent do not:
-
-    C P′ = Q_arm − Σ Q_holes − Q_vent,    P ≤ P_ceiling (1 − u)/(1 + u/k),  u = Q_arm/(A v_max)
-
-The pressure is whatever passes that flow through what is open, up to the
-most the arm can push at that speed (Hill, as above). Turning, the flow
-out of the side drains the pressure through zero before it builds on the
-other; the direction is the wheel's, up pulling. The moving half's mass
-follows the arm's flow over the same 10 ms as the arm's hold (8e).
-
-The speed is measured from the wheel's messages, not taken as positions --
-at seven bits a step is 94 mL, a kilopascal of compression at once
-(`motion.rs`): the last two steps over the time they took when they went
-the same way, the last alone when it turned; held until the last step's
-time passes again, then no more than a step over the time since, and still
-after four intervals with no step -- or, after a step from rest, after 2 s
-with none. Assumed: a step after a rest taken over at most 0.5 s, so the
-bellows answers at once (a soft note's 188 mL/s at 12 L), and never
-measured with the step after it; a jump over a sixteenth of the range after
-a rest taken as the wheel placed; a low half within 3 ms refining its step.
-(First built with 0.2 s, and still after four of that guessed interval: a
-wheel slower than a step in 0.8 s rested before every step, and the player
-heard each step as a burst.)
-
-Measured (`tests/milestone_8i.rs`): one true 8′ at 4 steps a second,
--169 Pa, steady within ±2.3 % (the reed's own ripple; ±3.4 % with a host's
-256-frame blocks); a four-note chord at the same speed -9.3 dB; stopped,
-the note under 20 Pa 1.02 s after the last step; a shut bellows driven to
-862 Pa of a 1 kPa ceiling. An uneven hand, each interval ±20 % at random:
-±9 % typical, ±27 % at worst -- the flow such a hand moves. Slow: two steps
-a second, 68 Pa, within 3.2 dB even ±30 % uneven; one step a second, 16-30
-Pa, the true 8′'s threshold, steady when the steps are and breaking off
-when they are not, as a reed at its threshold does.
+Milestone 8i made the modulation wheel, optionally, the bellows' position
+rather than its push -- the arm a source of flow, its speed measured from
+the wheel's steps. It was withdrawn on 2026-10-01 at the player's asking:
+it did not play well. The wheel is the push (8f); its retired parameter
+keeps its place so the parameters after it keep theirs, and a state saved
+with it loads as the push.
 
 ### The microphones and the room (milestone 9b; positions and directivity assumed)
 
@@ -419,7 +414,11 @@ R = ρ|ũ₀|/(2α²S_u²) ≥ 0. Whatever R is, the step satisfies exactly
     H₁ − H₀ = h [ P u_h − M_r (ω0/Q) ζ'² − R ũ² ]      (midpoint values)
 
 so with the supply off the stored energy can only fall: passive for every
-parameter set, with no iteration. The idea -- a Bernoulli port kept
+parameter set, with no iteration. One row departs from the midpoint where
+it must (8k): the hole's, while the pallet is all but shut and the row is
+stiff (hR_p > 2M_h), is weighted θ = 1 − M_h/(hR_p) -- the trapezoid there
+flips the hole's flow at every step, a burst at the Nyquist frequency --
+and below that stiffness it is the trapezoid bit for bit. The idea -- a Bernoulli port kept
 dissipative by construction, solved linearly -- is Darabundit & Scavone's for
 a clarinet reed (*Frontiers in Signal Processing*, 2025); this form is
 derived here. The four midpoint unknowns reduce to a 2×2 system whose

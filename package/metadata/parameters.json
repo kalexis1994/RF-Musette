@@ -46,7 +46,7 @@
         "unit": "x"
       },
       "name": "Output Gain",
-      "order": 10,
+      "order": 8,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -410,7 +410,7 @@
       "id": "tone_hole_area",
       "index": 16,
       "kind": {
-        "default": 150.0,
+        "default": 100.0,
         "maximum": 600.0,
         "minimum": 20.0,
         "step": 1.0,
@@ -583,7 +583,7 @@
         "type": "enum"
       },
       "name": "Bellows Direction",
-      "order": 5,
+      "order": 4,
       "page": "play",
       "suggested_control": "list"
     },
@@ -629,7 +629,7 @@
         "unit": "Hz"
       },
       "name": "Tremolo",
-      "order": 11,
+      "order": 9,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -847,7 +847,7 @@
         "type": "float"
       },
       "name": "Air Valve",
-      "order": 6,
+      "order": 5,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -875,7 +875,7 @@
         "type": "enum"
       },
       "name": "Cassotto",
-      "order": 12,
+      "order": 10,
       "page": "play",
       "suggested_control": "list"
     },
@@ -898,7 +898,7 @@
         "unit": "Hz"
       },
       "name": "Cassotto Resonance",
-      "order": 7,
+      "order": 8,
       "page": "cell",
       "suggested_control": "knob"
     },
@@ -920,7 +920,7 @@
         "type": "float"
       },
       "name": "Cassotto Q",
-      "order": 8,
+      "order": 9,
       "page": "cell",
       "suggested_control": "knob"
     },
@@ -943,7 +943,7 @@
         "unit": "Hz"
       },
       "name": "Pitch A4",
-      "order": 13,
+      "order": 11,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -979,7 +979,7 @@
       "id": "attack_kick",
       "index": 38,
       "kind": {
-        "default": 1.0,
+        "default": 0.5,
         "maximum": 3.0,
         "minimum": 0.0,
         "step": 0.01,
@@ -1092,10 +1092,10 @@
     },
     {
       "flags": {
-        "advanced": false,
-        "automatable": true,
+        "advanced": true,
+        "automatable": false,
         "modulatable": false,
-        "read_only": false
+        "read_only": true
       },
       "id": "bellows_smoothing",
       "index": 42,
@@ -1109,7 +1109,7 @@
         "unit": "ms"
       },
       "name": "Bellows Smoothing",
-      "order": 9,
+      "order": 74,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -1137,7 +1137,7 @@
         "type": "enum"
       },
       "name": "Auto Reverse",
-      "order": 7,
+      "order": 6,
       "page": "play",
       "suggested_control": "list"
     },
@@ -1160,16 +1160,16 @@
         "unit": "L"
       },
       "name": "Bellows Travel",
-      "order": 8,
+      "order": 7,
       "page": "play",
       "suggested_control": "knob"
     },
     {
       "flags": {
-        "advanced": false,
-        "automatable": true,
+        "advanced": true,
+        "automatable": false,
         "modulatable": false,
-        "read_only": false
+        "read_only": true
       },
       "id": "mod_wheel",
       "index": 45,
@@ -1178,17 +1178,13 @@
           {
             "name": "Pressure",
             "value": 0
-          },
-          {
-            "name": "Bellows",
-            "value": 1
           }
         ],
         "default": 0,
         "type": "enum"
       },
       "name": "Mod Wheel",
-      "order": 4,
+      "order": 74,
       "page": "play",
       "suggested_control": "list"
     },
@@ -1831,6 +1827,29 @@
       "name": "Pattern",
       "order": 26,
       "page": "mics",
+      "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": true,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "pad_seating",
+      "index": 73,
+      "kind": {
+        "default": 12.0,
+        "maximum": 50.0,
+        "minimum": 1.0,
+        "step": 0.1,
+        "taper": "logarithmic",
+        "type": "float",
+        "unit": "ms"
+      },
+      "name": "Pad Seating",
+      "order": 7,
+      "page": "cell",
       "suggested_control": "knob"
     }
   ],

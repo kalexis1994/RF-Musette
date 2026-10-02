@@ -21,8 +21,13 @@ const CUTOFF: f64 = 0.46;
 pub struct Decimator {
     factor: usize,
     taps: [f32; MAX_TAPS],
+    /// The taps last to first, to meet the history oldest first.
+    reversed: [f32; MAX_TAPS],
     length: usize,
-    history: [f32; MAX_TAPS],
+    /// The input, newest last, written twice -- at `position` and a length
+    /// on -- so the newest `length` always lie in one run, read without a
+    /// branch per tap (milestone 10).
+    history: [f32; 2 * MAX_TAPS],
     position: usize,
     /// Consecutive zero inputs: once the whole history is zero, so is the
     /// output, without computing it.
@@ -65,11 +70,19 @@ impl Decimator {
                 *tap = (*coefficient / sum) as f32;
             }
         }
+        let mut reversed = [0.0f32; MAX_TAPS];
+        for (slot, tap) in reversed[..length]
+            .iter_mut()
+            .zip(taps[..length].iter().rev())
+        {
+            *slot = *tap;
+        }
         Self {
             factor,
             taps,
+            reversed,
             length,
-            history: [0.0; MAX_TAPS],
+            history: [0.0; 2 * MAX_TAPS],
             position: 0,
             quiet: MAX_TAPS,
         }
@@ -84,6 +97,7 @@ impl Decimator {
     pub fn decimate(&mut self, input: &[f32]) -> f32 {
         for &sample in input.iter().take(self.factor) {
             self.history[self.position] = sample;
+            self.history[self.position + self.length] = sample;
             self.position = if self.position + 1 == self.length {
                 0
             } else {
@@ -98,18 +112,30 @@ impl Decimator {
         if self.quiet >= self.length {
             return 0.0;
         }
-        // The newest sample is just behind `position`.
-        let mut sum = 0.0f32;
-        let mut index = self.position;
-        for tap in self.taps.iter().take(self.length) {
-            index = if index == 0 {
-                self.length - 1
-            } else {
-                index - 1
-            };
-            sum += tap * self.history[index];
+        // The newest sample is just behind `position` + `length`. The taps
+        // are stored newest-last too (`reversed`), so taps and samples run
+        // the same way, four sums at a time: a chain of 192 additions in one
+        // order was the filter's whole cost, and four can go side by side
+        // (WebAssembly's SIMD). Milestone 10c: the rounding differs from one
+        // sum's by parts in 10^7 of the output, and nothing feeds back.
+        let end = self.position + self.length;
+        let recent = &self.history[end - self.length..end];
+        if !self.length.is_multiple_of(4) {
+            // A factor of one: the sample itself.
+            return self.taps[..self.length]
+                .iter()
+                .zip(recent.iter().rev())
+                .fold(0.0, |sum, (tap, sample)| sum + tap * sample);
         }
-        sum
+        let mut sums = [0.0f32; 4];
+        let (taps, _) = self.reversed[..self.length].as_chunks::<4>();
+        let (samples, _) = recent.as_chunks::<4>();
+        for (tap, sample) in taps.iter().zip(samples) {
+            for lane in 0..4 {
+                sums[lane] += tap[lane] * sample[lane];
+            }
+        }
+        (sums[0] + sums[1]) + (sums[2] + sums[3])
     }
 
     /// True while the filter holds nothing but zeros.
@@ -118,7 +144,7 @@ impl Decimator {
     }
 
     pub fn reset(&mut self) {
-        self.history = [0.0; MAX_TAPS];
+        self.history = [0.0; 2 * MAX_TAPS];
         self.position = 0;
         self.quiet = MAX_TAPS;
     }

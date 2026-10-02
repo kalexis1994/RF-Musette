@@ -109,6 +109,44 @@ converted (1 Hz ≈ 4 c there).
 | Players' reports on accordionists.info and melodeon.net (2009-2025), M. Nadvesnik (accordionmaniac.com, 2018) | The registers and cassotto each style uses: open musette for French and Scottish, the true M in the cassotto for Oberkrainer, cassotto for jazz and concert | `programs.rs` | Forum posts |
 | Roland Corporation, *FR-4x Supplementary Explanation of the Reed Combinations* (2017) | The FR-4x's reed maps per register; its Accord is L, M, M+, H against the FR-3x's L, M−, M, H (ROADMAP 9e) | ROADMAP 9e | Tables rendered and read (2026-10-01) |
 
+## The instruments
+
+Read 2026-10-01 by a research agent, for milestone 9f. No inside bellows
+dimension, cell, tone hole or pallet spring is published for any class;
+what the programs take is derived from what is.
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| Hohner, spec sheets: Bravo II 48 (31 × 18.5 cm, 4.9 kg, MM), Bravo III 72 (39.4 × 18.5 cm, 7.4 kg, LMM), Atlantic IV 120 (48 × 18.5 cm, 10 kg), Morino V 120 (49 × 22 cm, 12.4 kg, five voices, cassotto) | Body sizes by class, the bellows' cross-section from them less ~3 cm of fold (derived); voices by size | `programs.rs`, Instruments | Web pages |
+| Paolo Soprani, spec sheets: Professionale 37 III 37/96 (43 × 19 cm, 8 kg), 41/120 (46 × 20 cm, 9.5 kg); sellers' listings of the 37/80 (LMM or two voices, 7.5-8.5 kg, no cassotto, "Italian tremolo tuning") | The Italian 80-bass: size, voices, no cassotto, its tremolo | `programs.rs`, Italian 80-Bass | Web pages |
+| Accordion Revival (technician), the drop test; accordionists.info | The open bellows closing under its own weight, keys up: 70 s tight, 35 s typical, 20 s leaky -- leaks of ≈ 10-15, 25-35, 50 mm² as an orifice (derived) | `programs.rs`, the leaks | Web pages, forum |
+| Liberty Bellows, tremolo chart | 4 Hz / 15 cents "standard, German, Italian", 6 Hz "old Italian", 2.5 Hz "American" | `programs.rs`, the tremolos | Web page |
+| McNeela Music (blog) | The same force on a smaller bellows makes more pressure: the ceiling as the arm's force over the area (derived) | `programs.rs`, the ceilings | Web page |
+| N. Misdariis, D. Ricot, R. Caussé, IRCAM (2000) | A middle reed played between 10 and 300 Pa, some 40 dB of dynamics: the default ceiling, 1 kPa, is ~3 times a real fortissimo (an open question, ROADMAP 9f) | -- | In full |
+
+## The cell
+
+Read 2026-10-01 by a research agent, for milestone 8l.
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| A. Elejalde-García, J. Macho-Stadler, R. Llanos-Vázquez, "Accordion acoustics", *Acoustics in Practice* AiP-2021-02 (Fig. 1, 4a) | A concert accordion's A4, one 8′ reed outside the cassotto at 50 cm: harmonics within −1 to −21 dB of the fundamental to ~4.8 kHz, −25 to −40 dB to 10 kHz; the model's F4 10-20 dB under that from 3.5 to 9 kHz | ROADMAP 8l | In full |
+| G. Tonon, "Reed cavity design and resonance", *PICA* 2 (2005) | A cell is a lumped volume only while every dimension is under ~0.15 of a wavelength -- a 50 mm cell, under ~1 kHz; above, a tube | ROADMAP 8l | In full |
+| R. Llanos-Vázquez et al., *Acta Acustica united with Acustica* 100 (2014) | Spectral centroids of accordion notes, and the cassotto's darkening (~0.8 kHz of centroid at A4) | ROADMAP 8l | In full |
+| J. Cottingham, ICA 2016 (paper 748); Coyle, Behrens & Cottingham, JASA 126 (2009), abstract | A reed's chamber changes its threshold pressures; no spectra | ROADMAP 8l | In full / abstract |
+
+## The release
+
+Read 2026-10-01 by a research agent, for milestone 8k. No measurement of an
+accordion note's release is published.
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| L. Bruti, D. Cuccu, M. Gaetani (Roland Europe), US6946594B2 / EP1258861B1 (2001) | The reed rings on after its valve shuts, "metallic and partially distorted", fading exponentially, louder for low reeds and higher pressure; the valve's closing noise modelled apart | MODEL.md, Radiation | Patent text |
+| Roland Corporation, *FR-8x Owner's Manual* (pp. 72-76) | Valve noise and a release parameter in Roland's own model: an audible tail is its default | ROADMAP 8k | Manual |
+| R. Nussbaumer, A. Agarwal, "Aeroacoustics of free reeds", ICA 2016 (§4.1, pp. 2, 6, 8-9) | Accordion reed plates ring with Q 200-400 unblown; blown, a reed radiates as the monopole of its pulsing flow, plucked without air as a far weaker dipole | MODEL.md, Radiation | In full |
+| Accordion technicians and players on accordionists.info (2009-2025); Shure, "Eight ways to mic an accordion" | The release "clack" in the pallet's felt and leather; internal microphones take it, distant ones hardly | `pallet::FELT` | Forum posts, web page |
+
 ## The surface
 
 | Work | What RF-Musette takes from it | Where | Read |
@@ -131,3 +169,11 @@ the reference-recording survey (TinySOL, IRCAM).
 | J. P. Cottingham, C. H. Reed, M. Busha, "Variation of frequency with blowing pressure for an air-driven free reed", Collected Papers of the 137th ASA / Forum Acusticum (Berlin, 1999) | The one direct measurement of a free reed's growth coefficient against pressure (Fig. 4, read off: a C3 reed-organ reed, negative below ~0.1 kPa, 4.5/s at 0.3, 8.3/s at 0.5, 11.5/s near 1 kPa, falling beyond), which refutes 7b's premise | ROADMAP 8c; MODEL.md | Full text, figure rendered and read (2026-10-01) |
 | S. Puranik, G. Scavone, "Clamped-bar free reeds", Forum Acusticum 2023 | A harmonium B5's onset on a vibrometer trace, 20-25/s (Fig. 6, read off by a research agent) | ROADMAP 8c | Full text, read by a research agent |
 | R. Llanos-Vázquez, M. J. Elejalde-García, E. Macho-Stadler, A. Agos-Esparza, "Physical and Psychoacoustic Characterization of the Different Types of Attacks on the Accordion", Acta Acustica 100 (2014) 375-384 | Table I (p378): the first harmonic's finger and bellows attack times, p and mf, A2-B6, the 8′ of the right manual; the onset to −50 dB left out of the metric, and the technical literature's "low-pitch reeds need a certain time to respond" counted from the trigger (p377) | `tests/bass_diagnosis.rs`, `tests/milestone_8c.rs` | Full text (DAEL) |
+
+## Milestone 8m's reference and testimony
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| FreePats, "Button Accordion HN" (Hohner, recorded by J. Stauffer, 2023; CC0), github.com/freepats/button-accordion-HN | The 17 release samples' fades: −10 dB in 30-140 ms; the D4 −1, −4, −8, −11 dB at 10-40 ms. A diatonic instrument, mic and room undocumented: the fade's shape, not its numbers | ROADMAP 8m; `reed.rs` (the curtain's mass) | Audio analysed |
+| tcabot and dak, "A question about reed profiles", accordionists.info | The set's shape: two thirds of the tongue in line with the slot, the last third curving up; and the opposite view, a tongue closing the slot along its whole length | `reed.rs` (`set_shape`) | Forum thread |
+| Unattributed Soviet textbook, ch. 7, reprinted at poigarmonika.ru ("Типовые наборы голосовых планок и размеры входных камер") | A plate as thick as the tip's swing; a cell's least depth a little more; cells designed by Helmholtz away from dissonant overtones | ROADMAP 8m | Text read; its tables are not reproduced |

@@ -17,6 +17,19 @@ use crate::math;
 /// Length over width of the tone hole: assumed.
 pub const HOLE_ASPECT: f64 = 4.0;
 
+/// The pad's felt and leather, as a share of the full lift (8k). Within it
+/// the pad is not clear of the rim: the felt and the leather it presses
+/// give way, and what passes shrinks smoothly to nothing at the seat
+/// rather than in proportion to the lift down to a corner. A corner there
+/// ended the flow's fall with a corner too, and its rate of change -- what
+/// radiates -- with a step: a click at every release. Voiced: no pad's
+/// compression is published; technicians put the release's sound in this
+/// felt. Taken only as the pad comes down to the seat, the key let go: on
+/// the felt both ways it slowed every attack, which 8h voiced with the
+/// curtain as it was -- the felt is there both ways, and this is a choice,
+/// not the physics.
+pub const FELT: f64 = 0.1;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PalletDesign {
     /// The pallet's lift when the key is fully down, m.
@@ -25,7 +38,14 @@ pub struct PalletDesign {
     pub opening_time: f64,
     /// Seconds from fully open to closed.
     pub closing_time: f64,
+    /// The time constant, s, with which the pad slows on its felt as it
+    /// comes down to the seat (milestone 8m).
+    pub seating_time: f64,
 }
+
+/// Where the pad is taken as seated, as a share of [`FELT`]: its curtain then
+/// 2·10⁻⁶ of the felt's, and the slit's viscosity has long shut the flow.
+const SEATED: f64 = 1.0e-3;
 
 /// A pallet's position: how far it is lifted, as a fraction of its full
 /// lift, and where the key is taking it.
@@ -46,15 +66,28 @@ impl Pallet {
         };
     }
 
-    /// Moves the pallet by one step of `h` seconds, at constant speed.
+    /// Moves the pallet by one step of `h` seconds, at constant speed --
+    /// except as the pad comes down onto its felt, the key let go: there the
+    /// felt and the leather give way under it and it slows, approaching the
+    /// seat as e^(-t/τ) with the seating time τ (milestone 8m). That last
+    /// tenth is where the tone is shut off; at constant speed it took a
+    /// millisecond, and the note's highs fell 65 dB in 1.5 ms where a real
+    /// accordion's fade over tens of milliseconds.
     #[inline]
     pub fn advance(&mut self, design: &PalletDesign, h: f64) {
         if self.position < self.target {
             let step = h / design.opening_time.max(1e-6);
             self.position = (self.position + step).min(self.target);
         } else if self.position > self.target {
-            let step = h / design.closing_time.max(1e-6);
-            self.position = (self.position - step).max(self.target);
+            if self.target <= 0.0 && self.position <= FELT && design.seating_time > 0.0 {
+                self.position *= math::exp(-h / design.seating_time);
+                if self.position < FELT * SEATED {
+                    self.position = 0.0;
+                }
+            } else {
+                let step = h / design.closing_time.max(1e-6);
+                self.position = (self.position - step).max(self.target);
+            }
         }
     }
 
@@ -65,10 +98,27 @@ impl Pallet {
     /// The curtain's area, m², for a tone hole of `hole_area` m².
     #[inline]
     pub fn area(&self, design: &PalletDesign, hole_area: f64) -> f64 {
+        self.area_by_rim(design, hole_area, rim(hole_area))
+    }
+
+    /// The same, for a hole whose [`rim`] is already known: the engine keeps
+    /// each reed's with its model rather than take a square root at every
+    /// step (milestone 10).
+    #[inline]
+    pub fn area_by_rim(&self, design: &PalletDesign, hole_area: f64, rim: f64) -> f64 {
         if self.position <= 0.0 {
             return 0.0;
         }
-        (rim(hole_area) * design.lift * self.position).min(hole_area)
+        // On the felt the curtain goes as 2p²/FELT - p³/FELT²: nothing and
+        // no slope at the seat, and the lift's own curtain, slope and all,
+        // where the felt ends.
+        let lift = if self.position < FELT && self.target <= 0.0 {
+            let x = self.position / FELT;
+            self.position * x * (2.0 - x)
+        } else {
+            self.position
+        };
+        (rim * design.lift * lift).min(hole_area)
     }
 }
 
@@ -87,6 +137,7 @@ mod tests {
         lift: 3.0e-3,
         opening_time: 0.01,
         closing_time: 0.02,
+        seating_time: 0.001,
     };
 
     #[test]
@@ -108,10 +159,38 @@ mod tests {
         }
         assert!((pallet.position - 0.3).abs() < 1e-12, "held part-way");
         pallet.press(0.0);
-        for _ in 0..1000 {
+        // 4 ms down to the felt, then ln(1000) seating times to the seat.
+        for _ in 0..1200 {
             pallet.advance(&DESIGN, 1.0e-5);
         }
         assert!(pallet.is_closed());
+    }
+
+    #[test]
+    fn the_pad_slows_on_its_felt_and_seats() {
+        let mut pallet = Pallet {
+            position: FELT,
+            target: 0.0,
+        };
+        // One seating time on the felt: e⁻¹ of the way left.
+        for _ in 0..100 {
+            pallet.advance(&DESIGN, 1.0e-5);
+        }
+        assert!(
+            (pallet.position / FELT - (-1.0f64).exp()).abs() < 1e-9,
+            "{}",
+            pallet.position / FELT
+        );
+        // Opening, it does not slow: the felt gives way only coming down.
+        pallet.press(1.0);
+        let before = pallet.position;
+        pallet.advance(&DESIGN, 1.0e-5);
+        assert!((pallet.position - before - 1.0e-3).abs() < 1e-12);
+        pallet.press(0.0);
+        for _ in 0..2000 {
+            pallet.advance(&DESIGN, 1.0e-5);
+        }
+        assert!(pallet.is_closed(), "seated, not approaching for ever");
     }
 
     #[test]

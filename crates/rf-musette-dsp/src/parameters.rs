@@ -128,8 +128,9 @@ pub const SPACED_SPACING: usize = 69;
 pub const SPACED_PATTERN: usize = 70;
 pub const SINGLE_DISTANCE: usize = 71;
 pub const SINGLE_PATTERN: usize = 72;
+pub const PAD_SEATING: usize = 73;
 
-pub const COUNT: usize = 73;
+pub const COUNT: usize = 74;
 
 /// The pressure below which the air is too weak to push a tongue into its
 /// frame at a key's opening, Pa: half the start is reached here. Assumed, of
@@ -140,10 +141,10 @@ pub const KICK_PRESSURE: f64 = 20.0;
 pub const ARM: f64 = 0.0;
 pub const STIFF: f64 = 1.0;
 
-/// [`MOD_WHEEL`]'s values: the wheel as the push (milestone 8f), or as where
-/// the bellows is (milestone 8i).
+/// [`MOD_WHEEL`]'s one value: the wheel as the push (milestone 8f). The
+/// wheel as where the bellows is (8i, its value 1) was withdrawn; a state
+/// saved with it loads as this.
 pub const WHEEL_PRESSURE: f64 = 0.0;
-pub const WHEEL_BELLOWS: f64 = 1.0;
 
 /// [`PERSPECTIVE`]'s values: whose left is left.
 pub const PLAYER: f64 = 0.0;
@@ -378,9 +379,9 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "Tone Hole Area",
         PAGE_CELL,
         "mm²",
-        (20.0, 600.0, 150.0, 1.0),
+        (20.0, 600.0, 100.0, 1.0),
         Taper::Logarithmic,
-        "Assumed: the hole the cell speaks through, taken as about the slot's own area. Not published.",
+        "Reported: the hole each treble cell speaks through, in the block's foot over the pallet -- about a centimetre, round or square, the same under every key, a piccolo's some 2 mm smaller (technicians on accordionists.info, milestone 8m). Was 150 mm² scaled with the tongue, assumed.",
     ),
     spec(
         "tone_hole_depth",
@@ -425,7 +426,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "ms",
         (1.0, 100.0, 10.0, 0.1),
         Taper::Logarithmic,
-        "Assumed: fully open to closed when the key is let go, under the pallet's spring. Not published.",
+        "Assumed: fully open to closed when the key is let go, under the pallet's spring. Not published. 10 ms, chosen by ear: tried at 30 (2026-10-02), the closing's sound stood further apart from the note.",
     ),
     spec(
         "swing_limit",
@@ -587,9 +588,9 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "Attack Kick",
         PAGE_REED,
         "",
-        (0.0, 3.0, 1.0, 0.01),
+        (0.0, 3.0, 0.5, 0.01),
         Taper::Linear,
-        "Voiced, standing on a measurement: when a key opens, each reed the bellows blows starts this many times its set into the frame, scaled by P/(P + 20 Pa). Cottingham (ICA 2019): the motion of a free reed \"begins with an initial displacement of the reed tongue into the reed frame\". At 1 the finger attack meets Llanos-Vázquez et al.'s measured 50-140 ms at p and mf, which nothing derived in the model reaches (docs/ROADMAP.md, 7b). At 0 the start is as derived.",
+        "Voiced, standing on a measurement: when a key opens, each reed the bellows blows starts this many times its set into the frame, scaled by P/(P + 20 Pa). Cottingham (ICA 2019): the motion of a free reed \"begins with an initial displacement of the reed tongue into the reed frame\". Voiced to Llanos-Vázquez et al.'s measured finger attack, 50-140 ms at p and mf: 1 with the cell a volume (docs/ROADMAP.md, 7b); 0.3, chosen by ear, once the cell was a tube (8m); 0.5 with the set a third flat (2026-10-02), between the F4, 58 ms at 100 Pa and 46 at 400, and the 16′ C2, 207 ms at 400 Pa -- no one start meets both, the F4 wanting less and the bass more. At 0 the start is as derived.",
     ),
     choice(
         "bass_register",
@@ -631,7 +632,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "ms",
         (0.0, 1000.0, 150.0, 1.0),
         Taper::Linear,
-        "Decided 2026-10-01 (milestone 8f), voiced by ear: when key velocity sets the push, the push moves to each new strike's over this time, first order, not at once -- an arm does not jump. A modulation wheel or an expression pedal is the player's hand already, and the bellows follows it as it comes.",
+        "Retired 2026-10-02: key velocity no longer moves the bellows (an accordion's keys have none), so nothing is smoothed. Kept so saved states load. Was (milestone 8f): when key velocity set the push, the push moved to each new strike's over this time.",
     ),
     choice(
         "auto_reverse",
@@ -648,15 +649,15 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "L",
         (2.0, 40.0, 12.0, 0.1),
         Taper::Logarithmic,
-        "Assumed, voiced by ear: the air the bellows gives in one direction before it must turn, when Auto Reverse is on, and the air the modulation wheel's whole range moves when it is the bellows. A full-size bellows' 600 cm² over some 20 cm of the stroke a player uses.",
+        "Assumed, voiced by ear: the air the bellows gives in one direction before it must turn, when Auto Reverse is on. A full-size bellows' 600 cm² over some 20 cm of the stroke a player uses.",
     ),
     choice(
         "mod_wheel",
         "Mod Wheel",
         PAGE_PLAY,
-        &[(0, "Pressure"), (1, "Bellows")],
+        &[(0, "Pressure")],
         0,
-        "Decided 2026-10-01 (milestone 8i), at the player's asking: what the modulation wheel is. Pressure: how hard the arm pushes (milestone 8f). Bellows: where the bellows is, 0 shut and 127 open its whole travel -- moving the wheel moves the air, up opening (pull) and down closing (push), and a wheel standing still holds the bellows still.",
+        "Retired 2026-10-01, kept so the parameters after it keep their places: the modulation wheel is how hard the arm pushes (milestone 8f). It could also be where the bellows is (milestone 8i, the value 1), which was withdrawn at the player's asking: it did not play well.",
     ),
     choice(
         "mic_layout",
@@ -907,6 +908,15 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Linear,
         "Assumed, voiced by ear: the capsules' pattern, from omni (0) through cardioid (0.5) and supercardioid (~0.63) to figure-of-eight (1).",
     ),
+    spec(
+        "pad_seating",
+        "Pad Seating",
+        PAGE_CELL,
+        "ms",
+        (1.0, 50.0, 12.0, 0.1),
+        Taper::Logarithmic,
+        "Voiced against a measurement (2026-10-02): the time constant with which the pad, on its felt and leather, slows to the seat once a key is let go -- the last tenth of the pallet's travel, which is where the tone is shut off. No pad's compression is published. Measured instead on FreePats' Hohner releases (CC0, 17 notes): the steepest fall of the band above 3 kHz in any 1.5 ms is −6 to −23 dB, median −12, the D4 −17. A pad at constant speed made it −49 dB (the closing's sound); at 12 ms the D4 here is −16 (8 ms −20, 24 ms −13).",
+    ),
 ];
 
 /// The air button's opening when fully pressed, m²: assumed.
@@ -1105,11 +1115,6 @@ impl Parameters {
         }
     }
 
-    /// Whether the modulation wheel is where the bellows is.
-    pub fn wheel_is_bellows(&self) -> bool {
-        self.values[MOD_WHEEL] == WHEEL_BELLOWS
-    }
-
     /// The air the bellows gives in one direction, m³.
     pub fn travel(&self) -> f64 {
         self.values[BELLOWS_TRAVEL] * 1.0e-3
@@ -1221,6 +1226,7 @@ impl Parameters {
             lift: self.values[PALLET_LIFT] * 1.0e-3,
             opening_time: self.values[PALLET_OPENING] * 1.0e-3,
             closing_time: self.values[PALLET_CLOSING] * 1.0e-3,
+            seating_time: self.values[PAD_SEATING] * 1.0e-3,
         }
     }
 }

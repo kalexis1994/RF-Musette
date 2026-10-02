@@ -3,35 +3,41 @@
 //! A real accordion has one bellows for every reed, and the key only opens a
 //! pallet: how loud, how bright and how far the pitch sags all come from the
 //! pressure the player's arm puts in it (see `docs/RESEARCH.md`). A MIDI
-//! keyboard has no bellows, so the player's intent arrives one of two ways,
-//! decided on 2026-09-30:
+//! keyboard has no bellows, so the player's intent arrives through a
+//! controller, and only through one:
 //!
-//! * with no bellows controller, each key's velocity sets the push for what
-//!   follows -- the bellows is shared, so the latest strike wins;
-//! * once Expression (CC 11) arrives -- an expression pedal, or a digital
-//!   accordion's bellows, which is what Roland's FR-series sends -- it takes
-//!   the bellows over for good and velocity stops moving it. CC 43 carries
-//!   its low seven bits when the controller has them. The modulation wheel
-//!   (CC 1, CC 33) does the same (decided 2026-10-01, milestone 8f): an
+//! * the modulation wheel (CC 1, CC 33; decided 2026-10-01, milestone 8f): an
 //!   accordion has no vibrato control, and a keyboard player's free hand on
-//!   the wheel is the arm on the bellows. Of the two, the last moved leads.
-//! * with Mod Wheel set to Bellows (milestone 8i), the wheel is where the
-//!   bellows is instead, and its motion moves the air: the engine measures
-//!   it, and while it leads the intent here is not read.
+//!   the wheel is the arm on the bellows;
+//! * Expression (CC 11, CC 43 its low seven bits) -- an expression pedal, or
+//!   a digital accordion's bellows, which is what Roland's FR-series sends.
+//!
+//! Of the two, the last moved leads. Until either speaks the bellows rests at
+//! [`RESTING_PUSH`]. Key velocity never moves it: an accordion's keys have
+//! none (the player, 2026-10-02 -- until then velocity set the push while no
+//! controller had spoken, and a soft note took the air from the whole
+//! instrument whenever the wheel had not been moved since the plugin was
+//! built). (Milestone 8i made the wheel, optionally, where the bellows is; it
+//! was withdrawn, docs/ROADMAP.md 8i.)
 //!
 //! The intent is a fraction of the instrument's range, not a pressure. Which
 //! pressure in pascals a given intent means belongs to the model, and is
 //! stated in `docs/MODEL.md` when the reed exists to be driven by it.
 
+/// The push the bellows rests at until a controller speaks: 300 Pa with the
+/// default ceiling (1 kPa) and curve (2), the IfM Zwota's playing pressure,
+/// at which the reeds are tuned.
+pub const RESTING_PUSH: f32 = 0.547_722_6;
+
 /// Where the bellows intent is coming from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BellowsSource {
-    /// No bellows controller has spoken: key velocity sets the push.
-    Velocity,
-    /// Expression (CC 11, with CC 43 as its low bits) owns the bellows.
+    /// No bellows controller has spoken: the bellows rests at
+    /// [`RESTING_PUSH`].
+    Resting,
+    /// The wheel or Expression (CC 1 or 11, with CC 33 or 43 as the low
+    /// bits) owns the bellows.
     Expression,
-    /// The wheel, as where the bellows is, owns it (milestone 8i).
-    Motion,
 }
 
 /// The player's bellows intent, from 0 (no push) to 1 (the instrument's
@@ -51,11 +57,11 @@ impl Default for Bellows {
 }
 
 impl Bellows {
-    /// Nothing pushed, and no controller heard yet.
+    /// Resting at [`RESTING_PUSH`], no controller heard yet.
     pub const fn new() -> Self {
         Self {
-            source: BellowsSource::Velocity,
-            intent: 0.0,
+            source: BellowsSource::Resting,
+            intent: RESTING_PUSH,
             msb: 0,
             lsb: 0,
         }
@@ -67,14 +73,6 @@ impl Bellows {
 
     pub fn intent(&self) -> f32 {
         self.intent
-    }
-
-    /// A key was struck at `velocity` (0..=1). It moves the bellows only
-    /// while no Expression controller has taken it over.
-    pub fn strike(&mut self, velocity: f32) {
-        if self.source == BellowsSource::Velocity && velocity.is_finite() {
-            self.intent = velocity.clamp(0.0, 1.0);
-        }
     }
 
     /// Expression's high seven bits (CC 11). As the MIDI 1.0 specification
@@ -108,19 +106,6 @@ impl Bellows {
         self.lsb = (fourteen & 0x7f) as u8;
     }
 
-    /// The wheel, moved as the bellows, takes it over.
-    pub fn take_by_motion(&mut self) {
-        self.source = BellowsSource::Motion;
-    }
-
-    /// The wheel is no longer the bellows: velocity sets the push again,
-    /// until a controller speaks.
-    pub fn release_motion(&mut self) {
-        if self.source == BellowsSource::Motion {
-            self.source = BellowsSource::Velocity;
-        }
-    }
-
     fn fourteen_bit(&self) -> f32 {
         f32::from(u16::from(self.msb) << 7 | u16::from(self.lsb)) / 16383.0
     }
@@ -131,25 +116,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn velocity_sets_the_push_until_a_controller_speaks() {
-        let mut bellows = Bellows::new();
-        assert_eq!(bellows.source(), BellowsSource::Velocity);
-        assert_eq!(bellows.intent(), 0.0);
-        bellows.strike(0.5);
-        assert_eq!(bellows.intent(), 0.5);
-        bellows.strike(0.25);
-        assert_eq!(bellows.intent(), 0.25, "the latest strike wins");
+    fn the_bellows_rests_at_300_pa_until_a_controller_speaks() {
+        let bellows = Bellows::new();
+        assert_eq!(bellows.source(), BellowsSource::Resting);
+        // The default ceiling and curve: 1 kPa times the intent squared.
+        let pressure = 1000.0 * f64::from(bellows.intent()).powi(2);
+        assert!((pressure - 300.0).abs() < 0.01, "{pressure} Pa");
     }
 
     #[test]
-    fn expression_takes_the_bellows_over_for_good() {
+    fn a_controller_takes_the_bellows_over() {
         let mut bellows = Bellows::new();
-        bellows.strike(0.9);
         bellows.expression_msb(0);
         assert_eq!(bellows.source(), BellowsSource::Expression);
         assert_eq!(bellows.intent(), 0.0);
-        bellows.strike(1.0);
-        assert_eq!(bellows.intent(), 0.0, "velocity no longer moves it");
     }
 
     #[test]
@@ -168,32 +148,11 @@ mod tests {
     }
 
     #[test]
-    fn the_wheel_as_bellows_leads_until_expression_moves() {
-        let mut bellows = Bellows::new();
-        bellows.take_by_motion();
-        assert_eq!(bellows.source(), BellowsSource::Motion);
-        bellows.strike(1.0);
-        assert_eq!(bellows.intent(), 0.0, "velocity does not move it");
-        bellows.expression_msb(100);
-        assert_eq!(bellows.source(), BellowsSource::Expression);
-        bellows.release_motion();
-        assert_eq!(
-            bellows.source(),
-            BellowsSource::Expression,
-            "only the wheel's own"
-        );
-        bellows.take_by_motion();
-        bellows.release_motion();
-        assert_eq!(bellows.source(), BellowsSource::Velocity);
-    }
-
-    #[test]
     fn a_low_half_alone_is_ignored() {
         let mut bellows = Bellows::new();
-        bellows.strike(0.3);
         bellows.expression_lsb(100);
-        assert_eq!(bellows.source(), BellowsSource::Velocity);
-        assert_eq!(bellows.intent(), 0.3);
+        assert_eq!(bellows.source(), BellowsSource::Resting);
+        assert_eq!(bellows.intent(), RESTING_PUSH);
     }
 
     #[test]

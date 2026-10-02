@@ -48,13 +48,13 @@ fn prepare_accepts_only_what_the_component_was_exported_for() {
 }
 
 #[test]
-fn velocity_drives_the_bellows_until_expression_takes_it() {
+fn velocity_never_moves_the_bellows_and_a_controller_does() {
     let mut plugin = prepared();
     run(&mut plugin, &[midi(0, [0x90, 69, 64])], &[]);
     let engine = plugin.engine().unwrap();
     assert!(engine.is_held(69));
-    assert_eq!(engine.bellows().source(), BellowsSource::Velocity);
-    assert_eq!(engine.bellows().intent(), 64.0 / 127.0);
+    assert_eq!(engine.bellows().source(), BellowsSource::Resting);
+    assert_eq!(engine.bellows().intent(), rf_musette_dsp::RESTING_PUSH);
 
     run(
         &mut plugin,
@@ -73,6 +73,13 @@ fn velocity_drives_the_bellows_until_expression_takes_it() {
         engine.is_held(72) && !engine.is_held(69),
         "velocity 0 lets a key go"
     );
+
+    // Prepared again -- a new rate, or the host's audio restarting -- the
+    // bellows stays where the controller left it.
+    assert!(plugin.prepare(44_100.0, 512, 0, 2));
+    let engine = plugin.engine().unwrap();
+    assert_eq!(engine.bellows().source(), BellowsSource::Expression);
+    assert_eq!(engine.bellows().intent(), (100.0 * 128.0 + 50.0) / 16383.0);
 }
 
 #[test]
@@ -167,64 +174,25 @@ fn the_wheel_is_the_bellows() {
     assert!(out.iter().all(|x| *x == 0.0), "a sound with the wheel down");
 }
 
-/// Milestone 8i: with Mod Wheel on Bellows, the wheel -- 7-bit, 14-bit or
-/// MIDI 2.0 -- is where the bellows is, and Expression stays the push.
+/// Milestone 8i, withdrawn: a state saved with the wheel as where the
+/// bellows is loads, and the wheel is the push, as it now always is.
 #[test]
-fn the_wheel_can_be_where_the_bellows_is() {
-    let source = |events: &[MidiEvent], wide: &[MidiEvent2]| {
-        let mut plugin = prepared();
-        assert!(Processor::set_parameter(
-            &mut plugin,
-            parameters::MOD_WHEEL as u32,
-            parameters::WHEEL_BELLOWS
-        ));
-        run(&mut plugin, events, wide);
-        plugin.engine().unwrap().bellows().source()
-    };
+fn a_state_with_the_wheel_as_the_bellows_still_loads() {
+    let plugin = prepared();
+    let mut state = vec![0; STATE_BYTES];
+    assert_eq!(plugin.save_state(&mut state), Some(STATE_BYTES));
+    let at = 12 + 8 * parameters::MOD_WHEEL;
+    state[at..at + 8].copy_from_slice(&1.0f64.to_le_bytes());
+    let mut restored = prepared();
+    assert!(restored.load_state(&state));
     assert_eq!(
-        source(&[midi(0, [0xb0, CC_MOD_WHEEL, 90])], &[]),
-        BellowsSource::Motion
+        restored.get_parameter(parameters::MOD_WHEEL as u32),
+        Some(parameters::WHEEL_PRESSURE)
     );
+    run(&mut restored, &[midi(0, [0xb0, CC_MOD_WHEEL, 90])], &[]);
     assert_eq!(
-        source(
-            &[
-                midi(0, [0xb0, CC_MOD_WHEEL, 90]),
-                midi(0, [0xb0, CC_MOD_WHEEL_LSB, 33])
-            ],
-            &[]
-        ),
-        BellowsSource::Motion
-    );
-    let wide = MidiEvent2 {
-        frame: 0,
-        kind: MIDI2_KIND_CONTROL_CHANGE,
-        channel: 0,
-        index: CC_MOD_WHEEL,
-        flags: 0,
-        value: 0x9000_0000,
-        extra: 0,
-    };
-    assert_eq!(source(&[], &[wide]), BellowsSource::Motion);
-    assert_eq!(
-        source(&[midi(0, [0xb0, CC_EXPRESSION, 90])], &[]),
+        restored.engine().unwrap().bellows().source(),
         BellowsSource::Expression
-    );
-
-    // The wheel heard and still: a key pressed, nothing sounds.
-    let mut plugin = prepared();
-    assert!(Processor::set_parameter(
-        &mut plugin,
-        parameters::MOD_WHEEL as u32,
-        parameters::WHEEL_BELLOWS
-    ));
-    let out = run(
-        &mut plugin,
-        &[midi(0, [0xb0, CC_MOD_WHEEL, 64]), midi(0, [0x90, 69, 100])],
-        &[],
-    );
-    assert!(
-        out.iter().all(|x| *x == 0.0),
-        "a sound with the wheel still"
     );
 }
 

@@ -29,24 +29,27 @@ pub struct Program {
 }
 
 /// The banks, in order: id and name.
-pub const BANKS: [(&str, &str); 3] = [
+pub const BANKS: [(&str, &str); 4] = [
     // The id kept from the research package, so sessions that recall its
     // one program still find it.
     ("research", "Factory"),
     ("styles", "Styles"),
     ("setups", "Setups"),
+    ("instruments", "Instruments"),
 ];
 
 use parameters::{
-    AUTO_REVERSE, BASS_REGISTER, BELLOWS_RESPONSE, CASSOTTO, LEFT_HAND, MIC_LAYOUT, MOD_WHEEL,
-    ORTF_DISTANCE, ORTF_HEIGHT, REGISTER, ROOM_HARDNESS, ROOM_SIZE, SINGLE_DISTANCE, SPLIT_POINT,
-    TREMOLO,
+    AUTO_REVERSE, BASS_REGISTER, BELLOWS_AREA, BELLOWS_CEILING, BELLOWS_LEAK, BELLOWS_RESPONSE,
+    BELLOWS_VOLUME, CASSOTTO, LEFT_HAND, MIC_LAYOUT, ORTF_DISTANCE, ORTF_HEIGHT, REGISTER,
+    ROOM_HARDNESS, ROOM_SIZE, SINGLE_DISTANCE, SPACED_DISTANCE, SPLIT_POINT, TREMOLO,
 };
 
 // The registers, in Roland's order.
 const BANDONEON: f64 = 1.0;
 const CELLO: f64 = 2.0;
 const HARMONIUM: f64 = 3.0;
+const ACCORDION: f64 = 5.0;
+const MASTER: f64 = 6.0;
 const MUSETTE: f64 = 8.0;
 const OBOE: f64 = 10.0;
 const CELESTE: f64 = 12.0;
@@ -266,14 +269,6 @@ pub const PROGRAMS: &[Program] = &[
         settings: &[(LEFT_HAND, 1.0), (SPLIT_POINT, 60.0)],
     },
     Program {
-        id: "wheel-bellows",
-        name: "Wheel as Bellows",
-        bank: "setups",
-        category: "Setup",
-        description: "The modulation wheel is the bellows: move it to play, up opens, down closes.",
-        settings: &[(MOD_WHEEL, parameters::WHEEL_BELLOWS)],
-    },
-    Program {
         id: "auto-bellows",
         name: "Auto Bellows",
         bank: "setups",
@@ -291,6 +286,110 @@ pub const PROGRAMS: &[Program] = &[
             (BELLOWS_RESPONSE, parameters::STIFF),
             (LEFT_HAND, 0.0),
             (BASS_REGISTER, 3.0),
+        ],
+    },
+    // The instruments (9f): other accordions by their mechanics. The
+    // bellows' cross-section from each class's body, less ~3 cm of fold;
+    // its air in proportion to the default's 12 L at 600 cm²; the leak
+    // from technicians' drop test; the ceiling the same arm's force over
+    // the area, 1 kPa at 600 cm² (docs/ROADMAP.md, 9f; SOURCES.md, "The
+    // instruments"). 15 cents of tremolo at A4 is 3.8 Hz.
+    Program {
+        id: "student-48",
+        name: "Student 48-Bass",
+        bank: "instruments",
+        category: "Instrument",
+        description: "A small 26-key, 48-bass student accordion: two middle reeds with a standard tremolo, a small bellows that runs out of air sooner and a little leaky, played in a practice room.",
+        settings: &[
+            (REGISTER, CELESTE),
+            (TREMOLO, 3.8),
+            (CASSOTTO, 0.0),
+            (BELLOWS_AREA, 430.0),
+            (BELLOWS_VOLUME, 8.6),
+            (BELLOWS_LEAK, 40.0),
+            (BELLOWS_CEILING, 1400.0),
+            (MIC_LAYOUT, SINGLE),
+            (SINGLE_DISTANCE, 0.5),
+            (ROOM_SIZE, 40.0),
+            (ROOM_HARDNESS, 0.4),
+        ],
+    },
+    Program {
+        id: "student-72",
+        name: "Student 72-Bass",
+        bank: "instruments",
+        category: "Instrument",
+        description: "A 34-key, 72-bass student accordion: bassoon and two middle reeds, a standard tremolo, a mid-sized bellows, in a practice room.",
+        settings: &[
+            (REGISTER, CELLO),
+            (TREMOLO, 3.8),
+            (CASSOTTO, 0.0),
+            (BELLOWS_AREA, 560.0),
+            (BELLOWS_VOLUME, 11.2),
+            (BELLOWS_LEAK, 30.0),
+            (BELLOWS_CEILING, 1070.0),
+            (MIC_LAYOUT, SINGLE),
+            (SINGLE_DISTANCE, 0.6),
+            (ROOM_SIZE, 60.0),
+            (ROOM_HARDNESS, 0.4),
+        ],
+    },
+    Program {
+        id: "italian-80",
+        name: "Italian 80-Bass",
+        bank: "instruments",
+        category: "Instrument",
+        description: "A 37-key, 80-bass Italian accordion, as built in Castelfidardo: bassoon and two middle reeds with an Italian tremolo, no tone chamber, a well-played bellows, in a living room.",
+        settings: &[
+            (REGISTER, CELLO),
+            (TREMOLO, 4.0),
+            (CASSOTTO, 0.0),
+            (BELLOWS_AREA, 600.0),
+            (BELLOWS_VOLUME, 12.0),
+            (BELLOWS_LEAK, 30.0),
+            (BELLOWS_CEILING, 1000.0),
+            (MIC_LAYOUT, SPACED),
+            (SPACED_DISTANCE, 1.2),
+            (ROOM_SIZE, 80.0),
+            (ROOM_HARDNESS, 0.45),
+        ],
+    },
+    Program {
+        id: "full-120",
+        name: "Full-Size 120-Bass",
+        bank: "instruments",
+        category: "Instrument",
+        description: "A full-size 41-key, 120-bass accordion: four voices, a standard tremolo, a large, tight bellows.",
+        settings: &[
+            (REGISTER, MASTER),
+            (TREMOLO, 3.8),
+            (CASSOTTO, 0.0),
+            (BELLOWS_AREA, 700.0),
+            (BELLOWS_VOLUME, 14.0),
+            (BELLOWS_LEAK, 15.0),
+            (BELLOWS_CEILING, 860.0),
+            (MIC_LAYOUT, ORTF),
+            (ROOM_SIZE, 300.0),
+            (ROOM_HARDNESS, 0.5),
+        ],
+    },
+    Program {
+        id: "cassotto-pro",
+        name: "Cassotto Professional",
+        bank: "instruments",
+        category: "Instrument",
+        description: "A professional five-voice accordion with a tone chamber: deeper and heavier, the largest bellows, built tight; bassoon and middle reeds through the cassotto.",
+        settings: &[
+            (REGISTER, ACCORDION),
+            (TREMOLO, 3.8),
+            (CASSOTTO, 1.0),
+            (BELLOWS_AREA, 880.0),
+            (BELLOWS_VOLUME, 17.6),
+            (BELLOWS_LEAK, 10.0),
+            (BELLOWS_CEILING, 680.0),
+            (MIC_LAYOUT, ORTF),
+            (ROOM_SIZE, 400.0),
+            (ROOM_HARDNESS, 0.5),
         ],
     },
 ];

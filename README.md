@@ -23,16 +23,11 @@ Stradella bass after it. Each reed is a self-oscillating free reed; the key
 only opens a pallet, and loudness, brightness and the small sag of pitch come
 from the pressure in one bellows that every reed shares.
 
-With no bellows controller, key velocity sets the push, which the arm
-reaches over Bellows Smoothing (150 ms) rather than at once; once
-Expression (CC 11, with CC 43 as its low bits) or the modulation wheel
-(CC 1, with CC 33) arrives, it drives the bellows instead -- the last moved
-leads. Digital accordions send Expression; a keyboard player can move the
-wheel as the arm, shaking it for the accordion's own vibrato. With Mod Wheel
-on Bellows the wheel is where the bellows is instead -- 0 shut, the top
-open its whole travel -- and what sounds is the wheel moving: up pulls,
-down pushes, a still wheel holds the bellows still, and a chord needs a
-faster hand than a note, as on the instrument. With Auto
+The bellows is the modulation wheel (CC 1, with CC 33 as its low bits) or
+Expression (CC 11, with CC 43) -- the last moved leads -- and rests at
+300 Pa until one of them moves. Key velocity does nothing: an accordion's
+keys have none. Digital accordions send Expression; a keyboard player moves
+the wheel as the arm, shaking it for the accordion's own vibrato. With Auto
 Reverse on, the bellows runs out after its travel (12 L) and turns on its
 own, at a gap between notes once 70 % is spent, as a player turns it. The push is the arm's: one bellows
 feeds every reed and gives way a little as more of them draw air (Bellows
@@ -71,11 +66,13 @@ its reverberation as Sabine's law does. The treble side and the bass box
 are two sources, and the bass box moves with the bellows: a stand mic
 hears it come and go; a mic on the instrument travels with it.
 
-Sixteen programs come with it: the accordion as eleven traditions tune and
+Twenty programs come with it: the accordion as eleven traditions tune and
 record it -- Paris musette, Scottish dance band, Italian, Alpine,
-Oberkrainer, Cleveland polka, American, Irish, jazz, tango, concert -- and
-setups for a 61-key keyboard, the wheel as the bellows, a bellows that turns
-by itself, and a digital accordion.
+Oberkrainer, Cleveland polka, American, Irish, jazz, tango, concert --;
+five instruments by their build -- student 48- and 72-bass, an Italian
+80-bass, a full-size 120-bass, a professional with a cassotto -- and setups
+for a 61-key keyboard, a bellows that turns by itself, and a digital
+accordion.
 
 A controller's knobs reach it by meaning: where a controller package gives a
 knob the attack, release or LFO-rate role, it turns the pallet's opening and

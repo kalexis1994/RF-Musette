@@ -1,10 +1,11 @@
-# Schema 1 uses RackForge's generic identity: a branded schema 3 package
-# follows once product artwork exists.
-schema_version = 1
+# Schema 3: the package's own identity (branding/), and `short_name` for
+# narrow controller surfaces -- ASCII, at most eight characters.
+schema_version = 3
 id = "org.rackforge.musette"
 name = "RF-Musette"
+short_name = "MUSETTE"
 vendor = "RackForge"
-version = "0.12.1"
+version = "0.13.8"
 description = "Physically modelled accordion: free reeds driven by the bellows, with no samples"
 kind = "instrument"
 state_version = 2
@@ -31,3 +32,12 @@ api_version = 1
 [[web_ui.surfaces]]
 kind = "play"
 entry = "web/play.html"
+
+# docs/PLUGIN_BRANDING.md in RackForge: 512x512, 1600x400 and 1920x1080 PNG.
+# The colours are the panel's: the red sheet's deepest and the pearl's red.
+[branding]
+icon = "branding/icon.png"
+banner = "branding/banner.png"
+splash = "branding/splash.png"
+background_color = "#26060A"
+accent_color = "#EC2634"

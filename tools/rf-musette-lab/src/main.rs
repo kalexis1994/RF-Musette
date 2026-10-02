@@ -2,6 +2,7 @@
 //! No audio device is opened and no existing file is overwritten.
 
 mod audition;
+mod midi;
 mod package;
 mod schema;
 mod score;
@@ -22,6 +23,7 @@ const HELP: &str = "RF-Musette laboratory
 Usage:
   rf-musette-lab render --output PATH.wav [options]
   rf-musette-lab inspect PATH.wav
+  rf-musette-lab midi IN.mid OUT.score   a MIDI file as a score
   rf-musette-lab schema
   rf-musette-lab tune               tunes the treble, writes the tuning table
   rf-musette-lab web-ui             builds the PLAY surface into package/web
@@ -82,6 +84,7 @@ fn dispatch(arguments: &[String]) -> Result<(), Box<dyn Error>> {
     match command.as_str() {
         "render" => render(&Options::parse(rest)?),
         "inspect" => inspect(&single_path(rest)?),
+        "midi" => midi::run(rest),
         "schema" => schema::write(),
         "tune" => tune::write(),
         "web-ui" => web::build(),

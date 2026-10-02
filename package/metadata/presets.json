@@ -14,6 +14,11 @@
       "id": "setups",
       "name": "Setups",
       "order": 2
+    },
+    {
+      "id": "instruments",
+      "name": "Instruments",
+      "order": 3
     }
   ],
   "presets": [
@@ -163,21 +168,10 @@
     {
       "bank": "setups",
       "category": "Setup",
-      "description": "The modulation wheel is the bellows: move it to play, up opens, down closes.",
-      "id": "wheel-bellows",
-      "name": "Wheel as Bellows",
-      "order": 1,
-      "tags": [
-        "setup"
-      ]
-    },
-    {
-      "bank": "setups",
-      "category": "Setup",
       "description": "The bellows runs out and turns by itself, between notes where it can.",
       "id": "auto-bellows",
       "name": "Auto Bellows",
-      "order": 2,
+      "order": 1,
       "tags": [
         "setup"
       ]
@@ -188,9 +182,64 @@
       "description": "For a digital accordion: its bellows sensor sets the pressure directly, bass and chords on their own MIDI channels.",
       "id": "digital-accordion",
       "name": "Digital Accordion",
-      "order": 3,
+      "order": 2,
       "tags": [
         "setup"
+      ]
+    },
+    {
+      "bank": "instruments",
+      "category": "Instrument",
+      "description": "A small 26-key, 48-bass student accordion: two middle reeds with a standard tremolo, a small bellows that runs out of air sooner and a little leaky, played in a practice room.",
+      "id": "student-48",
+      "name": "Student 48-Bass",
+      "order": 0,
+      "tags": [
+        "instrument"
+      ]
+    },
+    {
+      "bank": "instruments",
+      "category": "Instrument",
+      "description": "A 34-key, 72-bass student accordion: bassoon and two middle reeds, a standard tremolo, a mid-sized bellows, in a practice room.",
+      "id": "student-72",
+      "name": "Student 72-Bass",
+      "order": 1,
+      "tags": [
+        "instrument"
+      ]
+    },
+    {
+      "bank": "instruments",
+      "category": "Instrument",
+      "description": "A 37-key, 80-bass Italian accordion, as built in Castelfidardo: bassoon and two middle reeds with an Italian tremolo, no tone chamber, a well-played bellows, in a living room.",
+      "id": "italian-80",
+      "name": "Italian 80-Bass",
+      "order": 2,
+      "tags": [
+        "instrument"
+      ]
+    },
+    {
+      "bank": "instruments",
+      "category": "Instrument",
+      "description": "A full-size 41-key, 120-bass accordion: four voices, a standard tremolo, a large, tight bellows.",
+      "id": "full-120",
+      "name": "Full-Size 120-Bass",
+      "order": 3,
+      "tags": [
+        "instrument"
+      ]
+    },
+    {
+      "bank": "instruments",
+      "category": "Instrument",
+      "description": "A professional five-voice accordion with a tone chamber: deeper and heavier, the largest bellows, built tight; bassoon and middle reeds through the cassotto.",
+      "id": "cassotto-pro",
+      "name": "Cassotto Professional",
+      "order": 4,
+      "tags": [
+        "instrument"
       ]
     }
   ],

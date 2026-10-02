@@ -1,23 +1,38 @@
 //! The few transcendental functions the engine needs, for `no_std`.
 //!
-//! They run at control rate only -- building tables when a parameter moves,
-//! never per sample -- so they are written for accuracy, in `f64`, rather
-//! than speed. Each states its accuracy, and a test holds it against `std`.
+//! All but the square root run at control rate only -- building tables
+//! when a parameter moves, never per sample -- so they are written for
+//! accuracy, in `f64`, rather than speed. Each states its accuracy, and a
+//! test holds it against `std`. The square root runs in every reed's step
+//! and is the hardware's.
 
 const LN_2: f64 = core::f64::consts::LN_2;
 const PI: f64 = core::f64::consts::PI;
 
-/// Square root by a bit-level seed and Newton steps; exact to the last bit
-/// or one ulp away. Zero and negatives give zero.
+/// Square root, correctly rounded as IEEE 754 asks: WebAssembly's
+/// `f64.sqrt` in the plugin, the standard library's natively -- the same
+/// operation, so every target computes the same bits. Zero and negatives
+/// give zero; infinity and NaN pass through.
+///
+/// Milestone 10: it was a software root (a bit-level seed and six Newton
+/// steps), one ulp off for a quarter of the engine's arguments, wrong for
+/// subnormals, and six divisions long in every reed's step.
+#[inline]
 pub fn sqrt(x: f64) -> f64 {
-    if x <= 0.0 || !x.is_finite() {
-        return if x.is_finite() || x < 0.0 { 0.0 } else { x };
+    if x <= 0.0 {
+        return 0.0;
     }
-    let mut y = f64::from_bits((x.to_bits() >> 1) + (1023u64 << 51));
-    for _ in 0..6 {
-        y = 0.5 * (y + x / y);
+    // The scalar `f64.sqrt` is not yet stable in `core::arch`; SIMD's,
+    // which the plugin is built with, is the same IEEE operation per lane.
+    #[cfg(target_arch = "wasm32")]
+    {
+        use core::arch::wasm32::{f64x2_extract_lane, f64x2_splat, f64x2_sqrt};
+        f64x2_extract_lane::<0>(f64x2_sqrt(f64x2_splat(x)))
     }
-    y
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::primitive::f64::sqrt(x)
+    }
 }
 
 /// `e^x` by splitting off powers of two and a Taylor series on the rest;
@@ -151,6 +166,12 @@ mod tests {
             );
         }
         assert!(close(sqrt(4.0e-12), 2.0e-6, 1e-15));
+        // The root is the correctly rounded one, subnormals and the
+        // extremes included.
+        for x in [5.0e-324, 1.0e-310, 2.0, 1.0e300, f64::MAX, f64::INFINITY] {
+            assert_eq!(sqrt(x).to_bits(), x.sqrt().to_bits(), "{x}");
+        }
+        assert!(sqrt(f64::NAN).is_nan());
         assert!(close(ln(1.0e-9), (1.0e-9f64).ln(), 1e-14));
         assert_eq!(sqrt(-1.0), 0.0);
         assert_eq!(pow(0.0, 2.0), 0.0);

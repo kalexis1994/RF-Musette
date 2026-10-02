@@ -31,14 +31,14 @@ most of them three controls turn RF-Musette as soon as it is loaded.
 
 | RackForge v1 role | Why RF-Musette does not publish it |
 | --- | --- |
-| `synth.envelope.amp.decay`, `synth.envelope.amp.sustain` | A free reed has no decay: it speaks as long as the key is down and the bellows moves, at the level the bellows sets. The bellows is played live (Expression, the modulation wheel or velocity), not stored. |
+| `synth.envelope.amp.decay`, `synth.envelope.amp.sustain` | A free reed has no decay: it speaks as long as the key is down and the bellows moves, at the level the bellows sets. The bellows is played live (the modulation wheel or Expression; key velocity does nothing), not stored. |
 | `synth.filter.cutoff`, `synth.filter.resonance` | The accordion's one filter is the cassotto, and its resonance and Q do nothing while it is off -- as it is by default. A cutoff knob that is silent most of the time would mislead. |
 | `synth.filter.envelope.amount`, `synth.filter.lfo.amount`, `synth.filter.key_tracking` | No such thing in the instrument. |
 | `synth.lfo.depth`, `synth.lfo.delay` | The tremolo's depth is the registers' choice of ranks; it has no delay. |
 | `synth.oscillator.*` | No oscillators: reeds, and their make is the model. |
 | `synth.amplifier.level`, `plugin.output.level`, `mixer.channel.level` | RackForge's master level owns the controller's volume, as on RF-5; Output Gain stays on the panel and in a hand-made link. |
 | `mixer.channel.pan` | RF-Musette is mono before RackForge's stereo. |
-| `performance.modulation`, `performance.expression`, `performance.sustain` | Performance MIDI, passed through to the plugin, which reads the wheel (CC 1/33) and Expression (CC 11/43) as the bellows itself -- the wheel as its push or, with Mod Wheel on Bellows, as where it is. An accordion has no sustain. |
+| `performance.modulation`, `performance.expression`, `performance.sustain` | Performance MIDI, passed through to the plugin, which reads the wheel (CC 1/33) and Expression (CC 11/43) as the bellows itself -- the wheel as its push. An accordion has no sustain. |
 | `rackforge.master.level`, `rackforge.master.pan` | RackForge's own, never a plugin's. |
 
 Control Profile v1 has no role for a register, the bellows' direction or the

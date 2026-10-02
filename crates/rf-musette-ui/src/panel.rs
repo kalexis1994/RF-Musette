@@ -12,6 +12,12 @@ pub struct Group {
     pub shown_when: Option<(&'static str, f64)>,
 }
 
+/// Parameters kept only so those after them keep their places, and on no
+/// page: the modulation wheel's mode, once Pressure or Bellows -- the wheel
+/// as the bellows was withdrawn (docs/ROADMAP.md, 8i); and the smoothing of
+/// velocity's push, since velocity no longer moves the bellows.
+pub const RETIRED: &[&str] = &["mod_wheel", "bellows_smoothing"];
+
 pub struct Page {
     pub id: &'static str,
     pub label: &'static str,
@@ -55,12 +61,10 @@ pub const PAGES: &[Page] = &[
                 id: "bellows",
                 title: "Bellows",
                 parameters: &[
-                    "mod_wheel",
                     "bellows_direction",
                     "air_valve",
                     "auto_reverse",
                     "bellows_travel",
-                    "bellows_smoothing",
                 ],
                 shown_when: None,
             },
@@ -196,7 +200,12 @@ pub const PAGES: &[Page] = &[
             Group {
                 id: "pallet",
                 title: "Pallet",
-                parameters: &["pallet_lift", "pallet_opening", "pallet_closing"],
+                parameters: &[
+                    "pallet_lift",
+                    "pallet_opening",
+                    "pallet_closing",
+                    "pad_seating",
+                ],
                 shown_when: None,
             },
             Group {
@@ -248,10 +257,7 @@ pub const PAGES: &[Page] = &[
 pub const IDLE_UNLESS: &[(&str, &[(&str, f64)])] = &[
     ("split_point", &[("left_hand", 1.0)]),
     // The travel is Auto Reverse's, and the wheel's range as the bellows.
-    (
-        "bellows_travel",
-        &[("auto_reverse", 1.0), ("mod_wheel", 1.0)],
-    ),
+    ("bellows_travel", &[("auto_reverse", 1.0)]),
     ("cassotto_resonance", &[("cassotto", 1.0)]),
     ("cassotto_q", &[("cassotto", 1.0)]),
 ];
@@ -331,10 +337,15 @@ mod tests {
     use super::*;
     use rf_musette_dsp::parameters::{COUNT, REGISTER};
 
-    /// Prediction 1: every public parameter is on the panel exactly once.
+    /// Prediction 1: every public parameter is on the panel exactly once;
+    /// a retired one on none.
     #[test]
     fn the_panel_maps_every_parameter_exactly_once() {
         let mut placed = vec![0usize; COUNT];
+        for id in RETIRED {
+            let index = index_of(id).unwrap_or_else(|| panic!("{id} is no parameter"));
+            placed[index] += 1;
+        }
         for page in PAGES {
             for group in page.groups {
                 assert!(!group.parameters.is_empty(), "{} is empty", group.id);
@@ -421,13 +432,10 @@ mod tests {
     }
 
     #[test]
-    fn the_travel_works_for_auto_reverse_or_the_wheel() {
+    fn the_travel_works_for_auto_reverse() {
         let travel = index_of("bellows_travel").unwrap();
         let mut values: Vec<f64> = SPECS.iter().map(|spec| spec.default).collect();
         assert!(idle(travel, &values));
-        values[index_of("mod_wheel").unwrap()] = 1.0;
-        assert!(!idle(travel, &values));
-        values[index_of("mod_wheel").unwrap()] = 0.0;
         values[index_of("auto_reverse").unwrap()] = 1.0;
         assert!(!idle(travel, &values));
         assert!(!idle(index_of("gain").unwrap(), &values));

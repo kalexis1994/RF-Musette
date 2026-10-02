@@ -7,8 +7,9 @@
 # The larger shadow stack is RackForge's convention for a processor built
 # by value: the engine carries the whole instrument (the treble's 41 keys and
 # the bass side's 12 pitch classes, 530 reeds, and since milestone 9b its
-# microphones and room, ~547 KiB) and is moved a few
-# times as it is built, which overflowed the default 1 MiB (milestone 7).
+# microphones and room, and since milestone 8m every cell's waves, ~1.1 MiB)
+# and is moved a few times as it is built, which overflowed the default
+# 1 MiB (milestone 7).
 
 [target.wasm32-unknown-unknown]
 rustflags = ["-C", "target-feature=+simd128", "-C", "link-arg=-zstack-size=8388608"]

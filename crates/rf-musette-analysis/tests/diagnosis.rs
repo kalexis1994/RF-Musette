@@ -193,9 +193,10 @@ fn air_consumption_against_pressure() {
     let h = 1.0 / RATE;
     for pressure in [100.0, 300.0, 600.0, 900.0] {
         let mut state = ReedState::default();
+        let mut tube = rf_musette_dsp::reed::Tube::default();
         let (mut sum, mut peak, mut count) = (0.0, 0.0f64, 0);
         for n in 0..(2.0 * RATE) as usize {
-            reed::step(&model, &mut state, pressure, f64::INFINITY, h);
+            reed::step(&model, &mut state, &mut tube, pressure, f64::INFINITY, h);
             if n > (1.5 * RATE) as usize {
                 sum += state.hole_flow;
                 peak = peak.max(state.hole_flow);

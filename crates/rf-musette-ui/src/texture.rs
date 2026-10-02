@@ -30,9 +30,10 @@
 
 use crate::light;
 
-/// One layer of shards: its image, its period in CSS pixels (the image is
-/// twice that, for double-density screens), and how it differs from the
-/// others.
+/// One layer of shards: its image, its period in CSS pixels (the image as
+/// many pixels across: the finish is blurred, so a double-density image
+/// added nothing but halved how far a tile reached before it repeated), and
+/// how it differs from the others.
 pub struct Layer {
     pub path: &'static str,
     pub period: usize,
@@ -46,14 +47,21 @@ pub struct Layer {
     spacing: f64,
 }
 
-/// The shards' mean spacing in the top layers, in image pixels.
-const SPACING: f64 = 47.0;
+/// The shards' mean spacing in the top layers, in image pixels: chosen by
+/// the player, larger shards than the first cut (47 at double density).
+const SPACING: f64 = 40.0;
+
+/// The finish softened, as the player asked: a Gaussian blur of this
+/// standard deviation, image pixels, on the image's own torus so it still
+/// repeats without a seam, over premultiplied colour so a shard's edge does
+/// not darken as it fades.
+const BLUR: f64 = 6.0;
 
 /// Top first, as CSS stacks them.
 pub const LAYERS: [Layer; 4] = [
     Layer {
         path: "assets/pearl-top-a.png",
-        period: 331,
+        period: 661,
         seed: 61,
         dim: 1.0,
         margin: 0.55,
@@ -61,7 +69,7 @@ pub const LAYERS: [Layer; 4] = [
     },
     Layer {
         path: "assets/pearl-top-b.png",
-        period: 277,
+        period: 557,
         seed: 62,
         dim: 1.0,
         margin: 0.55,
@@ -69,7 +77,7 @@ pub const LAYERS: [Layer; 4] = [
     },
     Layer {
         path: "assets/pearl-mid.png",
-        period: 239,
+        period: 479,
         seed: 63,
         dim: 0.55,
         margin: 0.15,
@@ -77,7 +85,7 @@ pub const LAYERS: [Layer; 4] = [
     },
     Layer {
         path: "assets/pearl-deep.png",
-        period: 197,
+        period: 397,
         seed: 64,
         dim: 0.3,
         margin: 0.0,
@@ -95,11 +103,11 @@ const CREASED: f64 = 0.6;
 const BEND: f64 = 0.25;
 /// The flakes' shimmer in the tilt, and its grain in image pixels.
 const SHIMMER: f64 = 0.03;
-const SHIMMER_GRAIN: f64 = 4.0;
+const SHIMMER_GRAIN: f64 = 2.0;
 /// How much larger than the smallest a shard may grow, in spacings.
 const GROWTH: f64 = 0.45;
 /// The soft edge of a shard, in image pixels.
-const EDGE: f64 = 1.2;
+const EDGE: f64 = 0.6;
 /// The light a shard returns: diffuse, and Ward's lobe (isotropic).
 const DIFFUSE: f64 = 0.25;
 const ROUGHNESS: f64 = 0.2;
@@ -173,7 +181,7 @@ struct Shard {
 
 /// The image's edge in pixels.
 pub fn size(layer: &Layer) -> usize {
-    2 * layer.period
+    layer.period
 }
 
 /// The shortest offset from `b` to `a` round a torus `size` across.
@@ -289,7 +297,71 @@ pub fn layer_rgba(layer: &Layer) -> Vec<u8> {
             rgba.extend_from_slice(&[colour[0], colour[1], colour[2], alpha]);
         }
     }
-    rgba
+    blur(&rgba, size)
+}
+
+/// `rgba` (`size` square) blurred by [`BLUR`] round its torus.
+fn blur(rgba: &[u8], size: usize) -> Vec<u8> {
+    let radius = (3.0 * BLUR).ceil() as i64;
+    let mut kernel: Vec<f64> = (-radius..=radius)
+        .map(|k| (-(k as f64).powi(2) / (2.0 * BLUR * BLUR)).exp())
+        .collect();
+    let total: f64 = kernel.iter().sum();
+    for weight in &mut kernel {
+        *weight /= total;
+    }
+    // Premultiplied, in four planes.
+    let mut planes = vec![[0.0f64; 4]; size * size];
+    for (plane, pixel) in planes.iter_mut().zip(rgba.as_chunks::<4>().0) {
+        let alpha = f64::from(pixel[3]) / 255.0;
+        *plane = [
+            f64::from(pixel[0]) / 255.0 * alpha,
+            f64::from(pixel[1]) / 255.0 * alpha,
+            f64::from(pixel[2]) / 255.0 * alpha,
+            alpha,
+        ];
+    }
+    let wrap = |i: i64| i.rem_euclid(size as i64) as usize;
+    let pass = |source: &[[f64; 4]], across: bool| -> Vec<[f64; 4]> {
+        let mut out = vec![[0.0f64; 4]; size * size];
+        for y in 0..size {
+            for x in 0..size {
+                let mut sum = [0.0f64; 4];
+                for (k, weight) in kernel.iter().enumerate() {
+                    let offset = k as i64 - radius;
+                    let (sx, sy) = if across {
+                        (wrap(x as i64 + offset), y)
+                    } else {
+                        (x, wrap(y as i64 + offset))
+                    };
+                    let value = source[sy * size + sx];
+                    for c in 0..4 {
+                        sum[c] += weight * value[c];
+                    }
+                }
+                out[y * size + x] = sum;
+            }
+        }
+        out
+    };
+    let blurred = pass(&pass(&planes, true), false);
+    let mut out = Vec::with_capacity(size * size * 4);
+    for [r, g, b, a] in blurred {
+        let unmix = |c: f64| {
+            if a > 1.0e-9 {
+                (c / a * 255.0).round().clamp(0.0, 255.0) as u8
+            } else {
+                0
+            }
+        };
+        out.extend_from_slice(&[
+            unmix(r),
+            unmix(g),
+            unmix(b),
+            (a * 255.0).round().clamp(0.0, 255.0) as u8,
+        ]);
+    }
+    out
 }
 
 /// The stack as CSS background layers, top first, each at its period.
@@ -346,22 +418,31 @@ mod tests {
     }
 
     /// The top layers leave room for the ones below; the deepest covers
-    /// all but its seams (a soft edge of `EDGE` either side, about a tenth
-    /// of its spacing); a few shards glint, most are red.
+    /// nearly all; the shards still glint, softened by the blur: in the top
+    /// layer the brightest hundredth stands well above the middle.
     #[test]
-    fn the_shards_overlap_and_few_glint() {
-        let share = |layer: &Layer, test: &dyn Fn(&[u8]) -> bool| {
-            let rgba = layer_rgba(layer);
-            let pixels = rgba.as_chunks::<4>().0;
-            pixels.iter().filter(|pixel| test(&pixel[..])).count() as f64 / pixels.len() as f64
+    fn the_shards_overlap_and_still_glint() {
+        let rgba = layer_rgba(&LAYERS[0]);
+        let top = rgba.as_chunks::<4>().0;
+        let covered = |pixels: &[[u8; 4]]| {
+            pixels.iter().filter(|pixel| pixel[3] > 200).count() as f64 / pixels.len() as f64
         };
-        let covered = |pixel: &[u8]| pixel[3] > 200;
-        let top = share(&LAYERS[0], &covered);
-        let deep = share(&LAYERS[3], &covered);
-        assert!(top > 0.4 && top < 0.85, "top {top}");
-        assert!(deep > 0.85, "deep {deep}");
-        let glint = share(&LAYERS[0], &|pixel: &[u8]| pixel[3] > 200 && pixel[1] > 120);
-        assert!(glint > 0.002 && glint < 0.15, "glint {glint}");
+        let deep_rgba = layer_rgba(&LAYERS[3]);
+        let deep = covered(deep_rgba.as_chunks::<4>().0);
+        assert!(
+            covered(top) > 0.2 && covered(top) < 0.85,
+            "top {}",
+            covered(top)
+        );
+        assert!(deep > 0.9, "deep {deep}");
+        let mut green: Vec<u8> = top.iter().filter(|p| p[3] > 200).map(|p| p[1]).collect();
+        green.sort_unstable();
+        let median = f64::from(green[green.len() / 2]);
+        let bright = f64::from(green[green.len() * 99 / 100]);
+        assert!(
+            bright > 3.0 * median,
+            "p99 {bright} against median {median}"
+        );
     }
 
     /// The stylesheet stacks the layers this file makes, at their periods.

@@ -31,10 +31,10 @@
      its own period; the periods share no factor, so the stack does not
      visibly repeat. */
   --pearl-layers:
-    url("assets/pearl-top-a.png") 0 0 / 331px 331px repeat,
-    url("assets/pearl-top-b.png") 0 0 / 277px 277px repeat,
-    url("assets/pearl-mid.png") 0 0 / 239px 239px repeat,
-    url("assets/pearl-deep.png") 0 0 / 197px 197px repeat;
+    url("assets/pearl-top-a.png") 0 0 / 661px 661px repeat,
+    url("assets/pearl-top-b.png") 0 0 / 557px 557px repeat,
+    url("assets/pearl-mid.png") 0 0 / 479px 479px repeat,
+    url("assets/pearl-deep.png") 0 0 / 397px 397px repeat;
   /* The nameplate's script, and the labels'. */
   --title-font: "Grand Hotel", Georgia, "Times New Roman", serif;
   --label-font: "Josefin Sans", "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;

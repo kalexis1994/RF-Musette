@@ -219,18 +219,18 @@ dependencies = [
 
 [[package]]
 name = "rf-musette-analysis"
-version = "0.12.1"
+version = "0.13.8"
 dependencies = [
  "rf-musette-dsp",
 ]
 
 [[package]]
 name = "rf-musette-dsp"
-version = "0.12.1"
+version = "0.13.8"
 
 [[package]]
 name = "rf-musette-lab"
-version = "0.12.1"
+version = "0.13.8"
 dependencies = [
  "rf-musette-analysis",
  "rf-musette-dsp",
@@ -240,7 +240,7 @@ dependencies = [
 
 [[package]]
 name = "rf-musette-plugin"
-version = "0.12.1"
+version = "0.13.8"
 dependencies = [
  "rackforge-plugin-api",
  "rackforge-plugin-sdk",
@@ -250,7 +250,7 @@ dependencies = [
 
 [[package]]
 name = "rf-musette-ui"
-version = "0.12.1"
+version = "0.13.8"
 dependencies = [
  "js-sys",
  "png",

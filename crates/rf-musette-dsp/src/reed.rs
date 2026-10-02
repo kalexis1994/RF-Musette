@@ -144,14 +144,50 @@ pub struct ReedModel {
     /// The tongue's thickness at the root, m, derived from its frequency and
     /// profile.
     pub root_thickness: f64,
-    /// M_n, the near-field inertance, kg/m⁴.
+    /// M_n, the near-field inertance, kg/m⁴: the air the slot's far side
+    /// accelerates, beside that side's radiation resistance ρc/S_slot, Pa·s/m³
+    /// (milestone 8m), as the hole's outer end.
     pub inertance: f64,
-    /// M_h, the tone hole's inertance, kg/m⁴.
+    pub slot_radiation: f64,
+    /// M_h, the tone hole's inertance, kg/m⁴: its depth and the inner end's
+    /// correction.
     pub hole_inertance: f64,
+    /// The hole's outer end, radiating (milestone 8m): the air its
+    /// correction carries, kg/m⁴, beside ρc/A, Pa·s/m³.
+    pub radiation_mass: f64,
+    pub radiation_resistance: f64,
     /// C, the cell's compliance, m³/Pa.
     pub cell_compliance: f64,
     /// The slot's own area, m²: no more can ever pass.
     pub slot_area: f64,
+    /// The tone hole's rim, m, for the pallet's curtain ([`pallet::rim`]).
+    pub hole_rim: f64,
+    /// 12 μ w R², for the curtain's viscous resistance 12 μ w R²/A³ (8m).
+    seat_viscosity: f64,
+    /// What every step asks of the design, computed once, by the same
+    /// operations it used to repeat (milestone 10): ω², ω/Q, the swing
+    /// limit's ρ, and the deflections the section table covers.
+    omega2: f64,
+    linear_damping: f64,
+    swing_density: f64,
+    section_low: f64,
+    section_span: f64,
+    /// And reciprocals the step multiplies by where it divided (milestone
+    /// 10c): of the tongue's width, of its modal mass, and the section
+    /// table's points per metre of deflection.
+    inverse_width: f64,
+    inverse_mass: f64,
+    section_scale: f64,
+    /// The cell as a tube with the reed along it (milestone 8m): the time
+    /// its waves take end to end, s; 1 / the cell's volume; what survives
+    /// the walls' resistance, Pa·s/m³; and where along it, from the opening,
+    /// the slot's four points lie and how much of the slot's air each gives
+    /// and takes.
+    pub tube_seconds: f64,
+    inverse_cell_volume: f64,
+    pub wall_resistance: f64,
+    slot_points: [f64; SLOT_POINTS],
+    slot_weights: [f64; SLOT_POINTS],
     section: [f32; SECTION_POINTS],
 }
 
@@ -207,23 +243,97 @@ impl ReedModel {
         let end_correction =
             8.0 / (3.0 * core::f64::consts::PI) * math::sqrt(slot_area / core::f64::consts::PI);
         let inertance = design.inertance_scale * AIR_DENSITY * end_correction / slot_area;
+        // That end correction is the far side's radiation mass, so beside it,
+        // as at the hole's outer end, its resistance ρc/S (8m).
+        let slot_radiation = AIR_DENSITY * SPEED_OF_SOUND / slot_area;
         // Tonon's Helmholtz cell: the hole's effective length is its depth
-        // plus k times its equivalent diameter.
+        // plus k times its equivalent diameter. Of that correction the outer
+        // end's -- a flanged opening, the pallet's board its flange, 0.82
+        // times the radius (Rayleigh; Norris & Sheng, JSV 135, 1989) -- is
+        // not a mass alone but the opening's radiation (8m): that air in
+        // parallel with ρc/A, the classic approximation of a piston's
+        // radiation impedance, a mass at low frequency and a resistance ρc/A
+        // at high. It is what takes a cell's high resonances' energy out
+        // through its hole; without it they rang, the player's "silbido".
         let diameter = math::sqrt(4.0 * design.tone_hole_area / core::f64::consts::PI);
-        let hole_length = design.tone_hole_depth + design.end_correction * diameter;
+        let outer = (0.8216 * 0.5 * diameter).min(design.end_correction * diameter);
+        let hole_length = design.tone_hole_depth + design.end_correction * diameter - outer;
         let hole_inertance = AIR_DENSITY * hole_length / design.tone_hole_area;
+        let radiation_mass = AIR_DENSITY * outer / design.tone_hole_area;
+        let radiation_resistance = AIR_DENSITY * SPEED_OF_SOUND / design.tone_hole_area;
         let cell_compliance = design.cell_volume / (AIR_DENSITY * SPEED_OF_SOUND * SPEED_OF_SOUND);
+        // The cell as a tube (8m): CELL_LENGTH_RATIO times the tongue, its
+        // section the cell's volume over that. Kirchhoff's wall losses at
+        // 2 kHz, α ≈ 3·10⁻⁵ √f / a per metre (Fletcher & Rossing, The
+        // Physics of Musical Instruments, §8.2), a the radius of the section:
+        // a resistance R' = 2Z₀α along it, which loses αL of a wave in a
+        // pass. Taken whole at the opening, in series with the hole, R =
+        // Z₀αL: half of R'L, as the flow along a tube closed at one end
+        // falls from the opening's to nothing. A resistance in the flow, so
+        // the cell's still air loses nothing -- as multiplying the waves by
+        // e^(-αL) at the ends did, a leak at no frequency (8m).
+        let tube_length = CELL_LENGTH_RATIO * design.length;
+        let tube_section = design.cell_volume / tube_length;
+        let radius = math::sqrt(tube_section / core::f64::consts::PI);
+        let attenuation = 3.0e-5 * math::sqrt(2000.0) / radius * tube_length;
+        let wall_resistance = AIR_DENSITY * SPEED_OF_SOUND / tube_section * attenuation;
+        // The slot along the tongue, rivet toward the opening and tip toward
+        // the closed end -- turned round from TURNED_FROM_HZ -- giving air
+        // at four points by the mode shape there: its sides open as the
+        // tongue bends, nothing at the rivet and most at the tip.
+        let turned = design.frequency >= TURNED_FROM_HZ;
+        let mut slot_points = [0.0; SLOT_POINTS];
+        let mut slot_weights = [0.0; SLOT_POINTS];
+        for (k, (point, weight)) in slot_points
+            .iter_mut()
+            .zip(slot_weights.iter_mut())
+            .enumerate()
+        {
+            let along = (k + 1) as f64 / SLOT_POINTS as f64;
+            let index = math::round(along * (crate::tongue::SPAN_POINTS - 1) as f64) as usize;
+            *weight = mode.shape[index].abs();
+            let from_rivet = RIVET_AT + along * (TIP_AT - RIVET_AT);
+            *point = if turned { 1.0 - from_rivet } else { from_rivet };
+        }
+        let total: f64 = slot_weights.iter().sum();
+        for weight in slot_weights.iter_mut() {
+            *weight /= total;
+        }
+        let omega = 2.0 * core::f64::consts::PI * design.frequency;
+        let scale = design.length / DEFLECTION_LENGTH;
+        let (low, high) = (DEFLECTION_LOW * scale, DEFLECTION_HIGH * scale);
         let mut model = Self {
             design,
-            omega: 2.0 * core::f64::consts::PI * design.frequency,
+            omega,
             mu: effective_area / modal_mass,
             effective_area,
             modal_mass,
             root_thickness,
             inertance,
+            slot_radiation,
             hole_inertance,
+            radiation_mass,
+            radiation_resistance,
             cell_compliance,
             slot_area,
+            hole_rim: crate::pallet::rim(design.tone_hole_area),
+            seat_viscosity: {
+                let rim = crate::pallet::rim(design.tone_hole_area);
+                12.0 * AIR_VISCOSITY * SEAT_WIDTH * rim * rim
+            },
+            omega2: omega * omega,
+            linear_damping: omega / design.q,
+            swing_density: design.swing_limit * AIR_DENSITY,
+            section_low: low,
+            section_span: high - low,
+            inverse_width: 1.0 / design.width,
+            inverse_mass: 1.0 / modal_mass,
+            section_scale: (SECTION_POINTS - 1) as f64 / (high - low),
+            tube_seconds: tube_length / SPEED_OF_SOUND,
+            inverse_cell_volume: 1.0 / design.cell_volume,
+            wall_resistance,
+            slot_points,
+            slot_weights,
             section: [0.0; SECTION_POINTS],
         };
         model.build_section(mode);
@@ -272,7 +382,12 @@ impl ReedModel {
                 1.0
             };
             let thickness = self.root_thickness * mode.thickness[i];
-            sides += weight * gap(y * mode.shape[i], thickness, d.side_clearance);
+            // The tongue at rest is the set's shape, not the mode's: each
+            // element sits set·φ(x) above the plate, so it crosses it when
+            // the tip has moved set·φ(x)/ψ(x), not all at the tip's set.
+            let x = i as f64 / (SPAN_POINTS - 1) as f64;
+            let offset = d.set * (mode.shape[i] - set_shape(x));
+            sides += weight * gap(y * mode.shape[i] + offset, thickness, d.side_clearance);
         }
         let sides = 2.0 * d.length * sides / (SPAN_POINTS - 1) as f64;
         let tip_thickness = self.root_thickness * mode.thickness[SPAN_POINTS - 1];
@@ -284,16 +399,10 @@ impl ReedModel {
         (sides + front).min(self.slot_area)
     }
 
-    /// The deflections the section table covers for this tongue, m.
-    fn deflections(&self) -> (f64, f64) {
-        let scale = self.design.length / DEFLECTION_LENGTH;
-        (DEFLECTION_LOW * scale, DEFLECTION_HIGH * scale)
-    }
-
     fn build_section(&mut self, mode: &TongueMode) {
-        let (low, high) = self.deflections();
+        let (low, span) = (self.section_low, self.section_span);
         for i in 0..SECTION_POINTS {
-            let y = low + (high - low) * i as f64 / (SECTION_POINTS - 1) as f64;
+            let y = low + span * i as f64 / (SECTION_POINTS - 1) as f64;
             self.section[i] = self.section_at(y, mode) as f32;
         }
     }
@@ -302,8 +411,7 @@ impl ReedModel {
     #[inline]
     pub fn section(&self, zeta: f64) -> f64 {
         let y = zeta - self.design.set;
-        let (low, high) = self.deflections();
-        let position = (y - low) * ((SECTION_POINTS - 1) as f64) / (high - low);
+        let position = (y - self.section_low) * self.section_scale;
         if position <= 0.0 {
             return f64::from(self.section[0]);
         }
@@ -316,6 +424,176 @@ impl ReedModel {
         let a = f64::from(self.section[index]);
         let b = f64::from(self.section[index + 1]);
         a + (b - a) * fraction
+    }
+}
+
+/// The tongue's shape at rest over its length, from the rivet (0) to the tip
+/// (1), as a share of the set (milestone 8m). A technician's description:
+/// two thirds of the tongue "almost in line with the slot", the last third
+/// "gently curves up to give you your desired gap" (tcabot, accordionists.info,
+/// "A question about reed profiles"); the curve a parabola, assumed. Until 8m
+/// the rest shape was the mode's own, so every element crossed the plate at
+/// the same instant and the flow was cut at once along the whole slot -- a
+/// pulse whose highs the tube's resonances rang with (the player's
+/// "silbido"). Closing from the rivet toward the tip spreads the cut, as the
+/// IfM measured a gap opening toward the tip lowering the upper partials and
+/// keeping the fundamental and first overtones (Baltrusch, Schetelich &
+/// Ziegenhals, bandoneon, 2008).
+///
+/// How much lies flat is between two technicians: tcabot's two thirds, and
+/// dak's tongue that "closes off the reed plate over its full length when
+/// passing through", none (the same thread). See [`SET_FLAT`].
+fn set_shape(x: f64) -> f64 {
+    if x < SET_FLAT {
+        0.0
+    } else {
+        let rise = (x - SET_FLAT) / (1.0 - SET_FLAT);
+        rise * rise
+    }
+}
+
+/// The share of the tongue, from the rivet, that lies flat at rest: a third,
+/// chosen between the two descriptions by what it does (2026-10-02). Two
+/// thirds flat left a low tongue's slot all but shut at rest, and the 16′
+/// C2 took 391 ms to speak at 400 Pa (79 with the mode's shape; 50-140
+/// measured); a third, 225 ms at the same start, keeping most of what two
+/// thirds took from the cell's bands (the F3's 9-14 kHz −44 dB against −47,
+/// the mode's −38).
+const SET_FLAT: f64 = 1.0 / 3.0;
+
+/// The viscosity of air at 20 °C, Pa·s.
+const AIR_VISCOSITY: f64 = 1.81e-5;
+
+/// How far the pallet's pad lies over the hole's rim, its seat, m: the
+/// length of the slit the air passes as the pad comes down (milestone 8m).
+/// Assumed: a felt-and-leather pad overlapping its hole by a few
+/// millimetres.
+const SEAT_WIDTH: f64 = 2.0e-3;
+
+/// The cell's length against the tongue's (milestone 8m). Tonon's G4 cell
+/// is 46 mm (PICA 2, 2005, Table 1), a maker's F4 cell some 50 mm, and the
+/// F4 tongue 36 mm: derived, roughly.
+pub const CELL_LENGTH_RATIO: f64 = 1.4;
+
+/// Where the tongue lies in its cell, as shares of the cell from its
+/// opening: the rivet and the tip, as a reed is mounted (patents
+/// US2051621, US5824927; technicians). Assumed within that.
+const RIVET_AT: f64 = 0.25;
+const TIP_AT: f64 = 0.95;
+
+/// From A#6 up makers turn the reeds round, tip to the opening: they speak
+/// better so (technicians; Tonon, PICA 2005).
+const TURNED_FROM_HZ: f64 = 1800.0;
+
+/// The points along the slot its air enters the cell at.
+const SLOT_POINTS: usize = 4;
+
+/// The lines' length in steps; a cell's tube is at most three fewer: at
+/// 192 kHz, the highest rate the reed runs at, 109 mm -- the longest cell,
+/// the lowest bass reed's (a 64.6 mm tongue), is 90 mm; at 384 kHz, where
+/// the analysis checks the scheme converges, 54 mm, the measured F4's 50.
+/// Longer cells are taken as that long.
+pub const TUBE_SAMPLES: usize = 64;
+
+/// Where along a model's cell, from its opening, the slot's points lie, and
+/// how much of the slot's air each gives and takes (milestone 8m).
+impl ReedModel {
+    pub fn slot(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
+        self.slot_points.into_iter().zip(self.slot_weights)
+    }
+
+    /// The same reed turned round in its cell, its tip to the opening or
+    /// away from it: what a maker does to the highest reeds (diagnosis).
+    pub fn turned_round(mut self) -> Self {
+        for point in self.slot_points.iter_mut() {
+            *point = 1.0 - *point;
+        }
+        self
+    }
+}
+
+/// The cell as a tube with the reed along it (milestone 8m): a waveguide
+/// from the opening, under the pallet's hole, to the closed end; one line
+/// of the waves running toward the closed end and one back, each written
+/// at its starting end and read where it has got to. The slot gives and
+/// takes air at points along it. A cell is a lumped volume only while it is
+/// short against the wavelength -- every dimension under ~0.15 of it
+/// (Tonon, PICA 2, 2005): a 50 mm cell, under ~1 kHz; above, a tube passes
+/// the jet's high harmonics through its resonances where a volume
+/// low-passes them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Tube {
+    toward_closed: [f32; TUBE_SAMPLES],
+    toward_opening: [f32; TUBE_SAMPLES],
+    at: usize,
+}
+
+impl Default for Tube {
+    fn default() -> Self {
+        Self {
+            toward_closed: [0.0; TUBE_SAMPLES],
+            toward_opening: [0.0; TUBE_SAMPLES],
+            at: 0,
+        }
+    }
+}
+
+impl Tube {
+    /// A tube holding a steady `pressure` throughout: half of it each way.
+    pub fn steady(pressure: f64) -> Self {
+        let half = (0.5 * pressure) as f32;
+        Self {
+            toward_closed: [half; TUBE_SAMPLES],
+            toward_opening: [half; TUBE_SAMPLES],
+            at: 0,
+        }
+    }
+
+    /// The line's slot written `back` steps ago.
+    fn back(&self, back: usize) -> usize {
+        (self.at + TUBE_SAMPLES - back) % TUBE_SAMPLES
+    }
+
+    /// The tube at `h`: its length in steps, D, which need not be whole --
+    /// a tube rounded to whole steps is a different tube at every rate, and
+    /// with it the harmonics its resonances lift (8m). The waves back toward
+    /// the opening take ⌊D⌋ steps, those toward the closed end the rest of
+    /// the round trip, 2D - ⌊D⌋ = K + φ, read between two steps by a straight
+    /// line. Returns (D, ⌊D⌋, K, φ).
+    fn lengths(model: &ReedModel, h: f64) -> (f64, usize, usize, f64) {
+        let delay = (model.tube_seconds / h).clamp(2.0, (TUBE_SAMPLES - 3) as f64);
+        let whole = delay as usize;
+        let there = 2.0 * delay - whole as f64;
+        let steps = there as usize;
+        (delay, whole, steps, there - steps as f64)
+    }
+
+    /// The tube's characteristic impedance ρc/S, its section the cell's
+    /// volume over its length D -- so its compliance at low frequency is
+    /// exactly the volume's.
+    fn impedance(model: &ReedModel, delay: f64, h: f64) -> f64 {
+        AIR_DENSITY * SPEED_OF_SOUND * SPEED_OF_SOUND * delay * h * model.inverse_cell_volume
+    }
+
+    /// The energy its waves hold, J, between steps: a step's length of a
+    /// wave p holds p² h / Z; of the line read between two steps, the older
+    /// of them only its share φ. Read so, the straight line never adds:
+    /// ((1 - φ)a + φb)² ≤ (1 - φ)a² + φb², so the lines are passive.
+    pub fn energy(&self, model: &ReedModel, h: f64) -> f64 {
+        let (delay, whole, steps, share) = Self::lengths(model, h);
+        let per_square = h / Self::impedance(model, delay, h);
+        let square = |line: &[f32; TUBE_SAMPLES], back: usize| {
+            let wave = f64::from(line[self.back(back)]);
+            wave * wave
+        };
+        let toward_closed: f64 = (1..=steps)
+            .map(|back| square(&self.toward_closed, back))
+            .sum::<f64>()
+            + share * square(&self.toward_closed, steps + 1);
+        let toward_opening: f64 = (1..=whole)
+            .map(|back| square(&self.toward_opening, back))
+            .sum();
+        (toward_closed + toward_opening) * per_square
     }
 }
 
@@ -332,6 +610,15 @@ pub struct ReedState {
     /// The pallet's curtain at the last step, m²: while it changes, the
     /// pallet is moving (see [`step`]).
     pub pallet: f64,
+    /// ρ / (2 α² A_p²) for that curtain, kept while it does not change
+    /// (milestone 10c).
+    pub pallet_factor: f64,
+    /// The flow through the hole's radiating mass, m³/s (milestone 8m);
+    /// the rest of the hole's flow passes its radiation resistance.
+    pub radiation_flow: f64,
+    /// The flow through the near field's mass, m³/s (milestone 8m); the
+    /// rest of the slot's flow passes the far side's radiation resistance.
+    pub near_flow: f64,
 }
 
 impl ReedState {
@@ -348,7 +635,12 @@ impl ReedState {
             flow,
             hole_flow: flow,
             cell_pressure: supply,
+            // No curtain: ρ / (2 α² ∞²) is nothing.
             pallet: f64::INFINITY,
+            pallet_factor: 0.0,
+            // A steady flow passes the masses, not the resistances.
+            radiation_flow: flow,
+            near_flow: flow,
         }
     }
 
@@ -358,8 +650,9 @@ impl ReedState {
     pub fn energy(&self, model: &ReedModel) -> f64 {
         0.5 * model.modal_mass
             * (self.velocity * self.velocity + model.omega * model.omega * self.zeta * self.zeta)
-            + 0.5 * model.inertance * self.flow * self.flow
+            + 0.5 * model.inertance * self.near_flow * self.near_flow
             + 0.5 * model.hole_inertance * self.hole_flow * self.hole_flow
+            + 0.5 * model.radiation_mass * self.radiation_flow * self.radiation_flow
             + 0.5 * model.cell_compliance * self.cell_pressure * self.cell_pressure
     }
 }
@@ -400,25 +693,73 @@ impl ReedState {
 /// unknowns reduce by substitution to a 2x2 system whose determinant is
 /// always positive.
 #[inline]
-pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, pallet: f64, h: f64) -> f64 {
+pub fn step(
+    model: &ReedModel,
+    state: &mut ReedState,
+    tube: &mut Tube,
+    supply: f64,
+    pallet: f64,
+    h: f64,
+) -> f64 {
     let d = &model.design;
-    let omega2 = model.omega * model.omega;
-    let lift = (state.zeta + 0.5 * h * state.velocity) / d.width;
+    let omega2 = model.omega2;
+    let lift = (state.zeta + 0.5 * h * state.velocity) * model.inverse_width;
     let speed = math::sqrt(2.0 * state.cell_pressure.max(0.0) / AIR_DENSITY);
-    let limit = d.swing_limit * AIR_DENSITY * speed * d.width * d.length * lift * lift;
-    let damping = model.omega / d.q + limit / model.modal_mass;
+    let limit = model.swing_density * speed * d.width * d.length * lift * lift;
+    let damping = model.linear_damping + limit * model.inverse_mass;
     let s_r = model.effective_area;
-    let (m_n, m_h, c) = (model.inertance, model.hole_inertance, model.cell_compliance);
+    let (m_n, m_h) = (model.inertance, model.hole_inertance);
+    // The cell, a tube (8m). At its opening its pressure is twice the wave
+    // arriving there plus its impedance times the hole's flow in: p_h = 2q⁻
+    // + Z a. Its closed end sends back what reaches it. At each of the
+    // slot's points the pressure is the two waves passing plus Z/2 times
+    // the air the slot puts in there, -w_k u; the tongue feels Σ w_k p_k =
+    // A - Z_s u, A the waves' share and Z_s = (Z/2) Σ w_k². The waves take
+    // a step or more between points, so each is solved alone.
+    let (delay, whole, steps, share) = Tube::lengths(model, h);
+    let z = Tube::impedance(model, delay, h);
+    let arriving_at_opening = f64::from(tube.toward_opening[tube.back(whole)]);
+    let arriving_at_closed = (1.0 - share) * f64::from(tube.toward_closed[tube.back(steps)])
+        + share * f64::from(tube.toward_closed[tube.back(steps + 1)]);
+    // Points that fall on one step of a short tube are one point, their
+    // weights summed: a step given air twice over would be given the cross
+    // term 2g₁g₂ of energy from nowhere. The points run along the tube in
+    // order, so only neighbours can meet.
+    let mut points = [(0usize, 0usize, 0.0f64); SLOT_POINTS];
+    let mut count = 0;
+    for (at, weight) in model.slot_points.into_iter().zip(model.slot_weights) {
+        let i = (math::round(at * delay) as usize).clamp(1, whole - 1);
+        let point = (tube.back(i), tube.back(whole - i));
+        match points[..count].last_mut() {
+            Some(last) if (last.0, last.1) == point => last.2 += weight,
+            _ => {
+                points[count] = (point.0, point.1, weight);
+                count += 1;
+            }
+        }
+    }
+    let points = &points[..count];
+    let mut waves = 0.0;
+    let mut squares = 0.0;
+    for (toward_closed, toward_opening, weight) in points {
+        waves += weight
+            * (f64::from(tube.toward_closed[*toward_closed])
+                + f64::from(tube.toward_opening[*toward_opening]));
+        squares += weight * weight;
+    }
+    let slot_impedance = 0.5 * z * squares;
     let jet_flow = state.flow - s_r * state.velocity;
     let section = model.section(state.zeta + 0.5 * h * state.velocity);
     let alpha_section = d.contraction * section;
     let r = AIR_DENSITY * jet_flow.abs() / (2.0 * alpha_section * alpha_section);
     // Midpoint unknowns: tongue velocity w, flow onto the reed u, hole flow
-    // a, cell pressure p. Rows: tongue, near field, hole, cell.
+    // a. Rows: tongue, near field (p = A - Z_s u), hole (p_h = 2q⁻ + Z a).
     //   (2 + hγ + h²ω²/2 + hμRS_r) w - hμR u            = 2w₀ - hω²ζ₀
-    //   -hRS_r w + (2M_n + hR) u - h p                   = 2M_n u₀
-    //   (2M_h + hR_p) a + h p                            = 2M_h a₀ + hP
-    //   h u - h a + 2C p                                 = 2C p₀
+    //   -hRS_r w + (hR + hZ_s + hR_e) u                  = h A + h R_e m₀  (below)
+    //   (2M_h + hR_p + hZ + hR_w + hR_e) a               = 2M_h a₀ + hP + hR_e m₀ - 2h q⁻
+    // R_w the walls' resistance, R_e the radiating end's (below).
+    // (Until 8m the cell was a volume, a fourth row: h u - h a + 2C p =
+    // 2C p₀.)
     // R_p is the pallet's curtain, an orifice linearised like the reed's own
     // jet: R_p = ρ |a₀| / (2 α² A_p²) ≥ 0. A closed pallet is a seal: the
     // hole passes nothing, and its row becomes a = 0. While the pallet moves,
@@ -430,44 +771,150 @@ pub fn step(model: &ReedModel, state: &mut ReedState, supply: f64, pallet: f64, 
     // across it, √(ρΔp/2)/(α A_p), which steady flow's linearisation equals.
     // Settled, as before.
     let moving = pallet != state.pallet;
+    // The curtain's air has mass too, ρw/A over the seat's width w (8m): the
+    // hole's end correction grows as the pallet comes close (Tonon's k, higher
+    // with the pallet near), and as the pad comes down the tone is filtered
+    // away, the highs first -- a real note let go fades over the pallet's
+    // travel, -1, -4, -8, -11 dB at 10, 20, 30, 40 ms (FreePats' Hohner
+    // releases, CC0), where the curtain's resistance alone kept it whole to
+    // the seat and then cut it. While the mass grows the air keeps its
+    // momentum, M₁a = M₀a₀, and while it shrinks its speed: either way the
+    // air's energy can only fall.
+    let curtain_mass = |area: f64| {
+        if area > 0.0 && area.is_finite() {
+            AIR_DENSITY * SEAT_WIDTH / area
+        } else {
+            0.0
+        }
+    };
+    let m_h = m_h + curtain_mass(pallet);
+    let before = model.hole_inertance + curtain_mass(state.pallet);
+    if pallet > 0.0 && m_h > before {
+        state.hole_flow *= before / m_h;
+    }
     state.pallet = pallet;
-    let (b3, dh) = if pallet > 0.0 {
+    // The hole's row solved for a: a = (b3 - h p) / dh, kept as 1/dh, which
+    // is zero for a closed pallet. While the curtain is all but shut the row
+    // is stiff -- hR_p > 2M_h -- and the trapezoid answers a decay faster
+    // than a step by flipping the flow's sign at every step, a burst at the
+    // Nyquist frequency (8k; the "bursts by turns" of 8h). There the row is
+    // weighted θ = 1 - M_h/(hR_p) instead of ½, the least that does not
+    // flip: a = θ a₁ + (1 - θ) a₀ in M_h(a₁ - a₀)/h = P - p - R_p a. Below
+    // that stiffness θ is ½ and the step is the trapezoid, bit for bit.
+    // The hole's radiating end, its mass M_r beside R_r: the flow m through
+    // the mass at the midpoint, (2M_r/h)(m - m₀) = R_r (a - m), so m = (1 -
+    // g) m₀ + g a, g = R_r/(2M_r/h + R_r), and the drop across it R_r (a -
+    // m) = R_e (a - m₀), R_e = R_r (1 - g): one more resistance in the
+    // hole's row, and a push R_e m₀ from the air still moving in the mass.
+    let radiation_weight = 2.0 * model.radiation_mass / h;
+    let toward_mass = model.radiation_resistance / (radiation_weight + model.radiation_resistance);
+    let radiating = model.radiation_resistance * (1.0 - toward_mass);
+    let mut theta = 0.5;
+    let (b3, inverse_dh) = if pallet > 0.0 {
         let alpha_pallet = d.contraction * pallet;
-        let linearised = AIR_DENSITY * state.hole_flow.abs() / (2.0 * alpha_pallet * alpha_pallet);
-        let r_p = if moving {
+        if moving {
+            state.pallet_factor = AIR_DENSITY / (2.0 * alpha_pallet * alpha_pallet);
+        }
+        let linearised = state.pallet_factor * state.hole_flow.abs();
+        let bernoulli = if moving {
             let drop = (supply - state.cell_pressure).abs();
             linearised.max(math::sqrt(0.5 * AIR_DENSITY * drop) / alpha_pallet)
         } else {
             linearised
         };
-        (
-            2.0 * m_h * state.hole_flow + h * supply,
-            2.0 * m_h + h * r_p,
-        )
+        // The curtain is also a thin slit, the pad's gap g = A/R over the
+        // seat's width w, round the hole's rim R: laminar, its resistance is
+        // Poiseuille's, 12 μ w/(g³ R) = 12 μ w R²/A³ (8m). Nothing while the
+        // pallet is open -- a 3 mm gap, a few hundred Pa·s/m³ -- it is what
+        // chokes the flow as the pad comes down, smoothly and before it
+        // touches: Bernoulli's alone falls with the flow it throttles, so the
+        // hole passed the tone until the curtain was nothing, then cut it, a
+        // click as a note was let go under the bellows' push.
+        let viscous = model.seat_viscosity / (pallet * pallet * pallet);
+        let r_p = bernoulli + viscous;
+        let resistance = r_p + z + model.wall_resistance + radiating;
+        let pushed =
+            h * (supply + radiating * state.radiation_flow) - 2.0 * h * arriving_at_opening;
+        if h * resistance > 2.0 * m_h {
+            theta = 1.0 - m_h / (h * resistance);
+            let weight = m_h / theta;
+            (
+                weight * state.hole_flow + pushed,
+                1.0 / (weight + h * resistance),
+            )
+        } else {
+            (
+                2.0 * m_h * state.hole_flow + pushed,
+                1.0 / (2.0 * m_h + h * resistance),
+            )
+        }
     } else {
         state.hole_flow = 0.0;
-        (0.0, f64::INFINITY)
+        // Forgotten with the curtain, so a reed rung down to nothing is the
+        // reed at rest again (`ReedState::default()`).
+        state.pallet_factor = 0.0;
+        (0.0, 0.0)
     };
-    let b4 = 2.0 * c * state.cell_pressure + h * b3 / dh;
-    let dc = 2.0 * c + h * h / dh;
-    // p = (b4 - h u) / dc, then the near-field row in w and u alone.
+    // The hole alone; a shut pallet passes nothing and the tube's end is
+    // rigid there, p_h = 2q⁻.
+    let a = b3 * inverse_dh;
+    let hole_pressure = 2.0 * arriving_at_opening + z * a;
+    let mass_flow = (1.0 - toward_mass) * state.radiation_flow + toward_mass * a;
+    state.radiation_flow = 2.0 * mass_flow - state.radiation_flow;
+    // The reed and its near field. While u carried the near field's mass
+    // itself, its row turned stiff with the tube's Z_s in it, h(R + Z_s) >
+    // 2M_n, and the flow's end value flipped at the internal Nyquist
+    // frequency -- beaten against the tone through the jet's nonlinearity,
+    // tones at fs/2 - n f0 (8m, the player's "squeal"); it was weighted θ
+    // then, as the hole's row is (8k). Now u carries no mass of its own.
+    //
+    // Since the slot's far side radiates (8m) the slot's flow u passes the
+    // jet and then the far side: its mass M_n beside R_s = ρc/S_slot. The
+    // flow m through the mass, weighted θ = 1 - M_n/(hR_s) where hR_s >
+    // 2M_n, else ½: (M_n/(θh))(m - m₀) = R_s (u - m), m = (W m₀ + R_s u)/(W +
+    // R_s), W = M_n/(θh); the far side's drop R_s (u - m) = R_e (u - m₀),
+    // R_e = R_s W/(W + R_s). The near-field row is then u's alone:
+    //   -hRS_r w + (hR + hZ_s + hR_e) u = h A + h R_e m₀
+    // where it was (2M_n + hR + hZ_s) u = 2M_n u₀ + h A.
+    let near_theta = if h * model.slot_radiation > 2.0 * m_n {
+        1.0 - m_n / (h * model.slot_radiation)
+    } else {
+        0.5
+    };
+    let near_weight = m_n / (near_theta * h);
+    let to_mass = model.slot_radiation / (near_weight + model.slot_radiation);
+    let far_side = model.slot_radiation * near_weight / (near_weight + model.slot_radiation);
     let a11 = 2.0 + h * damping + 0.5 * h * h * omega2 + h * model.mu * r * s_r;
     let a12 = -h * model.mu * r;
     let a21 = -h * r * s_r;
-    let a22 = 2.0 * m_n + h * r + h * h / dc;
+    let a22 = h * (r + slot_impedance + far_side);
     let b1 = 2.0 * state.velocity - h * omega2 * state.zeta;
-    let b2 = 2.0 * m_n * state.flow + h * b4 / dc;
-    let det = a11 * a22 - a12 * a21;
-    let w = (b1 * a22 - a12 * b2) / det;
-    let u = (a11 * b2 - a21 * b1) / det;
-    let p = (b4 - h * u) / dc;
-    let a = (b3 - h * p) / dh;
+    let b2 = h * (waves + far_side * state.near_flow);
+    let inverse_det = 1.0 / (a11 * a22 - a12 * a21);
+    let w = (b1 * a22 - a12 * b2) * inverse_det;
+    let u = (a11 * b2 - a21 * b1) * inverse_det;
+    let p = waves - slot_impedance * u;
+    // The ends send their waves on; the slot's points put their air in.
+    tube.toward_closed[tube.at] = (hole_pressure - arriving_at_opening) as f32;
+    tube.toward_opening[tube.at] = arriving_at_closed as f32;
+    for (toward_closed, toward_opening, weight) in points {
+        let given = (-0.5 * z * weight * u) as f32;
+        tube.toward_closed[*toward_closed] += given;
+        tube.toward_opening[*toward_opening] += given;
+    }
+    tube.at = (tube.at + 1) % TUBE_SAMPLES;
     let previous_hole_flow = state.hole_flow;
     state.zeta += h * w;
     state.velocity = 2.0 * w - state.velocity;
-    state.flow = 2.0 * u - state.flow;
-    state.hole_flow = 2.0 * a - state.hole_flow;
-    state.cell_pressure = 2.0 * p - state.cell_pressure;
+    state.flow = u;
+    let mass_flow = (1.0 - to_mass) * state.near_flow + to_mass * u;
+    state.near_flow = (mass_flow - (1.0 - near_theta) * state.near_flow) / near_theta;
+    state.hole_flow = if theta == 0.5 {
+        2.0 * a - state.hole_flow
+    } else {
+        (a - (1.0 - theta) * state.hole_flow) / theta
+    };
+    state.cell_pressure = p;
     (state.hole_flow - previous_hole_flow) / h
 }
 
@@ -536,18 +983,30 @@ mod tests {
             hole_flow: -2.0e-5,
             cell_pressure: 150.0,
             pallet: f64::INFINITY,
+            pallet_factor: 0.0,
+            radiation_flow: 0.0,
+            near_flow: 4.0e-5,
         };
         let mut state = start;
         let h = 1.0 / 96_000.0;
-        let mut energy = state.energy(&model);
+        // The cell's air is the tube's (8m): its waves hold what the cell's
+        // pressure held, so the whole is the tongue's, the near field's, the
+        // hole's and the tube's.
+        let mut tube = Tube::steady(start.cell_pressure);
+        let total = |state: &ReedState, tube: &Tube| {
+            state.energy(&model) - 0.5 * model.cell_compliance * state.cell_pressure.powi(2)
+                + tube.energy(&model, h)
+        };
+        let mut energy = total(&state, &tube);
+        let first = energy;
         // At Q 95 and 355 Hz the tongue's energy falls with a 42 ms time
         // constant: 0.625 s is fifteen of them.
         for _ in 0..60_000 {
-            step(&model, &mut state, 0.0, f64::INFINITY, h);
-            let next = state.energy(&model);
-            assert!(next <= energy * (1.0 + 1e-12), "{next} > {energy}");
+            step(&model, &mut state, &mut tube, 0.0, f64::INFINITY, h);
+            let next = total(&state, &tube);
+            assert!(next <= energy * (1.0 + 1e-9), "{next} > {energy}");
             energy = next;
         }
-        assert!(energy < 1e-3 * start.energy(&model), "{energy}");
+        assert!(energy < 1e-3 * first, "{energy}");
     }
 }

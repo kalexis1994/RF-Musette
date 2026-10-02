@@ -112,12 +112,27 @@ pub fn bare(parameters: &Parameters, key: u8, rank: usize) -> Option<ReedDesign>
         RANK_HIGH => pitch(key, 440.0) * 2.0,
         _ => pitch(key, 440.0),
     };
-    Some(unloaded(
-        parameters,
-        made_for,
-        target(parameters, key, rank),
-    ))
+    let mut design = unloaded(parameters, made_for, target(parameters, key, rank));
+    // The treble's cells open through a hole of about a centimetre, the same
+    // under every key -- a piccolo's some 2 mm smaller (technicians;
+    // milestone 8m): the parameter's, not scaled with the tongue.
+    let hole = parameters.reed_design().tone_hole_area;
+    design.tone_hole_area = if rank == RANK_HIGH {
+        hole * PICCOLO_HOLE
+    } else {
+        hole
+    };
+    Some(design)
 }
+
+/// A piccolo cell's hole against the others': 8 mm square against 10
+/// (technicians, milestone 8m).
+const PICCOLO_HOLE: f64 = 0.64;
+
+/// The bass side's hole for a reed the size of the measured F4, m², scaled
+/// with the slot: assumed, as the treble's was before milestone 8m; nothing
+/// is reported for the bass blocks' holes.
+const BASS_HOLE: f64 = 150.0e-6;
 
 /// A rank's reed of a key before tuning: [`bare`], loaded at the tip and fed
 /// through the inlet duct the finishing tables say.
@@ -173,7 +188,7 @@ fn unloaded(parameters: &Parameters, made_for: f64, frequency: f64) -> ReedDesig
         set: measured.set * length,
         plate_thickness: measured.plate_thickness * plate,
         cell_volume: measured.cell_volume * cube,
-        tone_hole_area: measured.tone_hole_area * length * width,
+        tone_hole_area: BASS_HOLE * length * width,
         ..measured
     }
 }

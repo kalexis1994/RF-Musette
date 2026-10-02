@@ -13,12 +13,17 @@
 
 #![no_std]
 
+// Natively -- the tests, the laboratory -- the standard library lends the
+// engine its correctly rounded square root, the one WebAssembly's
+// `f64.sqrt` gives the plugin ([`math::sqrt`]). Nothing here allocates.
+#[cfg(not(target_arch = "wasm32"))]
+extern crate std;
+
 mod bellows;
 pub mod cassotto;
 pub mod compass;
 mod decimator;
 pub mod math;
-pub mod motion;
 pub mod pallet;
 pub mod parameters;
 pub mod programs;
@@ -28,11 +33,11 @@ pub mod tongue;
 pub mod tuning;
 pub mod wind;
 
-pub use bellows::{Bellows, BellowsSource};
+pub use bellows::{Bellows, BellowsSource, RESTING_PUSH};
 pub use decimator::Decimator;
 use pallet::{Pallet, PalletDesign};
 pub use parameters::{COUNT as PARAMETER_COUNT, Parameters, SPECS as PARAMETER_SPECS, Side};
-use reed::{ReedModel, ReedState};
+use reed::{ReedModel, ReedState, Tube};
 use tongue::TongueMode;
 
 /// MIDI key numbers the engine tracks.
@@ -56,10 +61,12 @@ const SUPPLY_SMOOTHING_SECONDS: f64 = 0.001;
 /// The recording's level (milestone 9c): pascals at 1 m to full scale, set
 /// so the loudest the instrument plays -- both hands' full chords in Master
 /// at the bellows' ceiling, through the ORTF pair -- peaks at -6 dBFS, a
-/// recording's headroom: -22 dB, full scale 116 dB SPL at the 1 m reference
-/// (measured again with milestone 9d's room; the room's part of each
-/// layout's balance moves the peaks a decibel or two).
-pub const RECORDING_LEVEL: f32 = 0.079_433;
+/// recording's headroom: -17.7 dB, full scale 111.7 dB SPL at the 1 m
+/// reference (measured again with milestone 9d's room, whose part of each
+/// layout's balance moves the peaks a decibel or two, and again with 8m's
+/// tube, with which the loudest case peaked 3.3 dB lower, and its set's
+/// shape, 1.0 dB lower again: -22 dB before).
+pub const RECORDING_LEVEL: f32 = 0.130_3;
 
 /// Where the soft ceiling starts, of full scale: -6 dBFS; and the level it
 /// rounds toward, -0.2 dBFS, short of full scale even where a float's tanh
@@ -82,11 +89,6 @@ pub fn ceiling(sample: f32) -> f32 {
     bent.copysign(sample)
 }
 
-/// How the bass box follows the wheel's place as the bellows, s: the steps
-/// of a 7-bit wheel are 1.6 mm of the box's travel at 12 L, smoothed so its
-/// paths to the microphones do not jump.
-const OPENING_SMOOTHING_SECONDS: f64 = 0.03;
-
 /// The MIDI channels of the bass side, counted from 0, as Roland's
 /// V-Accordions send them (FR-3x Owner's Manual, p. 57): the bass buttons
 /// on channel 2, the chord buttons on channel 3. Every other channel plays
@@ -98,6 +100,24 @@ pub const CHORD_CHANNEL: u8 = 2;
 const BASS_START: usize = compass::KEYS;
 /// The treble's keys and the bass side's.
 const ALL_KEYS: usize = compass::KEYS + compass::BASS_KEYS;
+
+/// The tongues heard through the bellows (8k). A tongue swinging in its slot
+/// moves air into the bellows with its own face, S_r ζ', as well as setting
+/// the jet that sounds through the hole; that reaches the listener through
+/// the bellows' walls. Taken as the tongue's own monopole, S_r ζ'', through
+/// a limp wall of mass m per area: the mass law, 1/(1 + jωm/2ρc), a single
+/// pole at ρc/(πm). Only the tongue's own motion: the jet already sounds
+/// through the hole, and its slow swings would come through as a rumble.
+/// It is what carries the tongue's ringing once the pallet has shut.
+///
+/// The walls are 0.8-1 mm manila card (makers' accounts, "How to make
+/// Bellows"), solid board ~615 g/m² a millimetre, lined with cloth: about
+/// 0.75 kg/m² -- derived. Left out: the bellows' air between tongue and
+/// wall, whose stiffness and the walls' mass make a resonance of their
+/// own, and the walls' area.
+const BELLOWS_WALL_MASS: f64 = 0.75;
+/// ρc of air, Pa·s/m.
+const AIR_IMPEDANCE: f64 = reed::AIR_DENSITY * 343.2;
 
 /// The plate's reed that sounds when the bellows pulls: inside the cell.
 pub const PULL_REED: usize = 0;
@@ -119,6 +139,8 @@ struct Rank {
     /// `None` until the key is first built, or where the rank has no reed.
     model: Option<ReedModel>,
     states: [ReedState; 2],
+    /// Each reed's cell, a tube (milestone 8l).
+    tubes: [Tube; 2],
     /// How much of its start each reed has been given since air could last
     /// reach it, as the share P/(P + P₀) of the full start.
     started: [f64; 2],
@@ -185,6 +207,9 @@ pub struct Engine {
     /// The cassotto L and M sound into, when the instrument has one: one
     /// filter for each treble quarter the microphones hear apart.
     cassotto: [cassotto::Cassotto; stage::TREBLE_SOURCES],
+    /// Each source's tongues heard through the bellows' walls: the mass
+    /// law's one pole, its state (8k).
+    inside: [f64; stage::SOURCES],
     /// The bellows' pressure, Pa, without its sign.
     supply: f64,
     /// Which way the bellows moves: -1 pulling, +1 pushing, and in between
@@ -198,9 +223,6 @@ pub struct Engine {
     /// A reed parameter moved: rebuild before the next sample.
     dirty: bool,
     held: [bool; KEYS],
-    /// The intent as the arm follows it: velocity's strikes smoothed over
-    /// "Bellows Smoothing", a controller's as it comes.
-    intent: f64,
     /// Where each note on a treble channel went when it was played, so it
     /// is let go there whatever the split has become since.
     played: [Side; KEYS],
@@ -208,15 +230,6 @@ pub struct Engine {
     bass_held: [bool; KEYS],
     chord_held: [bool; KEYS],
     bellows: Bellows,
-    /// The modulation wheel as where the bellows is (milestone 8i): its
-    /// motion, the samples rendered to time it by, and the air the arm moves,
-    /// m³/s, above zero pushing, followed as the moving half's mass allows.
-    motion: motion::Motion,
-    clock: u64,
-    flow: f64,
-    /// The wheel's last high and low halves.
-    wheel_msb: u8,
-    wheel_lsb: u8,
     /// The microphones and the room (milestone 9b): each source brought to
     /// the host's rate apart, the stage, and whether it needs tuning.
     zone_decimators: [Decimator; stage::SOURCES],
@@ -239,6 +252,7 @@ impl Engine {
             ranks: core::array::from_fn(|_| Rank {
                 model: None,
                 states: [ReedState::default(); 2],
+                tubes: [Tube::default(); 2],
                 started: [0.0; 2],
             }),
             stale: true,
@@ -253,6 +267,7 @@ impl Engine {
             wind: wind::Wind::default(),
             draw: 0.0,
             cassotto: core::array::from_fn(|_| cassotto::Cassotto::default()),
+            inside: [0.0; stage::SOURCES],
             supply: 0.0,
             turn: parameters.direction(),
             flipped: false,
@@ -260,16 +275,10 @@ impl Engine {
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
             held: [false; KEYS],
-            intent: 0.0,
             played: [Side::Treble; KEYS],
             bass_held: [false; KEYS],
             chord_held: [false; KEYS],
             bellows: Bellows::new(),
-            motion: motion::Motion::default(),
-            clock: 0,
-            flow: 0.0,
-            wheel_msb: 0,
-            wheel_lsb: 0,
             zone_decimators: core::array::from_fn(|_| Decimator::new(parameters.oversampling())),
             stage: stage::Stage::new(f64::from(sample_rate)),
             stage_dirty: true,
@@ -316,12 +325,6 @@ impl Engine {
         if matches!(index, parameters::BELLOWS_TRAVEL | parameters::BELLOWS_AREA) {
             self.stage_dirty = true;
         }
-        // What the wheel is changed: it starts afresh, and gives the bellows
-        // back to velocity until a controller moves it.
-        if index == parameters::MOD_WHEEL {
-            self.motion.forget();
-            self.bellows.release_motion();
-        }
         if index == parameters::BELLOWS_DIRECTION
             && !self.anything_held()
             && self.keys.iter().all(Key::is_still)
@@ -360,15 +363,14 @@ impl Engine {
         true
     }
 
-    /// A key goes down at `velocity` (0..=1). On a real accordion the key
-    /// only opens its pallet; velocity reaches the sound through the bellows
-    /// alone, and only while no Expression controller owns it.
-    pub fn note_on(&mut self, key: u8, velocity: f32) {
+    /// A key goes down. On a real accordion the key only opens its pallet,
+    /// and has no velocity: the sound's strength is the bellows', which the
+    /// wheel or Expression sets (`bellows.rs`). The velocity is ignored.
+    pub fn note_on(&mut self, key: u8, _velocity: f32) {
         if usize::from(key) >= KEYS {
             return;
         }
         self.press(key, 1.0);
-        self.bellows.strike(velocity);
     }
 
     pub fn note_off(&mut self, key: u8) {
@@ -423,12 +425,10 @@ impl Engine {
     }
 
     /// A bass button goes down: the one of `key`'s pitch class, whatever its
-    /// octave (a V-Accordion sends C3-B3). Velocity reaches the sound
-    /// through the bellows only, as on the treble.
-    pub fn bass_on(&mut self, key: u8, velocity: f32) {
-        if self.hold(key, true, true) {
-            self.bellows.strike(velocity);
-        }
+    /// octave (a V-Accordion sends C3-B3). The velocity is ignored, as on
+    /// the treble.
+    pub fn bass_on(&mut self, key: u8, _velocity: f32) {
+        self.hold(key, true, true);
     }
 
     pub fn bass_off(&mut self, key: u8) {
@@ -437,11 +437,9 @@ impl Engine {
 
     /// A chord note: `key`'s pitch class sounds on the chord ranks. A
     /// V-Accordion's chord button sends its three; a keyboard player's left
-    /// hand sends what it holds.
-    pub fn chord_on(&mut self, key: u8, velocity: f32) {
-        if self.hold(key, false, true) {
-            self.bellows.strike(velocity);
-        }
+    /// hand sends what it holds. The velocity is ignored.
+    pub fn chord_on(&mut self, key: u8, _velocity: f32) {
+        self.hold(key, false, true);
     }
 
     pub fn chord_off(&mut self, key: u8) {
@@ -500,64 +498,21 @@ impl Engine {
         &mut self.bellows
     }
 
-    /// The modulation wheel's high seven bits (CC 1). With Mod Wheel on
-    /// Pressure it is the push, as Expression is (milestone 8f); on Bellows,
-    /// where the bellows is (milestone 8i).
+    /// The modulation wheel's high seven bits (CC 1): the push, as
+    /// Expression is (milestone 8f). It was also, with Mod Wheel on Bellows,
+    /// where the bellows is (8i) -- withdrawn, ROADMAP 8i.
     pub fn wheel_msb(&mut self, value: u8) {
-        if !self.parameters.wheel_is_bellows() {
-            self.bellows.expression_msb(value);
-            return;
-        }
-        self.wheel_msb = value.min(127);
-        self.wheel_lsb = 0;
-        self.wheel_moved(false);
+        self.bellows.expression_msb(value);
     }
 
-    /// The wheel's low seven bits (CC 33). A low half with no high half
-    /// before it has nothing to refine and is ignored.
+    /// The wheel's low seven bits (CC 33).
     pub fn wheel_lsb(&mut self, value: u8) {
-        if !self.parameters.wheel_is_bellows() {
-            self.bellows.expression_lsb(value);
-            return;
-        }
-        if !self.motion.is_known() {
-            return;
-        }
-        self.wheel_lsb = value.min(127);
-        self.wheel_moved(true);
+        self.bellows.expression_lsb(value);
     }
 
     /// The wheel at MIDI 2.0 width, already a fraction of its range.
     pub fn wheel_wide(&mut self, value: f32) {
-        if !self.parameters.wheel_is_bellows() {
-            self.bellows.expression_wide(value);
-            return;
-        }
-        if value.is_finite() {
-            self.bellows.take_by_motion();
-            self.motion.moved(
-                f64::from(value),
-                self.clock,
-                f64::from(self.sample_rate),
-                false,
-            );
-        }
-    }
-
-    /// The wheel's two halves as one 14-bit position, on one scale whether
-    /// or not the low half ever comes: a wheel that starts sending it does
-    /// not seem to jump.
-    fn wheel_moved(&mut self, refine: bool) {
-        let position =
-            f64::from(u16::from(self.wheel_msb) << 7 | u16::from(self.wheel_lsb)) / 16383.0;
-        self.bellows.take_by_motion();
-        self.motion
-            .moved(position, self.clock, f64::from(self.sample_rate), refine);
-    }
-
-    /// Whether the wheel, as where the bellows is, moves the air now.
-    fn driven(&self) -> bool {
-        self.bellows.source() == BellowsSource::Motion && self.parameters.wheel_is_bellows()
+        self.bellows.expression_wide(value);
     }
 
     /// One reed as it stands: of `key`'s `rank` ([`parameters::RANK_LOW`] ..
@@ -602,6 +557,7 @@ impl Engine {
             key.chord = Pallet::default();
             for rank in key.ranks.iter_mut() {
                 rank.states = [ReedState::default(); 2];
+                rank.tubes = [Tube::default(); 2];
                 rank.started = [0.0; 2];
             }
         }
@@ -611,6 +567,7 @@ impl Engine {
         for cassotto in self.cassotto.iter_mut() {
             cassotto.reset();
         }
+        self.inside = [0.0; stage::SOURCES];
         for decimator in self.zone_decimators.iter_mut() {
             decimator.reset();
         }
@@ -687,6 +644,10 @@ impl Engine {
         if *given == 0.0 && state.cell_pressure <= parameters::KICK_PRESSURE {
             return;
         }
+        // Nothing at the threshold itself, so a bellows that starts to move
+        // gives the start as its pressure rises rather than half of it the
+        // moment it passes P₀ (8j); a key pressed into a blowing bellows
+        // gets all but P₀/P of it at once, as before.
         let share = blow / (blow + parameters::KICK_PRESSURE);
         if share > *given {
             state.velocity += model.omega * kick * model.design.set * (share - *given);
@@ -779,37 +740,10 @@ impl Engine {
         self.build_stale();
         let factor = self.decimator.factor();
         let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
-        // The arm: velocity's strikes reached over the smoothing time, a
-        // controller's at once.
-        let asked = f64::from(self.bellows.intent());
-        let following = match self.bellows.source() {
-            BellowsSource::Velocity => {
-                let seconds = self
-                    .parameters
-                    .get(parameters::BELLOWS_SMOOTHING)
-                    .unwrap_or(0.0)
-                    * 1e-3;
-                if seconds > 0.0 {
-                    1.0 - math::exp(-1.0 / (f64::from(self.sample_rate) * seconds))
-                } else {
-                    1.0
-                }
-            }
-            BellowsSource::Expression | BellowsSource::Motion => 1.0,
-        };
-        // Driven by the wheel (milestone 8i), the arm moves air rather than
-        // pushing: the bellows' air and the most the arm can push.
-        let driven = self.driven();
-        let air = self.parameters.bellows_air();
-        let ceiling = self.parameters.bellows_pressure(1.0);
-        let wheel_travel = self.parameters.travel();
+        // The arm: the wheel or the pedal is the player's hand already, and
+        // the bellows follows it as it comes.
+        let asked = self.bellows.intent();
         let rate = f64::from(self.sample_rate);
-        if driven {
-            // The bellows moves one way or the other: never half turned.
-            self.turn = if self.turn < 0.0 { -1.0 } else { 1.0 };
-        } else {
-            self.flow = 0.0;
-        }
         let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
         // Turning, the bellows takes its pressure through zero: the turn goes
         // from -1 to +1, or back, at a steady rate over the reversal time.
@@ -835,53 +769,54 @@ impl Engine {
             .cassotto()
             .map(|(resonance, q)| cassotto::CassottoTuning::new(resonance, q, h));
         let mut chunk = [0.0f32; decimator::MAX_FACTOR];
-        let travel_air = self.parameters.travel();
-        let following_bellows = 1.0 - math::exp(-1.0 / (rate * OPENING_SMOOTHING_SECONDS));
-        for n in 0..frames {
-            // Where the bass box is: the wheel's place, as the bellows (8i),
-            // or the air let through -- pulling opens the bellows, pushing
-            // shuts it.
-            if driven {
-                if let Some(position) = self.motion.position() {
-                    self.opened += (position * travel_air - self.opened) * following_bellows;
-                }
-            } else {
-                self.opened -= self.turn * self.draw / rate;
+        // The keys with anything to compute, in order. Between calls is the
+        // only time a key is pressed, so none joins them during this one;
+        // one that falls idle stays listed, and computing an idle key
+        // changes nothing (milestone 10).
+        let mut sounding = [0u8; ALL_KEYS];
+        let mut count = 0;
+        for (number, key) in self.keys.iter().enumerate() {
+            if !key.is_idle() {
+                sounding[count] = number as u8;
+                count += 1;
             }
+        }
+        let sounding = &sounding[..count];
+        let travel_air = self.parameters.travel();
+        // The bellows' walls: the mass law's pole, 2ρc/m rad/s, at the
+        // oversampled rate.
+        let walls = 1.0 - math::exp(-2.0 * AIR_IMPEDANCE / BELLOWS_WALL_MASS * h);
+        for n in 0..frames {
+            // Where the bass box is: the air let through -- pulling opens
+            // the bellows, pushing shuts it.
+            self.opened -= self.turn * self.draw / rate;
             self.opened = self.opened.clamp(0.0, travel_air);
             let extension = self.opened / area;
-            // The wheel up opens the bellows -- pulls -- and down closes it.
-            let arm = if driven {
-                -self.motion.speed(self.clock, rate) * wheel_travel
-            } else {
-                0.0
-            };
-            self.clock = self.clock.wrapping_add(1);
-            if let Some(travel) = travel.filter(|_| !driven) {
+            if let Some(travel) = travel {
                 self.turn_if_spent(travel);
             }
             let direction = self.direction();
-            self.intent += (asked - self.intent) * following;
             // The bellows holds its pressure with or without a key down.
-            let target = self.parameters.bellows_pressure(self.intent as f32);
-            if self.keys.iter().all(Key::is_idle) && self.at_rest() {
+            let target = self.parameters.bellows_pressure(asked);
+            if sounding
+                .iter()
+                .all(|&number| self.keys[usize::from(number)].is_idle())
+                && self.at_rest(sounding)
+            {
                 // Every pallet is shut, nothing moves and nothing is left in
                 // the filter. The bellows keeps moving as asked, and only
                 // its leaks and the air button spend its air.
                 for cassotto in self.cassotto.iter_mut() {
                     cassotto.reset();
                 }
+                self.inside = [0.0; stage::SOURCES];
                 self.draw = 0.0;
-                if driven {
-                    self.drive(&air, ceiling, arm, h * factor as f64);
-                } else {
-                    self.ask = target;
-                    self.supply = match &wind {
-                        Some(design) => self.wind.step(design, target, 0.0, h * factor as f64),
-                        None => target,
-                    };
-                    self.turn = toward(self.turn, direction, turning * factor as f64);
-                }
+                self.ask = target;
+                self.supply = match &wind {
+                    Some(design) => self.wind.step(design, target, 0.0, h * factor as f64),
+                    None => target,
+                };
+                self.turn = toward(self.turn, direction, turning * factor as f64);
                 // The room rings on after the instrument has stopped.
                 let (left, right) = if staged {
                     let (left, right) = self.stage.process(&[0.0; stage::SOURCES], extension);
@@ -894,21 +829,17 @@ impl Engine {
             }
             let mut zone_chunks = [[0.0f32; decimator::MAX_FACTOR]; stage::SOURCES];
             for (slot, mono) in chunk.iter_mut().enumerate().take(factor) {
-                if driven {
-                    self.drive(&air, ceiling, arm, h);
-                } else {
-                    self.ask += (target - self.ask) * smoothing;
-                    self.supply = match &wind {
-                        Some(design) => self.wind.step(design, self.ask, self.draw, h),
-                        None => {
-                            // Kept in step, so turning the arm on never starts
-                            // from an empty bellows.
-                            self.wind.pressure = self.ask;
-                            self.ask
-                        }
-                    };
-                    self.turn = toward(self.turn, direction, turning);
-                }
+                self.ask += (target - self.ask) * smoothing;
+                self.supply = match &wind {
+                    Some(design) => self.wind.step(design, self.ask, self.draw, h),
+                    None => {
+                        // Kept in step, so turning the arm on never starts
+                        // from an empty bellows.
+                        self.wind.pressure = self.ask;
+                        self.ask
+                    }
+                };
+                self.turn = toward(self.turn, direction, turning);
                 let signed = self.turn * self.supply;
                 // Each reed is blown only from its own side, and only while
                 // its rank's register is open; the other's valve is shut,
@@ -917,11 +848,15 @@ impl Engine {
                 // radiates is the outward flow's rate.
                 // Each source's: the treble's quarters, then the bass box.
                 let mut outward = [0.0f64; stage::SOURCES];
+                // Each source's tongues' volume acceleration, S_r ζ''.
+                let mut inside_flow = [0.0f64; stage::SOURCES];
                 // What L and M send into the cassotto, when there is one.
                 let mut boxed = [0.0f64; stage::TREBLE_SOURCES];
                 // The air every reed's hole passes, drawn from the bellows.
                 let mut drawn = 0.0;
-                for (number, key) in self.keys.iter_mut().enumerate() {
+                for &number in sounding {
+                    let number = usize::from(number);
+                    let key = &mut self.keys[number];
                     if key.is_idle() {
                         continue;
                     }
@@ -944,11 +879,12 @@ impl Engine {
                         // chord pallet too, and passes what the wider of the
                         // two lets through.
                         let hole = model.design.tone_hole_area;
+                        let rim = model.hole_rim;
                         let chorded = bass && Parameters::is_chord_rank(index);
-                        let mut area = key.pallet.area(&self.pallet_design, hole);
+                        let mut area = key.pallet.area_by_rim(&self.pallet_design, hole, rim);
                         let mut down = key.pallet.target > 0.0;
                         if chorded {
-                            area = area.max(key.chord.area(&self.pallet_design, hole));
+                            area = area.max(key.chord.area_by_rim(&self.pallet_design, hole, rim));
                             down |= key.chord.target > 0.0;
                         }
                         let opened = if bass { open_bass[index] } else { open[index] };
@@ -960,8 +896,12 @@ impl Engine {
                         } else {
                             &mut outward[source]
                         };
-                        for ((which, state), given) in
-                            rank.states.iter_mut().enumerate().zip(&mut rank.started)
+                        for (((which, state), tube), given) in rank
+                            .states
+                            .iter_mut()
+                            .enumerate()
+                            .zip(rank.tubes.iter_mut())
+                            .zip(&mut rank.started)
                         {
                             let (side, sign) = if which == PULL_REED {
                                 ((-signed).max(0.0), -1.0)
@@ -973,13 +913,22 @@ impl Engine {
                             if blow == 0.0 && *state == ReedState::default() {
                                 continue;
                             }
-                            *into += sign * reed::step(model, state, blow, area, h);
+                            let swing = state.velocity;
+                            *into += sign * reed::step(model, state, tube, blow, area, h);
+                            inside_flow[source] +=
+                                sign * model.effective_area * (state.velocity - swing) / h;
                             drawn += state.hole_flow;
                             // An unblown reed rings down; once it is
                             // negligible it stops exactly, and is no longer
-                            // computed.
-                            if blow == 0.0 && state.energy(model) < 1.0e-12 {
+                            // computed. A shut pallet seals the reed's cell
+                            // as surely as a shut register or a still
+                            // bellows: the bellows' pressure no longer
+                            // reaches it (`reed::step`), and it rings down
+                            // the same way (milestone 10c; it was computed
+                            // until it underflowed, tens of seconds).
+                            if (blow == 0.0 || area == 0.0) && state.energy(model) < 1.0e-12 {
                                 *state = ReedState::default();
+                                *tube = Tube::default();
                             }
                         }
                     }
@@ -992,6 +941,14 @@ impl Engine {
                     for (quarter, cassotto) in self.cassotto.iter_mut().enumerate() {
                         outward[quarter] += cassotto.process(tuning, boxed[quarter]);
                     }
+                }
+                for ((source, flow), heard) in outward
+                    .iter_mut()
+                    .zip(inside_flow)
+                    .zip(self.inside.iter_mut())
+                {
+                    *heard += walls * (flow - *heard);
+                    *source += *heard;
                 }
                 if staged {
                     for (chunk, source) in zone_chunks.iter_mut().zip(outward) {
@@ -1019,42 +976,31 @@ impl Engine {
         }
     }
 
-    /// One step of the bellows the wheel drives: the arm's air, `arm` m³/s
-    /// (above zero pushing), followed over the moving half's time, into the
-    /// air the reeds draw from; turning when it drains through zero.
-    fn drive(&mut self, air: &wind::WindDesign, ceiling: f64, arm: f64, h: f64) {
-        self.flow += (arm - self.flow) * (h / wind::MEAN_TIME).min(1.0);
-        if self
-            .wind
-            .driven(air, ceiling, self.turn * self.flow, self.draw, h)
-        {
-            self.turn = -self.turn;
-        }
-        self.supply = self.wind.pressure;
-        // Kept in step, so the other mode never starts from elsewhere.
-        self.ask = self.supply;
-    }
-
     /// True once every reed has stopped and the filter has emptied. A
     /// reed's state is zeroed exactly once its energy is negligible, so the
-    /// silence that follows is exact too.
-    fn at_rest(&mut self) -> bool {
+    /// silence that follows is exact too. Only the `sounding` keys can hold
+    /// anything: the others were idle, so still, when the block began.
+    fn at_rest(&mut self, sounding: &[u8]) -> bool {
         if self.decimator.is_quiet()
             && self.zone_decimators.iter().all(Decimator::is_quiet)
-            && self.keys.iter().all(Key::is_still)
+            && sounding
+                .iter()
+                .all(|&number| self.keys[usize::from(number)].is_still())
         {
             return true;
         }
         // A sounding F4 reed stores a few millijoules; 1e-12 J is about
         // 98 dB below it.
-        for key in self.keys.iter_mut() {
+        for &number in sounding {
+            let key = &mut self.keys[usize::from(number)];
             for rank in key.ranks.iter_mut() {
                 let Some(model) = &rank.model else {
                     continue;
                 };
-                for state in rank.states.iter_mut() {
+                for (state, tube) in rank.states.iter_mut().zip(rank.tubes.iter_mut()) {
                     if state.energy(model) < 1.0e-12 {
                         *state = ReedState::default();
+                        *tube = Tube::default();
                     }
                 }
             }
@@ -1104,6 +1050,7 @@ mod tests {
         assert!(!engine.is_held(69));
         engine.note_on(200, 1.0);
         assert_eq!(engine.held_count(), 1, "a key outside MIDI is ignored");
+        engine.bellows_mut().expression_wide(0.5);
         engine.reset();
         assert_eq!(engine.held_count(), 0);
         assert_eq!(
@@ -1125,12 +1072,13 @@ mod tests {
     /// The whole instrument, its microphones and its room live inside the
     /// engine, which never allocates. The component is linked with an 8 MiB
     /// stack (.cargo/config.toml) and the engine is moved a few times as it
-    /// is built: it must stay inside an eighth of it.
+    /// is built: it must stay inside a sixth of it. An eighth until the
+    /// cells became tubes (milestone 8m), whose waves take 269 KiB.
     #[test]
     fn a_whole_instrument_fits_the_stack() {
         let bytes = core::mem::size_of::<Engine>();
         std::println!("Engine: {} KiB", bytes / 1024);
-        assert!(bytes < 1024 * 1024, "{bytes} bytes");
+        assert!(bytes < 8 * 1024 * 1024 / 6, "{bytes} bytes");
     }
 
     #[test]

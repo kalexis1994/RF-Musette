@@ -46,18 +46,21 @@ pub fn document() -> Value {
                         .collect::<Vec<_>>(),
                 })
             };
+            let retired = rf_musette_ui::panel::RETIRED.contains(&spec.id);
             json!({
                 "index": index,
                 "id": spec.id,
                 "name": spec.name,
                 "page": spec.page,
-                "order": panel_order(spec.id),
+                "order": if retired { SPECS.len() } else { panel_order(spec.id) },
                 "kind": kind,
+                // A retired parameter keeps its place and nothing else: it
+                // takes one value and is not offered.
                 "flags": {
-                    "automatable": true,
+                    "automatable": !retired,
                     "modulatable": false,
-                    "read_only": false,
-                    "advanced": spec.page != PAGES[0].0,
+                    "read_only": retired,
+                    "advanced": retired || spec.page != PAGES[0].0,
                 },
                 "suggested_control": if spec.choices.is_empty() { "knob" } else { "list" },
             })

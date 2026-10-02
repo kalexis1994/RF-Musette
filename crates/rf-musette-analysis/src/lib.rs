@@ -3,8 +3,10 @@
 //! Everything here drives the engine's own reed step, so what is measured is
 //! the model that ships, not a copy of it.
 
+pub mod scenes;
+
 use rf_musette_dsp::pallet::{Pallet, PalletDesign};
-use rf_musette_dsp::reed::{self, ReedDesign, ReedModel, ReedState};
+use rf_musette_dsp::reed::{self, ReedDesign, ReedModel, ReedState, Tube};
 
 /// One simulated reed, sampled at the rate it was computed at.
 pub struct Trace {
@@ -21,6 +23,7 @@ pub struct Trace {
 pub fn simulate(design: ReedDesign, rate: f64, seconds: f64, supply: impl Fn(f64) -> f64) -> Trace {
     let model = ReedModel::new(design);
     let mut state = ReedState::default();
+    let mut tube = Tube::default();
     let frames = (seconds * rate) as usize;
     let h = 1.0 / rate;
     let mut trace = Trace {
@@ -30,7 +33,7 @@ pub fn simulate(design: ReedDesign, rate: f64, seconds: f64, supply: impl Fn(f64
     };
     for n in 0..frames {
         let t = (n as f64 + 0.5) * h;
-        let rate_of_flow = reed::step(&model, &mut state, supply(t), f64::INFINITY, h);
+        let rate_of_flow = reed::step(&model, &mut state, &mut tube, supply(t), f64::INFINITY, h);
         trace.zeta.push(state.zeta);
         trace.flow_rate.push(rate_of_flow);
     }
@@ -63,6 +66,7 @@ pub fn simulate_fed(
     let area = open.area(&pallet, design.tone_hole_area);
     let model = ReedModel::new(design);
     let mut state = ReedState::default();
+    let mut tube = Tube::default();
     let mut bellows = ask;
     let mut mean_draw = 0.0;
     let frames = (seconds * rate) as usize;
@@ -73,7 +77,7 @@ pub fn simulate_fed(
         flow_rate: Vec::with_capacity(frames),
     };
     for _ in 0..frames {
-        let rate_of_flow = reed::step(&model, &mut state, bellows, area, h);
+        let rate_of_flow = reed::step(&model, &mut state, &mut tube, bellows, area, h);
         // C P' = Q̄ + (ask − P) C / τ − Q_hole: the arm delivers the mean
         // draw and slowly restores the mean pressure; the hole draws.
         mean_draw += h / mean_time * (state.hole_flow - mean_draw);
@@ -112,6 +116,7 @@ pub fn simulate_bellows(
     let area = open.area(&parameters.pallet_design(), design.tone_hole_area);
     let model = ReedModel::new(design);
     let mut state = ReedState::default();
+    let mut tube = Tube::default();
     let frames = (seconds * rate) as usize;
     let h = 1.0 / rate;
     let mut trace = Trace {
@@ -121,7 +126,7 @@ pub fn simulate_bellows(
     };
     for _ in 0..frames {
         let supply = wind.step(&wind_design, ask, state.hole_flow, h);
-        let rate_of_flow = reed::step(&model, &mut state, supply, area, h);
+        let rate_of_flow = reed::step(&model, &mut state, &mut tube, supply, area, h);
         trace.zeta.push(state.zeta);
         trace.flow_rate.push(rate_of_flow);
     }
@@ -232,6 +237,7 @@ pub fn simulate_keyed(
 ) -> Trace {
     let model = ReedModel::new(design);
     let mut state = ReedState::default();
+    let mut tube = Tube::default();
     let mut valve = Pallet::default();
     let frames = (seconds * rate) as usize;
     let h = 1.0 / rate;
@@ -244,7 +250,7 @@ pub fn simulate_keyed(
         valve.press(depth(n as f64 * h));
         valve.advance(&pallet, h);
         let area = valve.area(&pallet, design.tone_hole_area);
-        let rate_of_flow = reed::step(&model, &mut state, pressure, area, h);
+        let rate_of_flow = reed::step(&model, &mut state, &mut tube, pressure, area, h);
         trace.zeta.push(state.zeta);
         trace.flow_rate.push(rate_of_flow);
     }
@@ -398,23 +404,24 @@ pub fn steady(
 pub fn growth_rate(design: ReedDesign, rate: f64, pressure: f64) -> f64 {
     let model = ReedModel::new(design);
     let mut state = ReedState::equilibrium(&model, pressure);
+    let mut tube = Tube::steady(pressure);
     let zeta = state.zeta;
     state.zeta += 1.0e-6;
     let h = 1.0 / rate;
     let period = (rate / design.frequency) as usize;
-    let envelope = |state: &mut ReedState, periods: usize| {
+    let envelope = |state: &mut ReedState, tube: &mut Tube, periods: usize| {
         let mut peak = 0.0f64;
         for _ in 0..periods * period {
-            reed::step(&model, state, pressure, f64::INFINITY, h);
+            reed::step(&model, state, tube, pressure, f64::INFINITY, h);
             peak = peak.max((state.zeta - zeta).abs());
         }
         peak
     };
     // Let the start-up transient pass, then compare two windows.
-    envelope(&mut state, 10);
-    let first = envelope(&mut state, 5);
-    envelope(&mut state, 30);
-    let second = envelope(&mut state, 5);
+    envelope(&mut state, &mut tube, 10);
+    let first = envelope(&mut state, &mut tube, 5);
+    envelope(&mut state, &mut tube, 30);
+    let second = envelope(&mut state, &mut tube, 5);
     let elapsed = 35.0 * period as f64 * h;
     (second.max(1e-30) / first.max(1e-30)).ln() / elapsed
 }
@@ -501,48 +508,121 @@ pub fn offset_pressure(
 /// RK4 on the exact Bernoulli law, at whatever small step the caller gives.
 /// A check that what the shipping scheme computes is the model, not the
 /// scheme. Returns the steady tone over the last third of `seconds`.
+///
+/// The cell is a tube here as in the scheme (milestone 8m), but solved
+/// another way: by the method of lines, its air in [`REFERENCE_SEGMENTS`]
+/// segments -- a pressure at each joint, the ends' joints holding half a
+/// segment of air, a flow through each segment -- the hole's flow entering
+/// at the opening, the closed end passing nothing, the slot's points taking
+/// their air from the joints either side of them in proportion and feeling
+/// their pressure the same way. The walls' losses are the scheme's: one
+/// resistance in series with the hole; and the hole's radiating end its
+/// mass beside ρc/A, the flow through the mass one more unknown.
 pub fn reference_tone(design: ReedDesign, rate: f64, pressure: f64, seconds: f64) -> Option<Tone> {
+    const N: usize = REFERENCE_SEGMENTS;
+    const ZETA: usize = 0;
+    const W: usize = 1;
+    const U: usize = 2;
+    const A: usize = 3;
+    const RADIATING: usize = 4;
+    const NEAR: usize = 5;
+    const P: usize = 6;
+    const Q: usize = P + N + 1;
+    const SIZE: usize = Q + N;
     let model = ReedModel::new(design);
     let d = model.design;
-    let derivative = |s: [f64; 5]| -> [f64; 5] {
-        let [zeta, w, u, a, p] = s;
-        let jet = u - model.effective_area * w;
-        let v = jet / (d.contraction * model.section(zeta));
+    let c2 = reed::SPEED_OF_SOUND * reed::SPEED_OF_SOUND;
+    let length = model.tube_seconds * reed::SPEED_OF_SOUND;
+    let section = d.cell_volume / length;
+    let dx = length / N as f64;
+    let mass = reed::AIR_DENSITY * dx / section;
+    let compliance = |joint: usize| {
+        let share = if joint == 0 || joint == N { 0.5 } else { 1.0 };
+        share * section * dx / (reed::AIR_DENSITY * c2)
+    };
+    // Each slot point: its joint below, the share of the one above, and
+    // its weight.
+    let points: Vec<(usize, f64, f64)> = model
+        .slot()
+        .map(|(at, weight)| {
+            let x = at * N as f64;
+            let below = (x as usize).min(N - 1);
+            (below, x - below as f64, weight)
+        })
+        .collect();
+    let derivative = |s: &[f64; SIZE]| -> [f64; SIZE] {
+        let (zeta, w, a) = (s[ZETA], s[W], s[A]);
+        let p = points
+            .iter()
+            .map(|(below, share, weight)| {
+                weight * ((1.0 - share) * s[P + below] + share * s[P + below + 1])
+            })
+            .sum::<f64>();
+        // The slot's flow: the jet and the far side's radiation in series,
+        // c j|j| + R_s j = p - R_s (S_r w - m), j the jet's flow -- solved
+        // exactly, the left side rising with j.
+        let alpha_section = d.contraction * model.section(zeta);
+        let c = 0.5 * reed::AIR_DENSITY / (alpha_section * alpha_section);
+        let r_s = model.slot_radiation;
+        let q = p - r_s * (model.effective_area * w - s[NEAR]);
+        let jet = q.signum() * (-r_s + (r_s * r_s + 4.0 * c * q.abs()).sqrt()) / (2.0 * c);
+        let u = jet + model.effective_area * w;
+        let v = jet / alpha_section;
         let dp = 0.5 * reed::AIR_DENSITY * v * v.abs();
         // The voiced swing limit, as `reed::step` documents it.
         let lift = zeta / d.width;
         let speed = (2.0 * p.max(0.0) / reed::AIR_DENSITY).sqrt();
         let limit = d.swing_limit * reed::AIR_DENSITY * speed * d.width * d.length * lift * lift;
         let damping = model.omega / d.q + limit / model.modal_mass;
-        [
-            w,
-            -damping * w - model.omega * model.omega * zeta + model.mu * dp,
-            (p - dp) / model.inertance,
-            (pressure - p) / model.hole_inertance,
-            (a - u) / model.cell_compliance,
-        ]
+        let mut out = [0.0; SIZE];
+        out[ZETA] = w;
+        out[W] = -damping * w - model.omega * model.omega * zeta + model.mu * dp;
+        // U is no longer a state: the slot's flow carries no mass of its own.
+        out[U] = 0.0;
+        out[NEAR] = r_s * (u - s[NEAR]) / model.inertance;
+        let radiated = model.radiation_resistance * (a - s[RADIATING]);
+        out[A] = (pressure - s[P] - model.wall_resistance * a - radiated) / model.hole_inertance;
+        out[RADIATING] = radiated / model.radiation_mass;
+        let mut given = [0.0; N + 1];
+        for (below, share, weight) in &points {
+            given[*below] -= weight * u * (1.0 - share);
+            given[below + 1] -= weight * u * share;
+        }
+        for joint in 0..=N {
+            let into = if joint == 0 { a } else { s[Q + joint - 1] };
+            let out_of = if joint == N { 0.0 } else { s[Q + joint] };
+            out[P + joint] = (into - out_of + given[joint]) / compliance(joint);
+        }
+        for segment in 0..N {
+            out[Q + segment] = (s[P + segment] - s[P + segment + 1]) / mass;
+        }
+        out
     };
     let h = 1.0 / rate;
     let frames = (seconds * rate) as usize;
-    let mut s = [0.0; 5];
+    let mut s = [0.0; SIZE];
     let mut trace = Trace {
         rate,
         zeta: Vec::with_capacity(frames),
         flow_rate: Vec::with_capacity(frames),
     };
     for _ in 0..frames {
-        let k1 = derivative(s);
-        let k2 = derivative(core::array::from_fn(|i| s[i] + 0.5 * h * k1[i]));
-        let k3 = derivative(core::array::from_fn(|i| s[i] + 0.5 * h * k2[i]));
-        let k4 = derivative(core::array::from_fn(|i| s[i] + h * k3[i]));
-        for i in 0..5 {
+        let k1 = derivative(&s);
+        let k2 = derivative(&core::array::from_fn(|i| s[i] + 0.5 * h * k1[i]));
+        let k3 = derivative(&core::array::from_fn(|i| s[i] + 0.5 * h * k2[i]));
+        let k4 = derivative(&core::array::from_fn(|i| s[i] + h * k3[i]));
+        for i in 0..SIZE {
             s[i] += h / 6.0 * (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i]);
         }
-        trace.zeta.push(s[0]);
-        trace.flow_rate.push(k1[3]);
+        trace.zeta.push(s[ZETA]);
+        trace.flow_rate.push(k1[A]);
     }
     trace.tone(seconds * 2.0 / 3.0, seconds)
 }
+
+/// The segments of [`reference_tone`]'s tube: 40, for a 50 mm cell 1.3 mm
+/// each, under a sixtieth of the wavelength at 4 kHz.
+pub const REFERENCE_SEGMENTS: usize = 40;
 
 /// Where a reed sounds, Hz, blown steadily at `pressure` from rest: long
 /// enough for a low reed to settle, read over the last half second.
@@ -557,11 +637,13 @@ pub const TUNING_PRESSURE: f64 = 300.0;
 
 /// The pressure a reed is tuned at, Pa: [`TUNING_PRESSURE`], or for a reed
 /// that does not speak there, the lowest of a few steps above it that it
-/// speaks at -- as a tuner would have to. `None` if none does.
+/// speaks at -- as a tuner would have to. `None` if none does. Speaks: holds
+/// a tone, as [`holds`] asks; a tone dying from the pressure's step is not
+/// one to tune on, and moved a few cents it may be gone (milestone 8m).
 pub fn tuning_pressure(design: ReedDesign) -> Option<f64> {
     [TUNING_PRESSURE, 400.0, 500.0, 700.0, 1000.0]
         .into_iter()
-        .find(|pressure| sounding(design, *pressure).is_some())
+        .find(|pressure| holds(design, design.frequency, &[*pressure]))
 }
 
 /// The tuning table for `parameters`, as a tuner makes it: for every rank
@@ -696,13 +778,16 @@ pub fn voice(
     use rf_musette_dsp::compass::{
         BASS_KEYS, FIRST_KEY, KEYS, bare, bass_bare, bass_target, target,
     };
+    // A finish as the tables keep it, f32 to three places: what the engine
+    // builds, and so what the reed is tuned as.
+    let kept = |value: f64| f64::from(format!("{value:.3}").parse::<f32>().unwrap_or(f32::NAN));
     let finish = |bare: ReedDesign, aim: f64| {
-        let load = load_reed(parameters, bare, aim)?;
+        let load = kept(load_reed(parameters, bare, aim)?);
         let loaded = ReedDesign {
             tip_load: load,
             ..bare
         };
-        let duct = duct_reed(parameters, loaded, aim)?;
+        let duct = kept(duct_reed(parameters, loaded, aim)?);
         let cents = tune_design(
             ReedDesign {
                 tone_hole_depth: loaded.tone_hole_depth * duct,

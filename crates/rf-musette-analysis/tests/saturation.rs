@@ -302,6 +302,7 @@ fn level_against_flow() {
         40.0, 60.0, 100.0, 150.0, 200.0, 300.0, 450.0, 600.0, 900.0, 1500.0, 3000.0,
     ] {
         let mut state = ReedState::default();
+        let mut tube = rf_musette_dsp::reed::Tube::default();
         let (settle, measure) = ((1.5 * rate) as usize, (0.5 * rate) as usize);
         let mut trace = Trace {
             rate,
@@ -310,7 +311,7 @@ fn level_against_flow() {
         };
         let mut flow = 0.0;
         for n in 0..settle + measure {
-            let rate_of_flow = reed::step(&model, &mut state, supply, f64::INFINITY, h);
+            let rate_of_flow = reed::step(&model, &mut state, &mut tube, supply, f64::INFINITY, h);
             if n >= settle {
                 trace.zeta.push(state.zeta);
                 trace.flow_rate.push(rate_of_flow);

@@ -2,8 +2,10 @@
 //!
 //! It validates every block before touching anything, turns MIDI into what
 //! the engine understands -- keys, and the player's bellows -- and keeps the
-//! state. The bellows arrives as key velocity until Expression (CC 11, with
-//! CC 43 as its low bits) speaks; see `rf_musette_dsp::Bellows`.
+//! state. The bellows is the modulation wheel's (CC 1, CC 33) or
+//! Expression's (CC 11, CC 43), whichever moved last, and rests at 300 Pa
+//! until one does; key velocity never moves it, as an accordion's keys have
+//! none. See `rf_musette_dsp::Bellows`.
 //!
 //! Every parameter is the engine's own, in physical units, indexed as in
 //! `rf_musette_dsp::parameters::SPECS`; `package/metadata/parameters.json`
@@ -33,9 +35,8 @@ pub const PROGRAM_RESEARCH: &str = "research";
 pub const CC_EXPRESSION: u8 = 11;
 /// Expression's low seven bits.
 pub const CC_EXPRESSION_LSB: u8 = 43;
-/// The modulation wheel, and its low seven bits: the bellows, as Expression
-/// is (milestone 8f), or where the bellows is, with Mod Wheel on Bellows
-/// (milestone 8i).
+/// The modulation wheel, and its low seven bits: the bellows' push, as
+/// Expression is (milestone 8f).
 pub const CC_MOD_WHEEL: u8 = 1;
 pub const CC_MOD_WHEEL_LSB: u8 = 33;
 /// The bellows' direction, as a switch: below 64 pull, 64 and above push.
@@ -48,7 +49,11 @@ const CC_ALL_NOTES_OFF: u8 = 123;
 const STATE_MAGIC: &[u8; 4] = b"RFMU";
 
 pub struct MusetteProcessor {
-    engine: Option<Engine>,
+    /// On the heap, allocated once in `prepare` and never while rendering:
+    /// the engine is 1.2 MiB since the cells became tubes (8m), and a
+    /// processor held by value, moved and copied as hosts and tests do,
+    /// would carry it on an 8 MiB stack each time.
+    engine: Option<Box<Engine>>,
     /// The values, kept here too so they survive until `prepare` builds an
     /// engine, and move into every engine it builds.
     parameters: Parameters,
@@ -75,7 +80,7 @@ impl Default for MusetteProcessor {
 impl MusetteProcessor {
     /// The prepared engine, for tests and the laboratory.
     pub fn engine(&self) -> Option<&Engine> {
-        self.engine.as_ref()
+        self.engine.as_deref()
     }
 
     fn apply(&mut self, values: Parameters) {
@@ -182,7 +187,13 @@ impl Processor for MusetteProcessor {
         for (index, value) in self.parameters.values().iter().enumerate() {
             engine.set_parameter(index, *value);
         }
-        self.engine = Some(engine);
+        // The bellows where the wheel or the pedal last left it: a controller
+        // speaks only when it moves, so an engine built again would otherwise
+        // rest until it next did.
+        if let Some(previous) = &self.engine {
+            *engine.bellows_mut() = *previous.bellows();
+        }
+        self.engine = Some(Box::new(engine));
         self.maximum_frames = frames;
         self.channels = outputs;
         true
@@ -258,7 +269,14 @@ impl Processor for MusetteProcessor {
                     && state.len() == 12 + 8 * word(8) as usize =>
             {
                 for index in 0..word(8) as usize {
-                    if !loaded.set(index, value(12 + 8 * index)) {
+                    let mut stored = value(12 + 8 * index);
+                    // The wheel as where the bellows is (milestone 8i) was
+                    // withdrawn: a state saved with it plays the wheel as
+                    // the push, as the instrument now always does.
+                    if index == parameters::MOD_WHEEL && stored == 1.0 {
+                        stored = parameters::WHEEL_PRESSURE;
+                    }
+                    if !loaded.set(index, stored) {
                         return false;
                     }
                 }

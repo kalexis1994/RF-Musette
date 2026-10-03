@@ -550,11 +550,13 @@ output {
 }
 
 /* Seven to a row, as Roland numbers them in sevens; the treble's fourteen
-   in one row where the panel is wide enough. */
+   in one row where the panel is wide enough. Between the rows, the 4px ledge
+   under each tab and some air: with the columns' gap alone the ledge sat on
+   the row below. */
 .register-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 14px 6px;
   padding: 8px 8px 10px;
   border-radius: 10px;
   background: linear-gradient(180deg, #252022, var(--lacquer));
@@ -891,7 +893,7 @@ button[disabled]:active {
   }
 
   .register-row {
-    gap: 4px;
+    gap: 12px 4px;
     padding: 6px 6px 8px;
   }
 

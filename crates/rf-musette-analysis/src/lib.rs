@@ -897,6 +897,11 @@ pub fn sounding_through(design: ReedDesign, pressure: f64, curtain: f64) -> Opti
 /// seconds within 1 dB, and within 40 dB of `full` when given (a note at
 /// its key's edge dies away rather than holding). Its level, dB, if so.
 fn holds_at_end(samples: &[f32], rate: f32, full: Option<f64>) -> Option<f64> {
+    holds_within(samples, rate, full, 1.0)
+}
+
+/// [`holds_at_end`] with the halves allowed `tolerance` dB apart.
+fn holds_within(samples: &[f32], rate: f32, full: Option<f64>, tolerance: f64) -> Option<f64> {
     let half = (0.5 * rate) as usize;
     let n = samples.len();
     let level = |s: &[f32]| {
@@ -907,7 +912,7 @@ fn holds_at_end(samples: &[f32], rate: f32, full: Option<f64>) -> Option<f64> {
         level(&samples[n - 2 * half..n - half]),
         level(&samples[n - half..]),
     );
-    let steady = (early - late).abs() < 1.0 && late > -120.0;
+    let steady = (early - late).abs() < tolerance && late > -120.0;
     let near = full.is_none_or(|full| late - full > -40.0);
     (steady && near).then_some(late)
 }
@@ -949,6 +954,95 @@ pub fn key_edge(key: u8, register: f64, pressure: f64) -> Option<f64> {
     for _ in 0..7 {
         let middle = 0.5 * (low + high);
         if holds_at_end(&render(middle), RATE, Some(full)).is_some() {
+            high = middle;
+        } else {
+            low = middle;
+        }
+    }
+    Some(high)
+}
+
+/// The shallowest a left-hand button's pallets can stand, as the curtain's
+/// share of the 8′ rank's hole, and still hold a steady tone (milestone 9j):
+/// the bass button (or, `chord`, the chord button) of `pitch_class`, the
+/// bass register `register` open, the arm's bellows asked for `pressure` Pa,
+/// Key Touch off. Found by halving, seven times, as [`key_edge`]. `None`
+/// where the button does not sound fully down.
+pub fn button_edge(pitch_class: usize, register: f64, chord: bool, pressure: f64) -> Option<f64> {
+    use rf_musette_dsp::parameters::{BASS_8, BASS_REGISTER};
+    let parameters = rf_musette_dsp::Parameters::default();
+    let hole =
+        rf_musette_dsp::compass::bass_design(&parameters, pitch_class, BASS_8)?.tone_hole_area;
+    halve_edge(
+        hole,
+        pressure,
+        |engine| {
+            assert!(engine.set_parameter(BASS_REGISTER, register));
+        },
+        |engine, depth| engine.press_button(pitch_class, chord, depth),
+    )
+}
+
+/// The shallowest a free-bass `note`'s button can stand, as the curtain's
+/// share of its 8′ voice's hole, and still hold a steady tone (milestone
+/// 9j): both its voices, the arm's bellows asked for `pressure` Pa, Key
+/// Touch off. `None` where the note does not sound fully down.
+pub fn free_edge(note: u8, pressure: f64) -> Option<f64> {
+    use rf_musette_dsp::parameters::{BASS_SYSTEM, FREE_BASS};
+    let parameters = rf_musette_dsp::Parameters::default();
+    let hole = rf_musette_dsp::compass::free_design(&parameters, note, 0)?.tone_hole_area;
+    halve_edge(
+        hole,
+        pressure,
+        |engine| {
+            assert!(engine.set_parameter(BASS_SYSTEM, FREE_BASS));
+        },
+        |engine, depth| engine.free_press(note, depth),
+    )
+}
+
+/// The halving [`key_edge`] does, for any pallet: `set_up` readies a fresh
+/// engine, `press` takes the pallet to a depth, `hole` sets the depth where
+/// the curtain is the whole hole. Steady within 3 dB, not 1: the left
+/// hand's reeds sound in octaves together, and their slow beat moved the
+/// level a dB or two between half seconds -- read with 1 dB, the C bass
+/// button in the five-rank register never held, even fully down.
+fn halve_edge(
+    hole: f64,
+    pressure: f64,
+    set_up: impl Fn(&mut rf_musette_dsp::Engine),
+    press: impl Fn(&mut rf_musette_dsp::Engine, f64),
+) -> Option<f64> {
+    use rf_musette_dsp::parameters::{BELLOWS_CEILING, KEY_TOUCH};
+    const RATE: f32 = 48_000.0;
+    let parameters = rf_musette_dsp::Parameters::default();
+    let lift = parameters.pallet_design().lift;
+    let knee = (hole / (rf_musette_dsp::pallet::rim(hole) * lift)).min(1.0);
+    let ceiling = parameters.get(BELLOWS_CEILING).unwrap_or(1000.0);
+    let render = |share: f64| {
+        let mut engine = Box::new(rf_musette_dsp::Engine::new(RATE).unwrap());
+        assert!(engine.set_parameter(KEY_TOUCH, 0.0));
+        set_up(&mut engine);
+        engine
+            .bellows_mut()
+            .expression_wide((pressure / ceiling).sqrt() as f32);
+        let mut block = [0.0f32; 256];
+        for _ in 0..(0.3 * RATE / 256.0) as usize {
+            engine.render(&mut block);
+        }
+        press(&mut engine, (share * knee).min(1.0));
+        let mut out = Vec::new();
+        for _ in 0..(2.0 * RATE / 256.0) as usize {
+            engine.render(&mut block);
+            out.extend_from_slice(&block);
+        }
+        out
+    };
+    let full = holds_within(&render(1.0 / knee), RATE, None, 3.0)?;
+    let (mut low, mut high) = (0.02, 1.0);
+    for _ in 0..7 {
+        let middle = 0.5 * (low + high);
+        if holds_within(&render(middle), RATE, Some(full), 3.0).is_some() {
             high = middle;
         } else {
             low = middle;

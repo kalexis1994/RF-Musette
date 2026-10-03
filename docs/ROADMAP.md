@@ -3784,3 +3784,64 @@ and the MiniLab mkII's CC pads, left out by the note rule, took their
 numbers' slots. Through `factory_maps` again: Clarinet is pad 1 (or button
 1) on every package with numbered pads, `clip-9` on the APCs' unnumbered
 grids; 37 packages give all 14 registers a pad or a button.
+
+## 9j. Key Touch in the left hand
+
+The player (2026-10-03): with Key Touch on, the bass buttons have no
+velocity. 9h gave the treble's keys their depth; the left hand still went
+fully down whatever the velocity -- the bass buttons, the chord buttons and
+the free bass alike -- while the bellows rests at 300 Pa, so the left hand
+had one level only.
+
+A Stradella button lifts its pallets through a rod, a free-bass button
+through its own lever; held part-way, either holds its pallets part-open
+as a treble key does. So the same mechanism, measured again for the reeds
+it opens: their holes, their pallets, the bellows they share.
+
+**The design.**
+* Key Touch on: a bass button's, a chord button's and a free-bass note's
+  velocity sets how far it goes down, as `touch_depth` sets a treble key's,
+  down to its own floor at the resting pressure. Off: fully down, as before.
+* The floors are measured as 9h measured the treble's, with
+  `rf-musette-lab touch`: the shallowest curtain, as a share of the 8′
+  rank's hole, at which the button holds a steady tone, at 200, 300 and
+  400 Pa, raised 20 % for a chord's sag --
+  - the bass buttons per pitch class and per bass register (the register's
+    open ranks drawing together, as the button sounds them);
+  - the chord buttons the same, on the chord ranks the register opens;
+  - the free bass per note, both its voices.
+* A pitch class held in more than one octave opens as far as its deepest.
+
+**Predictions:**
+1. Velocity 127 on the left hand renders exactly what Key Touch off does.
+2. With Key Touch on, every bass button, chord and free-bass note that
+   sounds fully down still holds a steady tone at velocity 1, at the resting
+   300 Pa, in every bass register.
+3. Velocity 1 against 127 at 300 Pa, a C bass button in the default
+   register falls 8 dB or more; a C chord 6 or more; a free-bass C3 8 or
+   more. (Assumed from the treble's low keys, 10-15 dB: the bass holes are
+   larger, so the knee sits deeper and the range is likely narrower.)
+4. Key Touch off renders as before: every fingerprint of a scene with it
+   off unmoved.
+
+**Status (2026-10-03): built (0.13.19); all four met**
+(`tests/milestone_9j.rs`; the floors in `touch.rs`).
+1. **Met.** Velocity 127 renders a C bass button, a C chord and a
+   free-bass C3 bit for bit as with Key Touch off.
+2. **Met.** Every bass and chord button in all seven bass registers, and
+   all 58 free-bass notes, hold a steady tone at velocity 1 at 300 Pa.
+   The edges were first read with the treble's 1 dB steadiness, and in the
+   registers of several ranks, and on the free bass in octaves, they came
+   out 0.5 to 1 -- the C bass button in the five-rank register "never held",
+   even fully down: the ranks' slow beat moved the level a dB or two from
+   half second to half second. Read within 3 dB, as the tests read, every
+   left-hand edge at 300 Pa is 0.11-0.15 of the 8′ hole; four free-bass
+   notes at 200 Pa, A♯5 to C♯6, stand at 0.33-0.78. The treble's edges,
+   measured again by the same run with 1 dB, came out identical.
+3. **Met.** Velocity 1 against 127: the C bass button -14.3 dB, the C chord
+   -13.1, the free-bass C3 -15.5 (velocity 64: -7.5, -6.4, -7.2). The
+   prediction's 8, 6 and 8 assumed the larger holes would narrow it; the
+   floors sit as deep in their holes as the treble's.
+4. **Met.** Of the fingerprints, the 20 scenes that strike the left hand
+   under 127 with Key Touch on moved; Digital Accordion, the master chords
+   and the wheel as pressure, with it off, did not.

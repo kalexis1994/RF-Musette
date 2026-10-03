@@ -86,9 +86,11 @@ an older RF-Musette always loads: a setting it lacks takes its default.
 Played from a keyboard, Key Touch (on by default) lets each note's velocity
 set how far its key goes down, as an accordionist holds a key part-way:
 softer notes are quieter and a little flat, down to the shallowest each key
-still holds its tone at (some 15 dB at F3, 10 at F4, 4 at A5). With it on
-the bellows rests at 300 Pa and the wheel and Expression move nothing; off,
-every key goes fully down and the bellows is theirs.
+still holds its tone at (some 15 dB at F3, 10 at F4, 4 at A5). The left hand
+too: the bass and chord buttons and the free bass go down with the velocity,
+some 13-15 dB from 127 to 1. With it on the bellows rests at 300 Pa and the
+wheel and Expression move nothing; off, every key and button goes fully down
+and the bellows is theirs.
 
 The left hand is Stradella -- bass buttons and chords -- or, with Bass
 System on Free Bass, a converter accordion's: every key under the split its

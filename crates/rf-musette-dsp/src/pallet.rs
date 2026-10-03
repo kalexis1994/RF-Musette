@@ -171,6 +171,49 @@ pub fn touch_floor(index: usize, pressure: f64, open: [bool; crate::parameters::
     (measured * TOUCH_MARGIN).min(1.0)
 }
 
+/// An edge read between the pressures the edges were measured at, and at
+/// the nearest outside them: `edge(row)` is the edge at `PRESSURES[row]`.
+fn edge_at(pressure: f64, edge: impl Fn(usize) -> f64) -> f64 {
+    use crate::touch::PRESSURES;
+    let last = PRESSURES.len() - 1;
+    if pressure <= PRESSURES[0] {
+        edge(0)
+    } else if pressure >= PRESSURES[last] {
+        edge(last)
+    } else {
+        let row = (0..last)
+            .find(|&row| pressure <= PRESSURES[row + 1])
+            .unwrap_or(last - 1);
+        let share = (pressure - PRESSURES[row]) / (PRESSURES[row + 1] - PRESSURES[row]);
+        edge(row) + (edge(row + 1) - edge(row)) * share
+    }
+}
+
+/// Key Touch's floor for a bass button (or, `chord`, a chord button) of
+/// `pitch_class` in bass register `register`, at `pressure` Pa, as its
+/// curtain's share of the 8′ rank's hole: the edge measured with the
+/// register's ranks sounding together, [`crate::touch::BASS_EDGE`] or
+/// [`crate::touch::CHORD_EDGE`], raised by [`TOUCH_MARGIN`] (milestone 9j).
+pub fn button_touch_floor(pitch_class: usize, register: usize, chord: bool, pressure: f64) -> f64 {
+    use crate::touch::{BASS_EDGE, CHORD_EDGE};
+    let table = if chord { &CHORD_EDGE } else { &BASS_EDGE };
+    let register = register.min(table[0].len() - 1);
+    let pitch_class = pitch_class.min(table[0][0].len() - 1);
+    let measured = edge_at(pressure, |row| f64::from(table[row][register][pitch_class]));
+    (measured * TOUCH_MARGIN).min(1.0)
+}
+
+/// Key Touch's floor for the free-bass note at `index` (from E1) at
+/// `pressure` Pa, as its curtain's share of its 8′ voice's hole: the edge
+/// measured with both its voices sounding, [`crate::touch::FREE_EDGE`],
+/// raised by [`TOUCH_MARGIN`] (milestone 9j).
+pub fn free_touch_floor(index: usize, pressure: f64) -> f64 {
+    use crate::touch::FREE_EDGE;
+    let index = index.min(FREE_EDGE[0].len() - 1);
+    let measured = edge_at(pressure, |row| f64::from(FREE_EDGE[row][index]));
+    (measured * TOUCH_MARGIN).min(1.0)
+}
+
 /// How far a key goes down, 0-1, for a velocity, 0-1, with Key Touch on: at
 /// full velocity fully down, as with it off, and below it a curtain c of
 /// the hole spread evenly over 1/c -- over which a note's level falls about

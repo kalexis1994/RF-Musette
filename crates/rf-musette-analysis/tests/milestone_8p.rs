@@ -122,7 +122,7 @@ fn the_lowest_note_attacks_slower() {
     for _ in 0..(0.3 * RATE / 256.0) as usize {
         engine.render(&mut block);
     }
-    engine.free_on(FREE_FIRST);
+    engine.free_on(FREE_FIRST, 1.0);
     let mut out = Vec::new();
     for _ in 0..(3.0 * RATE / 256.0) as usize {
         engine.render(&mut block);
@@ -221,7 +221,7 @@ fn the_low_reeds_in_the_engine() {
     for note in [28u8, 33, 40, 47, 52, 64, 76] {
         let mut engine = engine();
         assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
-        engine.free_on(note);
+        engine.free_on(note, 1.0);
         let f = measure(&mut engine, &|e: &Engine| {
             e.free_reed(note, 0, PULL_REED).unwrap().1.zeta
         });

@@ -7,6 +7,10 @@
 
 use rf_musette_analysis::scenes::{compare, fingerprint, level_difference, nudged, render, scenes};
 
+/// 20 taken again 2026-10-03 for Key Touch in the left hand (9j): the
+/// scenes that strike bass or chord buttons under velocity 127 with Key
+/// Touch on; those with it off -- Digital Accordion, the master chords, the
+/// wheel as pressure -- unmoved, as predicted.
 /// All taken again 2026-10-02 for the tuning as played (8p): the tuner
 /// blows each reed through its pallet's curtain, as the engine plays it,
 /// and every reed's cents moved (+0.4 to +4.8 in the 8′ ranks, up to +23.7
@@ -41,32 +45,32 @@ use rf_musette_analysis::scenes::{compare, fingerprint, level_difference, nudged
 /// the pad's seating), 9f, the wheel as the bellows withdrawn and velocity no
 /// longer moving it; 2026-10-01, after 10c and 8k; first taken at dd7e761.
 const FINGERPRINTS: &[(&str, u64)] = &[
-    ("program research", 0x6ceb9dea95c19e93),
-    ("program musette-paris", 0x0495763a610f0915),
-    ("program scottish", 0x2415517602e252d7),
-    ("program italian", 0xcaf596e08f600e6a),
-    ("program alpine", 0x71333e16c9d99544),
-    ("program oberkrainer", 0x0a5cde97e956b723),
-    ("program cleveland", 0x8066c26c120d5181),
-    ("program american", 0x5b31e1fcc437d015),
-    ("program irish", 0xb1ae0696307ce394),
-    ("program jazz", 0xdd54196e7839b0b3),
-    ("program tango", 0x99629ac7160972ec),
-    ("program concert", 0xa352ebce097db65d),
+    ("program research", 0x3d3f0cb81bacf75b),
+    ("program musette-paris", 0x95e9a2ce04a6773c),
+    ("program scottish", 0xf89f29b9a34a1f4d),
+    ("program italian", 0xacb6a9b6c4ea44cb),
+    ("program alpine", 0x955c4e78f07ed350),
+    ("program oberkrainer", 0x40c8eaf7ea47fd5e),
+    ("program cleveland", 0x96ac1114acbdcc52),
+    ("program american", 0x0da936162cbfdb44),
+    ("program irish", 0x18dfe58e99baad72),
+    ("program jazz", 0xabd7966f3380c71f),
+    ("program tango", 0x7978009fcfda4b56),
+    ("program concert", 0x29dfa4bdbb5ff595),
     ("program keyboard-61", 0x3e9a9aac80f58954),
     ("program auto-bellows", 0xbc05f76be52b7ba0),
     ("program digital-accordion", 0x7e6d135a6da2357c),
-    ("program student-48", 0x6edef05c89d3ab75),
-    ("program student-72", 0xb262b6b43c14febc),
-    ("program italian-80", 0x216cfb2900840108),
-    ("program full-120", 0x3be8d6d6835c3419),
-    ("program cassotto-pro", 0x298eb6a2b1846f22),
+    ("program student-48", 0x844671a11f3e4f01),
+    ("program student-72", 0x15553a67dda0becf),
+    ("program italian-80", 0xdb9f88a1d41c5a27),
+    ("program full-120", 0x458b6bc1cde2cea7),
+    ("program cassotto-pro", 0xfe136336c5fa42f0),
     ("master chord, mono", 0x159f0988d665df21),
     ("master chord, mono, 1x", 0xf145f7549189040d),
     ("master chord, mono, 4x", 0xc78c24af5c98f231),
-    ("phrase at 44.1 kHz, ORTF", 0xbb51742244388ce8),
-    ("phrase at 96 kHz, dry", 0xaf7e1ea3c79a198d),
-    ("reversal and air button", 0xfeac66c71a27a697),
+    ("phrase at 44.1 kHz, ORTF", 0x9e71a3a38a3b57d2),
+    ("phrase at 96 kHz, dry", 0xe8622cf60c1ed551),
+    ("reversal and air button", 0x193866d5dfb654b1),
     ("wheel as pressure", 0xc572490145d464e8),
     ("silence, a note, the hall's tail", 0xfca163375c3fc1b9),
 ];

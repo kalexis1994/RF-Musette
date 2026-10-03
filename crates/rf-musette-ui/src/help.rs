@@ -233,7 +233,7 @@ pub const HELP: &[(&str, &str)] = &[
     ),
     (
         "key_touch",
-        "On, how hard you strike a key sets how far it goes down: softer notes quieter and a little flat, as a key held part-way. Off, every key goes fully down; the wheel or Expression is the bellows either way.",
+        "On, how hard you strike a key or a bass button sets how far it goes down: softer notes quieter and a little flat, as a key held part-way; the bellows rests and the wheel and Expression move nothing. Off, every key and button goes fully down and the wheel or Expression is the bellows.",
     ),
     (
         "cassotto_resonance",

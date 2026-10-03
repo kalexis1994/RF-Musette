@@ -959,7 +959,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         PAGE_PLAY,
         &[(0, "Off"), (1, "On")],
         1,
-        "Decided by the player (2026-10-02, milestone 9h): played from a keyboard without the wheel, a treble note's velocity sets how far its key goes down, and so how far its pallet opens -- as an accordionist holds a key part-way. The bellows is untouched. Off, every key goes fully down, as on an accordion's keyboard. The curve is derived from milestone 9g's measurement: even in decibels, never shallower than 0.18 of the travel, where the shallowest steady key was 0.17.",
+        "Decided by the player (2026-10-02, milestones 9h, 9h again and 9j): played from a keyboard without the wheel, a note's velocity sets how far its key or button goes down, and so how far its pallets open -- as an accordionist holds a key part-way -- in the treble, the bass and chord buttons and the free bass alike. The bellows rests, and the wheel and Expression move nothing. Off, every key and button goes fully down and the bellows is theirs. The curve is derived from milestone 9g's measurement, even in decibels, down to each key's and button's own floor: the shallowest curtain at which it holds a steady tone, measured (touch.rs), raised 20 % for a chord's sag.",
     ),
     choice(
         "bass_system",

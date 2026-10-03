@@ -267,8 +267,11 @@ pub struct Engine {
     /// is let go there whatever the split has become since.
     played: [Side; KEYS],
     /// The notes held on the bass and chord channels.
-    bass_held: [bool; KEYS],
-    chord_held: [bool; KEYS],
+    /// How far each MIDI key holding a bass or a chord button holds it down,
+    /// 0 (up) to 1 (fully down): its pitch class's pallets open as far as the
+    /// deepest of its octaves (milestone 9j).
+    bass_held: [f64; KEYS],
+    chord_held: [f64; KEYS],
     bellows: Bellows,
     /// The microphones and the room (milestone 9b): each source brought to
     /// the host's rate apart, the stage, and whether it needs tuning.
@@ -325,8 +328,8 @@ impl Engine {
             dirty: false,
             held: [false; KEYS],
             played: [Side::Treble; KEYS],
-            bass_held: [false; KEYS],
-            chord_held: [false; KEYS],
+            bass_held: [0.0; KEYS],
+            chord_held: [0.0; KEYS],
             bellows: Bellows::new(),
             zone_decimators: core::array::from_fn(|_| Decimator::new(parameters.oversampling())),
             stage: stage::Stage::new(f64::from(sample_rate)),
@@ -368,8 +371,8 @@ impl Engine {
         // A change of bass system lets go of the left hand: what it held was
         // held on the other system's buttons (milestone 8p).
         if index == parameters::BASS_SYSTEM {
-            self.bass_held = [false; KEYS];
-            self.chord_held = [false; KEYS];
+            self.bass_held = [0.0; KEYS];
+            self.chord_held = [0.0; KEYS];
             for key in self.keys[BASS_START..].iter_mut() {
                 key.pallet.press(0.0);
                 key.chord.press(0.0);
@@ -485,7 +488,7 @@ impl Engine {
     pub fn channel_note_on(&mut self, channel: u8, key: u8, velocity: f32) {
         let free = self.parameters.get(parameters::BASS_SYSTEM) == Some(parameters::FREE_BASS);
         match channel {
-            BASS_CHANNEL | CHORD_CHANNEL if free => self.free_on(key),
+            BASS_CHANNEL | CHORD_CHANNEL if free => self.free_on(key, velocity),
             BASS_CHANNEL => self.bass_on(key, velocity),
             CHORD_CHANNEL => self.chord_on(key, velocity),
             _ => {
@@ -497,7 +500,7 @@ impl Engine {
                     Side::Treble => self.note_on(key, velocity),
                     Side::Bass => self.bass_on(key, velocity),
                     Side::Chord => self.chord_on(key, velocity),
-                    Side::Free => self.free_on(key),
+                    Side::Free => self.free_on(key, velocity),
                 }
             }
         }
@@ -521,8 +524,21 @@ impl Engine {
     /// A free-bass note goes down (milestone 8p): the voice already given
     /// it, else a silent one, else the one given its note longest ago. Its
     /// reeds are built for the note then. Outside E1-C♯6 nothing sounds.
-    pub fn free_on(&mut self, note: u8) {
+    /// With Key Touch on the velocity sets how far its button goes down
+    /// (milestone 9j), as a treble key's does.
+    pub fn free_on(&mut self, note: u8, velocity: f32) {
+        let depth = self.free_touch_depth(note, velocity);
+        self.free_press(note, depth);
+    }
+
+    /// Takes a free-bass note's button to `depth`, 0-1: `free_on` with the
+    /// depth chosen by the caller, for measurement.
+    pub fn free_press(&mut self, note: u8, depth: f64) {
         if compass::free_note(note, 0).is_none() {
+            return;
+        }
+        if depth <= 0.0 {
+            self.free_off(note);
             return;
         }
         let slot = self
@@ -548,7 +564,7 @@ impl Engine {
         }
         self.free_given += 1;
         self.free[slot].given = self.free_given;
-        self.free[slot].pallet.press(1.0);
+        self.free[slot].pallet.press(depth.min(1.0));
     }
 
     /// A free-bass note let go.
@@ -595,31 +611,80 @@ impl Engine {
     }
 
     /// A bass button goes down: the one of `key`'s pitch class, whatever its
-    /// octave (a V-Accordion sends C3-B3). The velocity is ignored, as on
-    /// the treble.
-    pub fn bass_on(&mut self, key: u8, _velocity: f32) {
-        self.hold(key, true, true);
+    /// octave (a V-Accordion sends C3-B3). With Key Touch on the velocity
+    /// sets how far it goes down (milestone 9j), as a treble key's does.
+    pub fn bass_on(&mut self, key: u8, velocity: f32) {
+        let depth = self.button_touch_depth(key, velocity, false);
+        self.hold(key, true, depth);
     }
 
     pub fn bass_off(&mut self, key: u8) {
-        self.hold(key, true, false);
+        self.hold(key, true, 0.0);
     }
 
     /// A chord note: `key`'s pitch class sounds on the chord ranks. A
     /// V-Accordion's chord button sends its three; a keyboard player's left
-    /// hand sends what it holds. The velocity is ignored.
-    pub fn chord_on(&mut self, key: u8, _velocity: f32) {
-        self.hold(key, false, true);
+    /// hand sends what it holds. With Key Touch on the velocity sets how far
+    /// the button goes down (milestone 9j).
+    pub fn chord_on(&mut self, key: u8, velocity: f32) {
+        let depth = self.button_touch_depth(key, velocity, true);
+        self.hold(key, false, depth);
     }
 
     pub fn chord_off(&mut self, key: u8) {
-        self.hold(key, false, false);
+        self.hold(key, false, 0.0);
     }
 
-    /// Holds or lets go of a note on the bass or chord channel, and opens or
-    /// shuts its pitch class's pallet while any octave of it is held. False
-    /// for a key outside MIDI.
-    fn hold(&mut self, key: u8, bass: bool, down: bool) -> bool {
+    /// Takes the bass button (or, `chord`, the chord button) of
+    /// `pitch_class` to `depth`, 0-1, for measurement.
+    pub fn press_button(&mut self, pitch_class: usize, chord: bool, depth: f64) {
+        let key = 48 + (pitch_class % compass::BASS_KEYS) as u8;
+        self.hold(key, !chord, depth);
+    }
+
+    /// How far a bass or chord button goes down for `velocity`: fully, with
+    /// Key Touch off; with it on, down to its pitch class's floor in the bass
+    /// register at the resting pressure, over the 8′ rank's hole.
+    fn button_touch_depth(&self, key: u8, velocity: f32, chord: bool) -> f64 {
+        if !self.key_touch() {
+            return 1.0;
+        }
+        let pitch_class = usize::from(key) % compass::BASS_KEYS;
+        let Some(hole) = compass::bass_design(&self.parameters, pitch_class, parameters::BASS_8)
+            .map(|design| design.tone_hole_area)
+        else {
+            return 1.0;
+        };
+        let register = self
+            .parameters
+            .get(parameters::BASS_REGISTER)
+            .unwrap_or(0.0) as usize;
+        let resting = self.parameters.bellows_pressure(RESTING_PUSH);
+        let floor = pallet::button_touch_floor(pitch_class, register, chord, resting);
+        pallet::touch_depth(velocity, &self.pallet_design, hole, floor)
+    }
+
+    /// How far a free-bass button goes down for `velocity`, as a Stradella
+    /// button's does, over its 8′ voice's hole.
+    fn free_touch_depth(&self, note: u8, velocity: f32) -> f64 {
+        if !self.key_touch() {
+            return 1.0;
+        }
+        let Some(hole) =
+            compass::free_design(&self.parameters, note, 0).map(|design| design.tone_hole_area)
+        else {
+            return 1.0;
+        };
+        let index = usize::from(note.saturating_sub(compass::FREE_FIRST));
+        let resting = self.parameters.bellows_pressure(RESTING_PUSH);
+        let floor = pallet::free_touch_floor(index, resting);
+        pallet::touch_depth(velocity, &self.pallet_design, hole, floor)
+    }
+
+    /// Holds a note on the bass or chord channel at `depth` -- 0 lets it go --
+    /// and opens its pitch class's pallet as far as the deepest of its held
+    /// octaves (milestone 9j). False for a key outside MIDI.
+    fn hold(&mut self, key: u8, bass: bool, depth: f64) -> bool {
         let held = if bass {
             &mut self.bass_held
         } else {
@@ -628,14 +693,13 @@ impl Engine {
         let Some(slot) = held.get_mut(usize::from(key)) else {
             return false;
         };
-        *slot = down;
+        *slot = depth.clamp(0.0, 1.0);
         let pitch_class = usize::from(key) % compass::BASS_KEYS;
-        let any = held
+        let depth = held
             .iter()
             .skip(pitch_class)
             .step_by(compass::BASS_KEYS)
-            .any(|held| *held);
-        let depth = if any { 1.0 } else { 0.0 };
+            .fold(0.0_f64, |deepest, held| deepest.max(*held));
         let key = &mut self.keys[BASS_START + pitch_class];
         if bass {
             key.pallet.press(depth);
@@ -648,8 +712,8 @@ impl Engine {
     /// Whether any key, bass button, chord note or free-bass note is held.
     fn anything_held(&self) -> bool {
         self.held_count() > 0
-            || self.bass_held.iter().any(|held| *held)
-            || self.chord_held.iter().any(|held| *held)
+            || self.bass_held.iter().any(|depth| *depth > 0.0)
+            || self.chord_held.iter().any(|depth| *depth > 0.0)
             || self.free.iter().any(|voice| voice.pallet.target > 0.0)
     }
 
@@ -721,8 +785,8 @@ impl Engine {
     /// turn it.
     pub fn reset(&mut self) {
         self.held = [false; KEYS];
-        self.bass_held = [false; KEYS];
-        self.chord_held = [false; KEYS];
+        self.bass_held = [0.0; KEYS];
+        self.chord_held = [0.0; KEYS];
         for key in self.keys.iter_mut() {
             key.pallet = Pallet::default();
             key.chord = Pallet::default();

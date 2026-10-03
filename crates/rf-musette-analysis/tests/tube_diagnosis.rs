@@ -198,7 +198,7 @@ fn the_tuner_on_two_reeds() {
             }
         }
         reed.frequency = aim;
-        println!("  tune_design: {:?}", tune_design(reed, aim));
+        println!("  tune_design: {:?}", tune_design(&p, reed, aim));
     }
 }
 

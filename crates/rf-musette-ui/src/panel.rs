@@ -16,7 +16,7 @@ pub struct Group {
 /// page: the modulation wheel's mode, once Pressure or Bellows -- the wheel
 /// as the bellows was withdrawn (docs/ROADMAP.md, 8i); and the smoothing of
 /// velocity's push, since velocity no longer moves the bellows.
-pub const RETIRED: &[&str] = &["mod_wheel", "bellows_smoothing"];
+pub const RETIRED: &[&str] = &["mod_wheel", "bellows_smoothing", "left_hand"];
 
 pub struct Page {
     pub id: &'static str,
@@ -48,13 +48,13 @@ pub const PAGES: &[Page] = &[
             Group {
                 id: "treble",
                 title: "Treble",
-                parameters: &["register"],
+                parameters: &["register", "key_touch"],
                 shown_when: None,
             },
             Group {
                 id: "bass",
                 title: "Bass",
-                parameters: &["bass_register", "left_hand", "split_point"],
+                parameters: &["bass_system", "bass_register", "split_point"],
                 shown_when: None,
             },
             Group {
@@ -255,7 +255,8 @@ pub const PAGES: &[Page] = &[
 /// otherwise. Each is the control and what it waits on -- any of the
 /// switches at its value.
 pub const IDLE_UNLESS: &[(&str, &[(&str, f64)])] = &[
-    ("split_point", &[("left_hand", 1.0)]),
+    // The free bass has its own two voices (8p).
+    ("bass_register", &[("bass_system", 0.0)]),
     // The travel is Auto Reverse's, and the wheel's range as the bellows.
     ("bellows_travel", &[("auto_reverse", 1.0)]),
     ("cassotto_resonance", &[("cassotto", 1.0)]),

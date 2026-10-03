@@ -124,6 +124,18 @@ what the programs take is derived from what is.
 | McNeela Music (blog) | The same force on a smaller bellows makes more pressure: the ceiling as the arm's force over the area (derived) | `programs.rs`, the ceilings | Web page |
 | N. Misdariis, D. Ricot, R. Caussé, IRCAM (2000) | A middle reed played between 10 and 300 Pa, some 40 dB of dynamics: the default ceiling, 1 kPa, is ~3 times a real fortissimo (an open question, ROADMAP 9f) | -- | In full |
 
+## The free bass
+
+Read 2026-10-02, for milestone 8p. No maker publishes a free-bass reed's
+dimensions, nor which of the bass side's reed sets the converter sounds.
+
+| Work | What RF-Musette takes from it | Where | Read |
+| --- | --- | --- | --- |
+| Wikipedia, "Stradella bass system" and "Free-bass system" | The names: Stradella (standard bass), from the town of Stradella, Pavia, once a centre of accordion making; the system patented by Paolo Soprani, 1897, long expired. Free bass: single notes over three octaves or more, often as a converter from Stradella | Parameter `bass_system` | Web pages |
+| Pigini, Convertor line (pigini.com); The Reed Lounge, Pigini Convertor 42/B | Free-bass manuals of 16 to 58 notes; the 58 Mi-Do♯ (E1-C♯6), others 34 Mi-Do♯, 37 Do-Do, 42 Sol-Do (4 left-hand voices, "octave tuned"), 49 Mi-Mi, 51, 55 | The free bass's range and its octave-tuned voices (8′ and 4′, **assumed** from "octave tuned") | Web pages |
+| accordionists.info, threads on bayan free bass and on ranges (Victoria) | A converter's left hand from E1, the top C♯6 at the chin; the Bugari Bayan Prime's 58 left notes E-C♯; no accordion below C1 | The range, E1-C♯6 | Forum threads |
+| Reverb listing, Jupiter 2D bayan | A smaller converter: 44 free-bass notes, C2-G5, three sets of bass reeds | -- (the range a smaller instrument has) | Web page |
+
 ## The cell
 
 Read 2026-10-01 by a research agent, for milestone 8l.

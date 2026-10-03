@@ -15,11 +15,15 @@ pub const HELP: &[(&str, &str)] = &[
     ),
     (
         "left_hand",
-        "Plays bass and chords from the low end of a single keyboard: the octave below the split point plays chords, everything lower plays bass notes.",
+        "Retired: the left hand is always there, under the split point.",
     ),
     (
         "split_point",
         "Where the left hand ends and the treble begins on a single keyboard.",
+    ),
+    (
+        "bass_system",
+        "Stradella: the standard bass -- under the split point the octave below it plays chords, everything lower bass notes. Free Bass: as a converter accordion, every key under the split plays its own note, E1 to C#6, in two voices an octave apart.",
     ),
     (
         "mod_wheel",
@@ -226,6 +230,10 @@ pub const HELP: &[(&str, &str)] = &[
     (
         "pad_seating",
         "How gently the pad settles on its felt at the end of a release: longer fades the note out, shorter cuts it.",
+    ),
+    (
+        "key_touch",
+        "On, how hard you strike a key sets how far it goes down: softer notes quieter and a little flat, as a key held part-way. Off, every key goes fully down; the wheel or Expression is the bellows either way.",
     ),
     (
         "cassotto_resonance",

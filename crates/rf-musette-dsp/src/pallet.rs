@@ -129,6 +129,66 @@ pub fn rim(area: f64) -> f64 {
     2.0 * (width + HOLE_ASPECT * width)
 }
 
+/// What Key Touch's floor stands above a key's measured edge: a chord
+/// draws the arm's bellows down a little, and the edge rises with it
+/// (milestone 9h again). Assumed.
+pub const TOUCH_MARGIN: f64 = 1.2;
+
+/// Key Touch's floor for the treble key at `index` (from F3) at `pressure`
+/// Pa with the ranks `open` sounding, as its curtain's share of the hole:
+/// the open ranks' highest edge -- the shallowest at which each holds a
+/// steady tone, [`crate::touch::EDGE`], read between the pressures it was
+/// measured at and at the nearest outside them -- raised by
+/// [`TOUCH_MARGIN`], never past the hole (milestone 9h again). First one
+/// floor for every key, 0.35, which the A3's and the G♯6's edges set.
+pub fn touch_floor(index: usize, pressure: f64, open: [bool; crate::parameters::RANKS]) -> f64 {
+    use crate::touch::{EDGE, PRESSURES};
+    let index = index.min(EDGE[0][0].len() - 1);
+    // L; M−, M and M+ as M; H.
+    let kind = |rank: usize| match rank {
+        0 => 0,
+        4 => 2,
+        _ => 1,
+    };
+    let edge = |row: usize| {
+        (0..open.len())
+            .filter(|rank| open[*rank])
+            .map(|rank| f64::from(EDGE[row][kind(rank)][index]))
+            .fold(0.0, f64::max)
+    };
+    let last = PRESSURES.len() - 1;
+    let measured = if pressure <= PRESSURES[0] {
+        edge(0)
+    } else if pressure >= PRESSURES[last] {
+        edge(last)
+    } else {
+        let row = (0..last)
+            .find(|&row| pressure <= PRESSURES[row + 1])
+            .unwrap_or(last - 1);
+        let share = (pressure - PRESSURES[row]) / (PRESSURES[row + 1] - PRESSURES[row]);
+        edge(row) + (edge(row + 1) - edge(row)) * share
+    };
+    (measured * TOUCH_MARGIN).min(1.0)
+}
+
+/// How far a key goes down, 0-1, for a velocity, 0-1, with Key Touch on: at
+/// full velocity fully down, as with it off, and below it a curtain c of
+/// the hole spread evenly over 1/c -- over which a note's level falls about
+/// linearly (9g: −1.4 to −1.9 dB a unit of 1/depth in the F4 at 300 Pa) -- so
+/// the velocity's steps are about even in decibels, down to `floor`, the
+/// key's [`touch_floor`]. `hole_area`, m², with `design` sets the depth where
+/// the curtain is the whole hole.
+pub fn touch_depth(velocity: f32, design: &PalletDesign, hole_area: f64, floor: f64) -> f64 {
+    let v = f64::from(velocity).clamp(0.0, 1.0);
+    if v >= 1.0 {
+        return 1.0;
+    }
+    let knee = (hole_area / (rim(hole_area) * design.lift)).min(1.0);
+    let floor = floor.clamp(0.01, 1.0);
+    let inverse = 1.0 + (1.0 / floor - 1.0) * (1.0 - v);
+    knee / inverse
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

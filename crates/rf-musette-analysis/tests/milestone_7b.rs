@@ -22,6 +22,8 @@ fn render(engine: &mut Engine, seconds: f32) -> Vec<f64> {
 /// `key`'s finger attack at `pressure`, s, Clarinet (the true 8′ alone).
 fn finger_attack(key: u8, pressure: f64) -> Option<f64> {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     // The ceiling is 1 kPa and the curve 2: this intent asks `pressure`.
     engine
@@ -90,6 +92,7 @@ fn the_finger_attack_holds_across_the_compass() {
 #[test]
 fn no_air_no_start() {
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     engine.bellows_mut().expression_wide(0.0);
     render(&mut engine, 0.1);
     engine.note_on(REED_KEY, 1.0);

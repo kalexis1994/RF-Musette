@@ -7,6 +7,29 @@
 
 use rf_musette_analysis::scenes::{compare, fingerprint, level_difference, nudged, render, scenes};
 
+/// All taken again 2026-10-02 for the tuning as played (8p): the tuner
+/// blows each reed through its pallet's curtain, as the engine plays it,
+/// and every reed's cents moved (+0.4 to +4.8 in the 8′ ranks, up to +23.7
+/// in the 16′'s low end) -- the engine's pitch put right, within a cent.
+/// The free bass (8p) and Left Hand's retirement moved none before it.
+/// 23 taken again after, for each key its own floor (9h again): the 21
+/// scenes struck under velocity 127 with Key Touch on, and Digital
+/// Accordion and the wheel as pressure, Key Touch now off there; the master
+/// chords, Key Touch off too, and the scenes at 127 unmoved.
+/// 23 taken again after, for the preamp set for Key Touch (9c for Key
+/// Touch): the stereo scenes with Key Touch on, their samples scaled by
+/// 1.462 under the ceiling; Digital Accordion and the wheel as pressure,
+/// Key Touch off, and the mono master chords unmoved, as predicted.
+/// 23 taken again 2026-10-02 for Key Touch (9h), on by default: the
+/// scenes whose treble notes are struck under velocity 127; those at 127
+/// unmoved, as predicted.
+/// The stereo scenes taken again 2026-10-02 for the preamp +7 dB (9c again:
+/// set for the player's playing, not for the model's loudest): their
+/// samples scaled, the loudest now meeting the soft ceiling; the mono ones
+/// unmoved.
+/// Eight taken again 2026-10-02 for the walls' hardness, 0.2 by default and
+/// in Musette Paris (voiced by the player): the scenes in a room of the
+/// default hardness, and Musette Paris; the rest unmoved.
 /// Taken again 2026-10-02 after 8o: the pallet's curtain solved as an
 /// orifice at its own flow, no floor -- the click 25 ms into every note gone,
 /// heard by the player. Every sample of every scene moved (the oscillation's
@@ -18,34 +41,34 @@ use rf_musette_analysis::scenes::{compare, fingerprint, level_difference, nudged
 /// the pad's seating), 9f, the wheel as the bellows withdrawn and velocity no
 /// longer moving it; 2026-10-01, after 10c and 8k; first taken at dd7e761.
 const FINGERPRINTS: &[(&str, u64)] = &[
-    ("program research", 0xb9002bd128400d31),
-    ("program musette-paris", 0xd1faa5061d4ad02d),
-    ("program scottish", 0x7aff8b56bf2c55bd),
-    ("program italian", 0x088da7b9895aa30f),
-    ("program alpine", 0xc03c7e80b1e141e5),
-    ("program oberkrainer", 0x718830597ba023b1),
-    ("program cleveland", 0xe2f44780c47bbd24),
-    ("program american", 0x83d67c0ca487fcf2),
-    ("program irish", 0xb41704b69e11b8a9),
-    ("program jazz", 0x189ec62f1ebe747f),
-    ("program tango", 0x3a97fdc28cb285ac),
-    ("program concert", 0x6e3c763e5c86d722),
-    ("program keyboard-61", 0x37cfb7efdff79aa0),
-    ("program auto-bellows", 0xec5a0b6c5abb55ec),
-    ("program digital-accordion", 0x10319f1172ca35ca),
-    ("program student-48", 0x7186a92940aef7e3),
-    ("program student-72", 0xb9e4ce4c9f43c27b),
-    ("program italian-80", 0xb7b6f4e622081fd1),
-    ("program full-120", 0x83213abfb6ede50e),
-    ("program cassotto-pro", 0xacdd67b4939b82d0),
-    ("master chord, mono", 0xa4ab22ea07a28f69),
-    ("master chord, mono, 1x", 0x2e2edb347e6eda05),
-    ("master chord, mono, 4x", 0xec0d04a5f441acb5),
-    ("phrase at 44.1 kHz, ORTF", 0x6148ba268b8a58d3),
-    ("phrase at 96 kHz, dry", 0x6ff7d4ed6747251d),
-    ("reversal and air button", 0x432408df7207c848),
-    ("wheel as pressure", 0x5d1cb31cefe495d1),
-    ("silence, a note, the hall's tail", 0x7ca3f04cdb442362),
+    ("program research", 0x6ceb9dea95c19e93),
+    ("program musette-paris", 0x0495763a610f0915),
+    ("program scottish", 0x2415517602e252d7),
+    ("program italian", 0xcaf596e08f600e6a),
+    ("program alpine", 0x71333e16c9d99544),
+    ("program oberkrainer", 0x0a5cde97e956b723),
+    ("program cleveland", 0x8066c26c120d5181),
+    ("program american", 0x5b31e1fcc437d015),
+    ("program irish", 0xb1ae0696307ce394),
+    ("program jazz", 0xdd54196e7839b0b3),
+    ("program tango", 0x99629ac7160972ec),
+    ("program concert", 0xa352ebce097db65d),
+    ("program keyboard-61", 0x3e9a9aac80f58954),
+    ("program auto-bellows", 0xbc05f76be52b7ba0),
+    ("program digital-accordion", 0x7e6d135a6da2357c),
+    ("program student-48", 0x6edef05c89d3ab75),
+    ("program student-72", 0xb262b6b43c14febc),
+    ("program italian-80", 0x216cfb2900840108),
+    ("program full-120", 0x3be8d6d6835c3419),
+    ("program cassotto-pro", 0x298eb6a2b1846f22),
+    ("master chord, mono", 0x159f0988d665df21),
+    ("master chord, mono, 1x", 0xf145f7549189040d),
+    ("master chord, mono, 4x", 0xc78c24af5c98f231),
+    ("phrase at 44.1 kHz, ORTF", 0xbb51742244388ce8),
+    ("phrase at 96 kHz, dry", 0xaf7e1ea3c79a198d),
+    ("reversal and air button", 0xfeac66c71a27a697),
+    ("wheel as pressure", 0xc572490145d464e8),
+    ("silence, a note, the hall's tail", 0xfca163375c3fc1b9),
 ];
 
 #[test]

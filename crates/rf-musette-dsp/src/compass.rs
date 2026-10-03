@@ -248,6 +248,55 @@ pub fn bass_design(parameters: &Parameters, pitch_class: usize, rank: usize) -> 
     Some(design)
 }
 
+/// The free bass's lowest note (milestone 8p): E1, the bayan's.
+pub const FREE_FIRST: u8 = 28;
+/// Its notes, E1-C♯6: the bayan's 58 (SOURCES.md, "The free bass").
+pub const FREE_NOTES: usize = 58;
+/// Its voices, an octave apart: 8′ on the note, 4′ above -- "octave
+/// tuned", **assumed** as which.
+pub const FREE_VOICES: usize = 2;
+
+/// The note a free-bass voice of `note` sounds, or `None` outside the free
+/// bass.
+pub fn free_note(note: u8, voice: usize) -> Option<u8> {
+    let inside = (FREE_FIRST..FREE_FIRST + FREE_NOTES as u8).contains(&note);
+    (inside && voice < FREE_VOICES).then(|| note + 12 * voice as u8)
+}
+
+/// Where a free-bass reed should sound, Hz: equal temperament on "Pitch A4".
+pub fn free_target(parameters: &Parameters, note: u8, voice: usize) -> Option<f64> {
+    let a4 = parameters.get(parameters::PITCH_A4).unwrap_or(440.0);
+    Some(pitch(free_note(note, voice)?, a4))
+}
+
+/// A free-bass reed as the slots carried on down make it, before any load:
+/// a bass-side reed, its own note -- from the 8′ E1, 41 Hz, eight semitones
+/// under the bass side's lowest reed (**derived**, an extrapolation).
+pub fn free_bare(parameters: &Parameters, note: u8, voice: usize) -> Option<ReedDesign> {
+    let sounding = free_note(note, voice)?;
+    let frequency = free_target(parameters, note, voice)?;
+    Some(unloaded(parameters, pitch(sounding, 440.0), frequency))
+}
+
+/// A free-bass reed before tuning: [`free_bare`], loaded and fed as the
+/// finishing tables say.
+pub fn free_untuned(parameters: &Parameters, note: u8, voice: usize) -> Option<ReedDesign> {
+    let mut design = free_bare(parameters, note, voice)?;
+    let index = usize::from(note - FREE_FIRST);
+    design.tip_load = f64::from(crate::tuning::FREE_LOADS[voice][index]);
+    design.tone_hole_depth *= f64::from(crate::tuning::FREE_DUCTS[voice][index]);
+    Some(design)
+}
+
+/// A free-bass reed as built: [`free_untuned`], its mode moved by the tuning
+/// table so it sounds on its target at 300 Pa.
+pub fn free_design(parameters: &Parameters, note: u8, voice: usize) -> Option<ReedDesign> {
+    let mut design = free_untuned(parameters, note, voice)?;
+    let cents = f64::from(crate::tuning::FREE_CENTS[voice][usize::from(note - FREE_FIRST)]);
+    design.frequency *= math::pow(2.0, cents / 1200.0);
+    Some(design)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

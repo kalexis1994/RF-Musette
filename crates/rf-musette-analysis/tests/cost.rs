@@ -30,6 +30,8 @@ fn time(calls: usize, mut step: impl FnMut(usize)) -> f64 {
 /// The four-note Master chord of milestone 7, warmed for a second.
 fn chord(layout: Option<f64>) -> Engine {
     let mut engine = Engine::new(RATE as f32).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::REGISTER, 6.0));
     if let Some(layout) = layout {
         assert!(engine.set_parameter(parameters::MIC_LAYOUT, layout));
@@ -220,6 +222,7 @@ fn the_old_root_on_a_reeds_own_arguments() {
 fn the_idle_cost() {
     for stereo in [false, true] {
         let mut engine = Engine::new(RATE as f32).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         for key in [48, 55, 60, 64, 67] {
             engine.note_on(key, 0.8);
         }

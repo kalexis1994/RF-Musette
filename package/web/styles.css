@@ -80,6 +80,11 @@ body {
   color: var(--ink);
   font-family: var(--label-font);
   -webkit-tap-highlight-color: transparent;
+  /* An instrument's panel, not a page: nothing on it selects, and a long
+     press brings up no callout. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .boot-message,

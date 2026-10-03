@@ -3,7 +3,8 @@
 //! docs/ROADMAP.md before the code; each test says which.
 
 use rf_musette_analysis::{
-    attack_time, cents, component_envelope, holds, linear_threshold, sounding, tune_bass,
+    attack_time, cents, component_envelope, holds, linear_threshold, open_curtain,
+    sounding_through, tune_bass,
 };
 use rf_musette_dsp::compass::{BASS_KEYS, bass_design, bass_target, bass_untuned};
 use rf_musette_dsp::parameters::{
@@ -24,6 +25,8 @@ fn mode() -> TongueMode {
 /// cannot reach another through the air.
 fn stiff() -> Engine {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     // The ceiling is 1 kPa and the curve 2.
     engine.bellows_mut().expression_wide(0.3f32.sqrt());
@@ -54,7 +57,8 @@ fn moving(engine: &Engine) -> Vec<(usize, usize)> {
 }
 
 /// Predictions 1 and 10: every bass-side reed sounds at 300 Pa and within
-/// ±2 cents of its pitch there.
+/// ±2 cents of its pitch there, through its pallet's open curtain as it is
+/// tuned and played (8p).
 #[test]
 fn every_bass_reed_sounds_in_tune() {
     let p = Parameters::default();
@@ -63,7 +67,8 @@ fn every_bass_reed_sounds_in_tune() {
         for pitch_class in 0..BASS_KEYS {
             let reed = bass_design(&p, pitch_class, rank).unwrap();
             let name = format!("{} pitch class {pitch_class}", NAMES[rank]);
-            let tone = sounding(reed, 300.0).unwrap_or_else(|| panic!("{name} is silent"));
+            let tone = sounding_through(reed, 300.0, open_curtain(&p, &reed))
+                .unwrap_or_else(|| panic!("{name} is silent"));
             let off = cents(bass_target(&p, pitch_class, rank).unwrap(), tone.frequency);
             if off.abs() > worst.0.abs() {
                 worst = (off, name.clone());
@@ -243,6 +248,7 @@ fn the_sixteen_foot_speaks_easily() {
 #[ignore = "known defect: 143 ms, the set's shape and the kick (docs/ROADMAP.md, 8m)"]
 fn the_sixteen_foot_attacks_as_a_finger_attack() {
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
     engine.bellows_mut().expression_wide(0.4f32.sqrt());
@@ -269,6 +275,7 @@ fn the_sixteen_foot_attacks_as_a_finger_attack() {
 #[ignore = "measurement: run in release, prints the cost"]
 fn both_hands_cost() {
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::REGISTER, 6.0));
     engine.bellows_mut().expression_wide(0.6);
     for key in [65, 69, 72, 77] {

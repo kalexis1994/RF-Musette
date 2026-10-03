@@ -26,6 +26,8 @@ fn supply(engine: &mut Engine, seconds: f32, step: f32) -> Vec<f64> {
 #[test]
 fn velocity_never_moves_the_bellows() {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     engine.note_on(60, 0.1);
     let soft = *supply(&mut engine, 0.5, 0.01).last().unwrap();
@@ -43,6 +45,7 @@ fn velocity_never_moves_the_bellows() {
 #[test]
 fn a_controller_moves_the_bellows_at_once() {
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     engine.bellows_mut().expression_wide(0.3);
     supply(&mut engine, 0.2, 0.01);

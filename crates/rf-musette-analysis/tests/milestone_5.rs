@@ -16,6 +16,8 @@ const MASTER: f64 = 6.0;
 
 fn engine(response: f64, register: f64) -> Engine {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, response));
     assert!(engine.set_parameter(parameters::REGISTER, register));
     engine.bellows_mut().expression_wide(INTENT_300_PA);
@@ -181,6 +183,7 @@ fn no_reachable_bellows_blows_up() {
     let mut seed = 0x9e37_79b9_7f4a_7c15u64;
     for trial in 0..24 {
         let mut engine = Engine::new(RATE).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         // The bellows' parameters, every one after the register.
         for (index, spec) in PARAMETER_SPECS
             .iter()

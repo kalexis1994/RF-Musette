@@ -12,6 +12,8 @@ const RATE: f32 = 48_000.0;
 
 fn onset(note: u8, kick: f64, bass: bool) -> Vec<f64> {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     assert!(engine.set_parameter(parameters::ATTACK_KICK, kick));
     engine.bellows_mut().expression_wide(0.3f32.sqrt());

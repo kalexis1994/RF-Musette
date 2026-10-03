@@ -16,6 +16,10 @@ fn room_response(volume: f64) -> Vec<f64> {
             (parameters::SINGLE_PATTERN, 0.0),
             (parameters::SINGLE_DISTANCE, 1.0),
             (parameters::ROOM_SIZE, volume),
+            // The hardness these were written and measured at, the default
+            // until the player voiced it 0.2 (2026-10-02): the network's
+            // diffusion is the question, not the walls.
+            (parameters::ROOM_HARDNESS, 0.4),
             (parameters::ROOM_LEVEL, room_level),
         ] {
             assert!(parameters.set(index, value));

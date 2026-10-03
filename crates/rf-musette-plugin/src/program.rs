@@ -40,13 +40,14 @@ const PAYLOAD_VERSION: u32 = 1;
 pub const CUSTOM: &str = "custom.";
 /// Their catalog order, after the factory programs.
 const USER_ORDER: i64 = 1_000;
-/// Not part of a program: the two withdrawn parameters, which take one
-/// value or none, and the bellows' direction, which is the player's hand
-/// at the moment, not the sound. A program recalled sets them as a factory
-/// program does, to their defaults.
-const NOT_STORED: [usize; 3] = [
+/// Not part of a program: the withdrawn parameters, which take one value or
+/// none, and the bellows' direction, which is the player's hand at the
+/// moment, not the sound. A program recalled sets them as a factory program
+/// does, to their defaults.
+const NOT_STORED: [usize; 4] = [
     parameters::MOD_WHEEL,
     parameters::BELLOWS_SMOOTHING,
+    parameters::LEFT_HAND,
     parameters::BELLOWS_DIRECTION,
 ];
 

@@ -421,6 +421,8 @@ fn the_room_is_as_loud_as_sabine_says() {
 /// The loudness every layout gives a held chord and bass note, dB.
 fn layout_loudness(layout: usize) -> f64 {
     let mut engine = Engine::new(RATE as f32).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::MIC_LAYOUT, layout as f64));
     for key in [60, 64, 67] {
         engine.note_on(key, 0.8);
@@ -474,6 +476,7 @@ fn every_layout_keeps_the_loudness() {
 fn the_stage_costs() {
     let cost = |layout: Option<usize>| {
         let mut engine = Engine::new(RATE as f32).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::REGISTER, 6.0));
         if let Some(layout) = layout {
             assert!(engine.set_parameter(parameters::MIC_LAYOUT, layout as f64));
@@ -578,6 +581,7 @@ fn the_output_levels() {
     for case in &cases {
         for layout in [stage::DRY, stage::ORTF] {
             let mut engine = Engine::new(RATE as f32).unwrap();
+            assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
             assert!(engine.set_parameter(parameters::REGISTER, case.register));
             assert!(engine.set_parameter(parameters::BASS_REGISTER, case.bass_register));
             assert!(engine.set_parameter(parameters::MIC_LAYOUT, layout as f64));

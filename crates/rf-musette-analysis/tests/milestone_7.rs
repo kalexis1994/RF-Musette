@@ -3,7 +3,9 @@
 //! and what it costs. Predictions as written in docs/ROADMAP.md before the
 //! code; each test says which.
 
-use rf_musette_analysis::{TUNING_PRESSURE, cents, sounding, tune_reed, tuning_pressure};
+use rf_musette_analysis::{
+    TUNING_PRESSURE, cents, open_curtain, sounding, sounding_through, tune_reed, tuning_pressure,
+};
 use rf_musette_dsp::Engine;
 use rf_musette_dsp::compass::{FIRST_KEY, KEYS, design, target};
 use rf_musette_dsp::parameters::{self, Parameters, RANK_FLAT, RANK_MIDDLE, RANK_SHARP, RANKS};
@@ -12,7 +14,8 @@ const NAMES: [&str; RANKS] = ["L", "M−", "M", "M+", "H"];
 
 /// Prediction 1: every reed of every rank sounds within ±2 cents of its
 /// pitch where it is tuned -- 300 Pa, or for the few that do not speak
-/// there, the lowest pressure they do.
+/// there, the lowest pressure they do -- and as it is tuned and played,
+/// through its pallet's open curtain (8p; with the pallet away until then).
 #[test]
 fn every_reed_sounds_in_tune() {
     let p = Parameters::default();
@@ -23,7 +26,7 @@ fn every_reed_sounds_in_tune() {
             let reed = design(&p, key, rank).unwrap();
             let pressure = tuning_pressure(reed)
                 .unwrap_or_else(|| panic!("{} at key {key} never speaks", NAMES[rank]));
-            let tone = sounding(reed, pressure).unwrap();
+            let tone = sounding_through(reed, pressure, open_curtain(&p, &reed)).unwrap();
             let off = cents(target(&p, key, rank), tone.frequency);
             if off.abs() > worst.0.abs() {
                 worst = (off, format!("{} at key {key}", NAMES[rank]));
@@ -167,6 +170,8 @@ fn the_swing_scales_with_the_tongue() {
 fn a_full_chord_costs() {
     let rate = 48_000.0f32;
     let mut engine = Engine::new(rate).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::REGISTER, 6.0));
     engine.bellows_mut().expression_wide(0.6);
     for key in [65, 69, 72, 77] {

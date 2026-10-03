@@ -46,7 +46,7 @@
         "unit": "x"
       },
       "name": "Output Gain",
-      "order": 8,
+      "order": 9,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -583,7 +583,7 @@
         "type": "enum"
       },
       "name": "Bellows Direction",
-      "order": 4,
+      "order": 5,
       "page": "play",
       "suggested_control": "list"
     },
@@ -629,7 +629,7 @@
         "unit": "Hz"
       },
       "name": "Tremolo",
-      "order": 9,
+      "order": 10,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -645,6 +645,14 @@
       "kind": {
         "choices": [
           {
+            "name": "Clarinet",
+            "value": 11
+          },
+          {
+            "name": "Celeste",
+            "value": 12
+          },
+          {
             "name": "Bassoon",
             "value": 0
           },
@@ -657,20 +665,24 @@
             "value": 2
           },
           {
-            "name": "Harmonium",
-            "value": 3
+            "name": "Piccolo",
+            "value": 13
           },
           {
             "name": "Organ",
             "value": 4
           },
           {
-            "name": "Accordion",
-            "value": 5
+            "name": "Oboe",
+            "value": 10
           },
           {
-            "name": "Master",
-            "value": 6
+            "name": "Harmonium",
+            "value": 3
+          },
+          {
+            "name": "Violin",
+            "value": 9
           },
           {
             "name": "Tremolo",
@@ -681,24 +693,12 @@
             "value": 8
           },
           {
-            "name": "Violin",
-            "value": 9
+            "name": "Accordion",
+            "value": 5
           },
           {
-            "name": "Oboe",
-            "value": 10
-          },
-          {
-            "name": "Clarinet",
-            "value": 11
-          },
-          {
-            "name": "Celeste",
-            "value": 12
-          },
-          {
-            "name": "Piccolo",
-            "value": 13
+            "name": "Master",
+            "value": 6
           }
         ],
         "default": 11,
@@ -847,7 +847,7 @@
         "type": "float"
       },
       "name": "Air Valve",
-      "order": 5,
+      "order": 6,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -875,7 +875,7 @@
         "type": "enum"
       },
       "name": "Cassotto",
-      "order": 10,
+      "order": 11,
       "page": "play",
       "suggested_control": "list"
     },
@@ -943,7 +943,7 @@
         "unit": "Hz"
       },
       "name": "Pitch A4",
-      "order": 11,
+      "order": 12,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -1035,25 +1035,21 @@
         "type": "enum"
       },
       "name": "Bass Register",
-      "order": 1,
+      "order": 3,
       "page": "play",
       "suggested_control": "list"
     },
     {
       "flags": {
-        "advanced": false,
-        "automatable": true,
+        "advanced": true,
+        "automatable": false,
         "modulatable": false,
-        "read_only": false
+        "read_only": true
       },
       "id": "left_hand",
       "index": 40,
       "kind": {
         "choices": [
-          {
-            "name": "Off",
-            "value": 0
-          },
           {
             "name": "On",
             "value": 1
@@ -1063,7 +1059,7 @@
         "type": "enum"
       },
       "name": "Left Hand",
-      "order": 2,
+      "order": 76,
       "page": "play",
       "suggested_control": "list"
     },
@@ -1086,7 +1082,7 @@
         "unit": "note"
       },
       "name": "Split Point",
-      "order": 3,
+      "order": 4,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -1109,7 +1105,7 @@
         "unit": "ms"
       },
       "name": "Bellows Smoothing",
-      "order": 74,
+      "order": 76,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -1137,7 +1133,7 @@
         "type": "enum"
       },
       "name": "Auto Reverse",
-      "order": 6,
+      "order": 7,
       "page": "play",
       "suggested_control": "list"
     },
@@ -1160,7 +1156,7 @@
         "unit": "L"
       },
       "name": "Bellows Travel",
-      "order": 7,
+      "order": 8,
       "page": "play",
       "suggested_control": "knob"
     },
@@ -1184,7 +1180,7 @@
         "type": "enum"
       },
       "name": "Mod Wheel",
-      "order": 74,
+      "order": 76,
       "page": "play",
       "suggested_control": "list"
     },
@@ -1319,7 +1315,7 @@
       "id": "room_hardness",
       "index": 50,
       "kind": {
-        "default": 0.4,
+        "default": 0.2,
         "maximum": 1.0,
         "minimum": 0.0,
         "step": 0.01,
@@ -1851,6 +1847,62 @@
       "order": 7,
       "page": "cell",
       "suggested_control": "knob"
+    },
+    {
+      "flags": {
+        "advanced": false,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "key_touch",
+      "index": 74,
+      "kind": {
+        "choices": [
+          {
+            "name": "Off",
+            "value": 0
+          },
+          {
+            "name": "On",
+            "value": 1
+          }
+        ],
+        "default": 1,
+        "type": "enum"
+      },
+      "name": "Key Touch",
+      "order": 1,
+      "page": "play",
+      "suggested_control": "list"
+    },
+    {
+      "flags": {
+        "advanced": false,
+        "automatable": true,
+        "modulatable": false,
+        "read_only": false
+      },
+      "id": "bass_system",
+      "index": 75,
+      "kind": {
+        "choices": [
+          {
+            "name": "Stradella",
+            "value": 0
+          },
+          {
+            "name": "Free Bass",
+            "value": 1
+          }
+        ],
+        "default": 0,
+        "type": "enum"
+      },
+      "name": "Bass System",
+      "order": 2,
+      "page": "play",
+      "suggested_control": "list"
     }
   ],
   "schema_version": 2,

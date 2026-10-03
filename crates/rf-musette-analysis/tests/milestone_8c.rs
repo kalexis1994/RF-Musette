@@ -15,6 +15,8 @@ const RATE: f32 = 48_000.0;
 /// far 2′, register 16′/2′), from F3 the treble's true 8′.
 fn attack(note: u8) -> Option<f64> {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
     // The ceiling is 1 kPa and the curve 2: this intent asks 400 Pa.

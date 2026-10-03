@@ -46,7 +46,7 @@ pub const USER_BANK: &str = "user";
 
 use parameters::{
     AUTO_REVERSE, BASS_REGISTER, BELLOWS_AREA, BELLOWS_CEILING, BELLOWS_LEAK, BELLOWS_RESPONSE,
-    BELLOWS_VOLUME, CASSOTTO, LEFT_HAND, MIC_LAYOUT, ORTF_DISTANCE, ORTF_HEIGHT, REGISTER,
+    BELLOWS_VOLUME, CASSOTTO, KEY_TOUCH, MIC_LAYOUT, ORTF_DISTANCE, ORTF_HEIGHT, REGISTER,
     ROOM_HARDNESS, ROOM_SIZE, SINGLE_DISTANCE, SPACED_DISTANCE, SPLIT_POINT, TREMOLO,
 };
 
@@ -90,7 +90,10 @@ pub const PROGRAMS: &[Program] = &[
             (CASSOTTO, 0.0),
             (MIC_LAYOUT, ORTF),
             (ROOM_SIZE, 300.0),
-            (ROOM_HARDNESS, 0.5),
+            // Voiced by the player (2026-10-02): 0.5 was the hall empty,
+            // the pair at its critical distance; 0.2 puts the room 7 dB
+            // under the instrument there, its mid tail 0.53 s.
+            (ROOM_HARDNESS, 0.2),
         ],
     },
     Program {
@@ -272,7 +275,7 @@ pub const PROGRAMS: &[Program] = &[
         bank: "setups",
         category: "Setup",
         description: "Both hands on one 61-key keyboard: chords in the octave below middle C, bass notes below them.",
-        settings: &[(LEFT_HAND, 1.0), (SPLIT_POINT, 60.0)],
+        settings: &[(SPLIT_POINT, 60.0)],
     },
     Program {
         id: "auto-bellows",
@@ -290,8 +293,12 @@ pub const PROGRAMS: &[Program] = &[
         description: "For a digital accordion: its bellows sensor sets the pressure directly, bass and chords on their own MIDI channels.",
         settings: &[
             (BELLOWS_RESPONSE, parameters::STIFF),
-            (LEFT_HAND, 0.0),
+            // Left Hand was off here, channel 1 the treble alone; retired
+            // (8p), a digital accordion's treble starts at the split, F3.
             (BASS_REGISTER, 3.0),
+            // Its sensor sends Expression, which Key Touch's resting
+            // bellows would ignore (9h again).
+            (KEY_TOUCH, 0.0),
         ],
     },
     // The instruments (9f): other accordions by their mechanics. The

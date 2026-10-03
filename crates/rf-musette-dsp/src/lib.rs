@@ -30,6 +30,7 @@ pub mod programs;
 pub mod reed;
 pub mod stage;
 pub mod tongue;
+pub mod touch;
 pub mod tuning;
 pub mod wind;
 
@@ -58,15 +59,22 @@ const RADIATION: f64 = reed::AIR_DENSITY / (4.0 * core::f64::consts::PI);
 /// is milestone 5.
 const SUPPLY_SMOOTHING_SECONDS: f64 = 0.001;
 
-/// The recording's level (milestone 9c): pascals at 1 m to full scale, set
-/// so the loudest the instrument plays -- both hands' full chords in Master
-/// at the bellows' ceiling, through the ORTF pair -- peaks at -6 dBFS, a
-/// recording's headroom: -17.7 dB, full scale 111.7 dB SPL at the 1 m
-/// reference (measured again with milestone 9d's room, whose part of each
-/// layout's balance moves the peaks a decibel or two, and again with 8m's
-/// tube, with which the loudest case peaked 3.3 dB lower, and its set's
-/// shape, 1.0 dB lower again: -22 dB before).
-pub const RECORDING_LEVEL: f32 = 0.130_3;
+/// The recording's level (milestone 9c): pascals at 1 m to full scale, as
+/// an engineer sets the preamp for the playing -- Musette Paris with the
+/// wheel at 79 %, a melody over bass and chords, peaks at -6 dBFS: -10.7
+/// dB, full scale 104.7 dB SPL at the 1 m reference. Set first for the
+/// loudest the model can play, both hands' full chords in Master at the
+/// bellows' 1 kPa ceiling, which a player does not reach (a real ff is
+/// about 300 Pa): -17.7 dB, and that playing peaked at -13 dBFS (the
+/// player, 2026-10-02: "it lacks output"). That case now meets the soft
+/// [`ceiling`].
+pub const RECORDING_LEVEL: f32 = 0.291_7;
+
+/// The recording's level with Key Touch on (9c for Key Touch): the bellows
+/// rests at 300 Pa and the keys are the dynamics, so the engineer sets the
+/// preamp for that -- the same playing peaked at -9.3 dBFS at
+/// [`RECORDING_LEVEL`]; 3.3 dB higher, -6 dBFS.
+pub const TOUCH_RECORDING_LEVEL: f32 = 0.426_5;
 
 /// Where the soft ceiling starts, of full scale: -6 dBFS; and the level it
 /// rounds toward, -0.2 dBFS, short of full scale even where a float's tanh
@@ -180,6 +188,34 @@ impl Key {
     }
 }
 
+/// How many free-bass notes sound at once (milestone 8p): voices given to
+/// the notes as they are played. Not the 58 notes held as keys: they would
+/// take the engine from 1201 to ~1509 KiB, over its stack's sixth; sixteen
+/// take it to ~1286, and a left hand holds far fewer.
+const FREE_SLOTS: usize = 16;
+
+/// One free-bass voice: the note it is given to, its pallet, and the plates
+/// of the free bass's voices ([`compass::FREE_VOICES`], 8′ and 4′), built
+/// for the note as it is given.
+struct FreeVoice {
+    note: Option<u8>,
+    pallet: Pallet,
+    ranks: [Rank; compass::FREE_VOICES],
+    /// When it was given its note, to take the longest-held when every
+    /// voice is busy.
+    given: u64,
+}
+
+impl FreeVoice {
+    fn is_still(&self) -> bool {
+        self.ranks.iter().all(Rank::is_still)
+    }
+
+    fn is_idle(&self) -> bool {
+        self.pallet.is_closed() && self.is_still()
+    }
+}
+
 /// Stale keys built per render while nothing asks for them: enough to catch
 /// up within a few blocks, few enough not to load one.
 const BUILDS_PER_BLOCK: usize = 2;
@@ -196,6 +232,10 @@ pub struct Engine {
     /// side's pitch classes, C-B, with their ranks [`parameters::BASS_16`]
     /// .. [`parameters::BASS_2`].
     keys: [Key; ALL_KEYS],
+    /// The free bass's voices (milestone 8p), and how many notes they have
+    /// been given.
+    free: [FreeVoice; FREE_SLOTS],
+    free_given: u64,
     pallet_design: PalletDesign,
     /// What the intent asks, Pa: the pressure the push would make in a
     /// still bellows, guarded against steps.
@@ -246,22 +286,31 @@ impl Engine {
         }
         let parameters = Parameters::default();
         let mode = TongueMode::with_ratio(parameters.reed_design().mode_ratio);
+        let rank = || Rank {
+            model: None,
+            states: [ReedState::default(); 2],
+            tubes: [Tube::default(); 2],
+            started: [0.0; 2],
+        };
         let keys = core::array::from_fn(|_| Key {
             pallet: Pallet::default(),
             chord: Pallet::default(),
-            ranks: core::array::from_fn(|_| Rank {
-                model: None,
-                states: [ReedState::default(); 2],
-                tubes: [Tube::default(); 2],
-                started: [0.0; 2],
-            }),
+            ranks: core::array::from_fn(|_| rank()),
             stale: true,
+        });
+        let free = core::array::from_fn(|_| FreeVoice {
+            note: None,
+            pallet: Pallet::default(),
+            ranks: core::array::from_fn(|_| rank()),
+            given: 0,
         });
         let mut engine = Self {
             sample_rate,
             parameters,
             mode,
             keys,
+            free,
+            free_given: 0,
             pallet_design: parameters.pallet_design(),
             ask: 0.0,
             wind: wind::Wind::default(),
@@ -316,9 +365,29 @@ impl Engine {
             self.flipped = false;
             self.spent = 0.0;
         }
+        // A change of bass system lets go of the left hand: what it held was
+        // held on the other system's buttons (milestone 8p).
+        if index == parameters::BASS_SYSTEM {
+            self.bass_held = [false; KEYS];
+            self.chord_held = [false; KEYS];
+            for key in self.keys[BASS_START..].iter_mut() {
+                key.pallet.press(0.0);
+                key.chord.press(0.0);
+            }
+            for voice in self.free.iter_mut() {
+                voice.pallet.press(0.0);
+            }
+            return true;
+        }
+        // Key Touch is read as a key goes down.
+        if index == parameters::KEY_TOUCH {
+            return true;
+        }
         // The microphones and the room are tuned before the next stereo
-        // block; nothing of the reeds changes.
-        if index >= parameters::MIC_LAYOUT {
+        // block; nothing of the reeds changes. Pad Seating, added after them
+        // (8m), is the pallet's and rebuilds it; it once returned here and
+        // reached the pallet only with the next reed parameter (8p).
+        if index >= parameters::MIC_LAYOUT && index != parameters::PAD_SEATING {
             self.stage_dirty = true;
             return true;
         }
@@ -364,13 +433,32 @@ impl Engine {
     }
 
     /// A key goes down. On a real accordion the key only opens its pallet,
-    /// and has no velocity: the sound's strength is the bellows', which the
-    /// wheel or Expression sets (`bellows.rs`). The velocity is ignored.
-    pub fn note_on(&mut self, key: u8, _velocity: f32) {
+    /// and the sound's strength is the bellows', which the wheel or
+    /// Expression sets (`bellows.rs`); the velocity never moves it. With Key
+    /// Touch on (milestone 9h, the default) the bellows rests and the
+    /// velocity sets how far the key goes down, as a player holds a key
+    /// part-way, down to the key's own floor at the resting pressure:
+    /// [`pallet::touch_depth`]. Off, every key goes fully down.
+    pub fn note_on(&mut self, key: u8, velocity: f32) {
         if usize::from(key) >= KEYS {
             return;
         }
-        self.press(key, 1.0);
+        let depth = match compass_index(key) {
+            Some(index) if self.key_touch() => {
+                let hole = self.parameters.reed_design().tone_hole_area;
+                let resting = self.parameters.bellows_pressure(RESTING_PUSH);
+                let open = self.parameters.open_ranks();
+                let floor = pallet::touch_floor(index, resting, open);
+                pallet::touch_depth(velocity, &self.pallet_design, hole, floor)
+            }
+            _ => 1.0,
+        };
+        self.press(key, depth);
+    }
+
+    /// Whether Key Touch is on (milestone 9h).
+    fn key_touch(&self) -> bool {
+        self.parameters.get(parameters::KEY_TOUCH) == Some(1.0)
     }
 
     pub fn note_off(&mut self, key: u8) {
@@ -395,7 +483,9 @@ impl Engine {
     /// other -- or, with Left Hand on, under the split, the chords and the
     /// bass buttons (milestone 8b).
     pub fn channel_note_on(&mut self, channel: u8, key: u8, velocity: f32) {
+        let free = self.parameters.get(parameters::BASS_SYSTEM) == Some(parameters::FREE_BASS);
         match channel {
+            BASS_CHANNEL | CHORD_CHANNEL if free => self.free_on(key),
             BASS_CHANNEL => self.bass_on(key, velocity),
             CHORD_CHANNEL => self.chord_on(key, velocity),
             _ => {
@@ -407,20 +497,100 @@ impl Engine {
                     Side::Treble => self.note_on(key, velocity),
                     Side::Bass => self.bass_on(key, velocity),
                     Side::Chord => self.chord_on(key, velocity),
+                    Side::Free => self.free_on(key),
                 }
             }
         }
     }
 
     pub fn channel_note_off(&mut self, channel: u8, key: u8) {
+        let free = self.parameters.get(parameters::BASS_SYSTEM) == Some(parameters::FREE_BASS);
         match channel {
+            BASS_CHANNEL | CHORD_CHANNEL if free => self.free_off(key),
             BASS_CHANNEL => self.bass_off(key),
             CHORD_CHANNEL => self.chord_off(key),
             _ => match self.played.get(usize::from(key)).copied() {
                 Some(Side::Bass) => self.bass_off(key),
                 Some(Side::Chord) => self.chord_off(key),
+                Some(Side::Free) => self.free_off(key),
                 _ => self.note_off(key),
             },
+        }
+    }
+
+    /// A free-bass note goes down (milestone 8p): the voice already given
+    /// it, else a silent one, else the one given its note longest ago. Its
+    /// reeds are built for the note then. Outside E1-C♯6 nothing sounds.
+    pub fn free_on(&mut self, note: u8) {
+        if compass::free_note(note, 0).is_none() {
+            return;
+        }
+        let slot = self
+            .free
+            .iter()
+            .position(|voice| voice.note == Some(note))
+            .or_else(|| self.free.iter().position(FreeVoice::is_idle))
+            .unwrap_or_else(|| {
+                (0..FREE_SLOTS)
+                    .min_by_key(|&slot| self.free[slot].given)
+                    .unwrap_or(0)
+            });
+        if self.free[slot].note != Some(note) {
+            let voice = &mut self.free[slot];
+            voice.note = Some(note);
+            voice.pallet = Pallet::default();
+            for rank in voice.ranks.iter_mut() {
+                rank.states = [ReedState::default(); 2];
+                rank.tubes = [Tube::default(); 2];
+                rank.started = [0.0; 2];
+            }
+            self.build_free(slot);
+        }
+        self.free_given += 1;
+        self.free[slot].given = self.free_given;
+        self.free[slot].pallet.press(1.0);
+    }
+
+    /// A free-bass note let go.
+    pub fn free_off(&mut self, note: u8) {
+        for voice in self
+            .free
+            .iter_mut()
+            .filter(|voice| voice.note == Some(note))
+        {
+            voice.pallet.press(0.0);
+        }
+    }
+
+    /// Whether a free-bass note is held.
+    pub fn is_free_held(&self, note: u8) -> bool {
+        self.free
+            .iter()
+            .any(|voice| voice.note == Some(note) && voice.pallet.target > 0.0)
+    }
+
+    /// One free-bass voice's reed, for measurement: of the note's `voice`
+    /// (0 the 8′, 1 the 4′), the plate's [`PULL_REED`] or [`PUSH_REED`].
+    /// `None` while no voice has the note.
+    pub fn free_reed(
+        &self,
+        note: u8,
+        voice: usize,
+        which: usize,
+    ) -> Option<(&ReedModel, &ReedState)> {
+        let slot = self.free.iter().find(|slot| slot.note == Some(note))?;
+        let rank = slot.ranks.get(voice)?;
+        Some((rank.model.as_ref()?, rank.states.get(which)?))
+    }
+
+    /// Builds one free-bass voice's reeds for its note.
+    fn build_free(&mut self, slot: usize) {
+        let Some(note) = self.free[slot].note else {
+            return;
+        };
+        for (voice, rank) in self.free[slot].ranks.iter_mut().enumerate() {
+            rank.model = compass::free_design(&self.parameters, note, voice)
+                .map(|design| ReedModel::with_mode(design, &self.mode));
         }
     }
 
@@ -475,11 +645,12 @@ impl Engine {
         true
     }
 
-    /// Whether any key, bass button or chord note is held.
+    /// Whether any key, bass button, chord note or free-bass note is held.
     fn anything_held(&self) -> bool {
         self.held_count() > 0
             || self.bass_held.iter().any(|held| *held)
             || self.chord_held.iter().any(|held| *held)
+            || self.free.iter().any(|voice| voice.pallet.target > 0.0)
     }
 
     pub fn is_held(&self, key: u8) -> bool {
@@ -561,6 +732,16 @@ impl Engine {
                 rank.started = [0.0; 2];
             }
         }
+        for voice in self.free.iter_mut() {
+            voice.note = None;
+            voice.pallet = Pallet::default();
+            for rank in voice.ranks.iter_mut() {
+                rank.model = None;
+                rank.states = [ReedState::default(); 2];
+                rank.tubes = [Tube::default(); 2];
+                rank.started = [0.0; 2];
+            }
+        }
         self.ask = 0.0;
         self.wind = wind::Wind::default();
         self.draw = 0.0;
@@ -601,6 +782,65 @@ impl Engine {
             } else if spare > 0 {
                 self.build_key(index);
                 spare -= 1;
+            }
+        }
+    }
+
+    /// Blows one plate's two reeds for a step: each from its own side of the
+    /// bellows' `signed` pressure while `opened`, through a curtain of
+    /// `area`; adds the outward flow's rate to `into`, the tongues' volume
+    /// acceleration to `inside`, the air the holes pass to `drawn`. `step`
+    /// is [area, signed pressure, Attack Kick, h]. A treble key's ranks, a
+    /// bass pitch class's and a free-bass voice's alike (8p).
+    #[inline]
+    fn blow_rank(
+        rank: &mut Rank,
+        step: [f64; 4],
+        down: bool,
+        opened: bool,
+        into: &mut f64,
+        inside: &mut f64,
+        drawn: &mut f64,
+    ) {
+        let [area, signed, kick, h] = step;
+        let Rank {
+            model,
+            states,
+            tubes,
+            started,
+        } = rank;
+        let Some(model) = model.as_ref() else {
+            return;
+        };
+        for (((which, state), tube), given) in states
+            .iter_mut()
+            .enumerate()
+            .zip(tubes.iter_mut())
+            .zip(started.iter_mut())
+        {
+            let (side, sign) = if which == PULL_REED {
+                ((-signed).max(0.0), -1.0)
+            } else {
+                (signed.max(0.0), 1.0)
+            };
+            let blow = if opened { side } else { 0.0 };
+            Self::start_into_frame(model, state, given, down, blow, kick);
+            if blow == 0.0 && *state == ReedState::default() {
+                continue;
+            }
+            let swing = state.velocity;
+            *into += sign * reed::step(model, state, tube, blow, area, h);
+            *inside += sign * model.effective_area * (state.velocity - swing) / h;
+            *drawn += state.hole_flow;
+            // An unblown reed rings down; once it is negligible it stops
+            // exactly, and is no longer computed. A shut pallet seals the
+            // reed's cell as surely as a shut register or a still bellows:
+            // the bellows' pressure no longer reaches it (`reed::step`), and
+            // it rings down the same way (milestone 10c; it was computed
+            // until it underflowed, tens of seconds).
+            if (blow == 0.0 || area == 0.0) && state.energy(model) < 1.0e-12 {
+                *state = ReedState::default();
+                *tube = Tube::default();
             }
         }
     }
@@ -692,6 +932,10 @@ impl Engine {
         for key in self.keys.iter_mut() {
             key.stale = true;
         }
+        // The free bass's few voices are built again at once.
+        for slot in 0..FREE_SLOTS {
+            self.build_free(slot);
+        }
         self.pallet_design = self.parameters.pallet_design();
         if self.decimator.factor() != self.parameters.oversampling() {
             self.decimator = Decimator::new(self.parameters.oversampling());
@@ -711,12 +955,18 @@ impl Engine {
     /// room (milestone 9b), each layout brought to the dry instrument's
     /// loudness at 1 m, with Dry the mono render in both channels; then
     /// recorded as an engineer sets the preamp (milestone 9c): at
-    /// [`RECORDING_LEVEL`], under a soft [`ceiling`].
+    /// [`RECORDING_LEVEL`], or [`TOUCH_RECORDING_LEVEL`] with Key Touch on,
+    /// under a soft [`ceiling`].
     pub fn render_stereo(&mut self, left: &mut [f32], right: &mut [f32]) {
         let frames = left.len().min(right.len());
+        let level = if self.key_touch() {
+            TOUCH_RECORDING_LEVEL
+        } else {
+            RECORDING_LEVEL
+        };
         self.render_with(frames, true, &mut |n, l, r| {
-            left[n] = ceiling(l * RECORDING_LEVEL);
-            right[n] = ceiling(r * RECORDING_LEVEL);
+            left[n] = ceiling(l * level);
+            right[n] = ceiling(r * level);
         });
     }
 
@@ -741,8 +991,14 @@ impl Engine {
         let factor = self.decimator.factor();
         let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
         // The arm: the wheel or the pedal is the player's hand already, and
-        // the bellows follows it as it comes.
-        let asked = self.bellows.intent();
+        // the bellows follows it as it comes. With Key Touch on the keys are
+        // the dynamics and the bellows rests, whatever the wheel or the pedal
+        // says (9h again): their place is kept for when it is off.
+        let asked = if self.key_touch() {
+            RESTING_PUSH
+        } else {
+            self.bellows.intent()
+        };
         let rate = f64::from(self.sample_rate);
         let smoothing = 1.0 - math::exp(-h / SUPPLY_SMOOTHING_SECONDS);
         // Turning, the bellows takes its pressure through zero: the turn goes
@@ -782,6 +1038,16 @@ impl Engine {
             }
         }
         let sounding = &sounding[..count];
+        // The free bass's voices with anything to compute, likewise.
+        let mut free_sounding = [0u8; FREE_SLOTS];
+        let mut free_count = 0;
+        for (slot, voice) in self.free.iter().enumerate() {
+            if !voice.is_idle() {
+                free_sounding[free_count] = slot as u8;
+                free_count += 1;
+            }
+        }
+        let free_sounding = &free_sounding[..free_count];
         let travel_air = self.parameters.travel();
         // The bellows' walls: the mass law's pole, 2ρc/m rad/s, at the
         // oversampled rate.
@@ -801,7 +1067,10 @@ impl Engine {
             if sounding
                 .iter()
                 .all(|&number| self.keys[usize::from(number)].is_idle())
-                && self.at_rest(sounding)
+                && free_sounding
+                    .iter()
+                    .all(|&slot| self.free[usize::from(slot)].is_idle())
+                && self.at_rest(sounding, free_sounding)
             {
                 // Every pallet is shut, nothing moves and nothing is left in
                 // the filter. The bellows keeps moving as asked, and only
@@ -896,41 +1165,44 @@ impl Engine {
                         } else {
                             &mut outward[source]
                         };
-                        for (((which, state), tube), given) in rank
-                            .states
-                            .iter_mut()
-                            .enumerate()
-                            .zip(rank.tubes.iter_mut())
-                            .zip(&mut rank.started)
-                        {
-                            let (side, sign) = if which == PULL_REED {
-                                ((-signed).max(0.0), -1.0)
-                            } else {
-                                (signed.max(0.0), 1.0)
-                            };
-                            let blow = if opened { side } else { 0.0 };
-                            Self::start_into_frame(model, state, given, down, blow, kick);
-                            if blow == 0.0 && *state == ReedState::default() {
-                                continue;
-                            }
-                            let swing = state.velocity;
-                            *into += sign * reed::step(model, state, tube, blow, area, h);
-                            inside_flow[source] +=
-                                sign * model.effective_area * (state.velocity - swing) / h;
-                            drawn += state.hole_flow;
-                            // An unblown reed rings down; once it is
-                            // negligible it stops exactly, and is no longer
-                            // computed. A shut pallet seals the reed's cell
-                            // as surely as a shut register or a still
-                            // bellows: the bellows' pressure no longer
-                            // reaches it (`reed::step`), and it rings down
-                            // the same way (milestone 10c; it was computed
-                            // until it underflowed, tens of seconds).
-                            if (blow == 0.0 || area == 0.0) && state.energy(model) < 1.0e-12 {
-                                *state = ReedState::default();
-                                *tube = Tube::default();
-                            }
-                        }
+                        Self::blow_rank(
+                            rank,
+                            [area, signed, kick, h],
+                            down,
+                            opened,
+                            into,
+                            &mut inside_flow[source],
+                            &mut drawn,
+                        );
+                    }
+                }
+                // The free bass's voices (milestone 8p): from the bass box,
+                // every voice open, no chord pallet and no cassotto.
+                for &slot in free_sounding {
+                    let voice = &mut self.free[usize::from(slot)];
+                    if voice.is_idle() {
+                        continue;
+                    }
+                    voice.pallet.advance(&self.pallet_design, h);
+                    let down = voice.pallet.target > 0.0;
+                    for rank in voice.ranks.iter_mut() {
+                        let Some(model) = &rank.model else {
+                            continue;
+                        };
+                        let area = voice.pallet.area_by_rim(
+                            &self.pallet_design,
+                            model.design.tone_hole_area,
+                            model.hole_rim,
+                        );
+                        Self::blow_rank(
+                            rank,
+                            [area, signed, kick, h],
+                            down,
+                            true,
+                            &mut outward[stage::BASS_SOURCE],
+                            &mut inside_flow[stage::BASS_SOURCE],
+                            &mut drawn,
+                        );
                     }
                 }
                 self.draw = drawn;
@@ -980,32 +1252,43 @@ impl Engine {
     /// reed's state is zeroed exactly once its energy is negligible, so the
     /// silence that follows is exact too. Only the `sounding` keys can hold
     /// anything: the others were idle, so still, when the block began.
-    fn at_rest(&mut self, sounding: &[u8]) -> bool {
+    fn at_rest(&mut self, sounding: &[u8], free_sounding: &[u8]) -> bool {
         if self.decimator.is_quiet()
             && self.zone_decimators.iter().all(Decimator::is_quiet)
             && sounding
                 .iter()
                 .all(|&number| self.keys[usize::from(number)].is_still())
+            && free_sounding
+                .iter()
+                .all(|&slot| self.free[usize::from(slot)].is_still())
         {
             return true;
         }
         // A sounding F4 reed stores a few millijoules; 1e-12 J is about
         // 98 dB below it.
         for &number in sounding {
-            let key = &mut self.keys[usize::from(number)];
-            for rank in key.ranks.iter_mut() {
-                let Some(model) = &rank.model else {
-                    continue;
-                };
-                for (state, tube) in rank.states.iter_mut().zip(rank.tubes.iter_mut()) {
-                    if state.energy(model) < 1.0e-12 {
-                        *state = ReedState::default();
-                        *tube = Tube::default();
-                    }
-                }
-            }
+            settle(&mut self.keys[usize::from(number)].ranks);
+        }
+        for &slot in free_sounding {
+            settle(&mut self.free[usize::from(slot)].ranks);
         }
         false
+    }
+}
+
+/// Zeroes every reed of these plates whose energy is negligible, so the
+/// silence after is exact.
+fn settle(ranks: &mut [Rank]) {
+    for rank in ranks.iter_mut() {
+        let Some(model) = &rank.model else {
+            continue;
+        };
+        for (state, tube) in rank.states.iter_mut().zip(rank.tubes.iter_mut()) {
+            if state.energy(model) < 1.0e-12 {
+                *state = ReedState::default();
+                *tube = Tube::default();
+            }
+        }
     }
 }
 

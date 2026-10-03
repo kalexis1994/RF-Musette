@@ -1,9 +1,9 @@
-//! `rf-musette-lab tune`: finishes every reed of the treble and the bass
-//! side as a maker would -- loads the low ones until they speak across the
-//! bellows' range, then tunes each -- and writes the tables the engine
-//! reads, `crates/rf-musette-dsp/src/tuning.rs`.
+//! `rf-musette-lab tune`: finishes every reed of the treble, the bass side
+//! and the free bass (8p) as a maker would -- loads the low ones until they
+//! speak across the bellows' range, then tunes each -- and writes the tables
+//! the engine reads, `crates/rf-musette-dsp/src/tuning.rs`.
 
-use rf_musette_analysis::{Finish, voice};
+use rf_musette_analysis::{Finish, voice, voice_free};
 use rf_musette_dsp::Parameters;
 use std::{error::Error, fs};
 
@@ -62,6 +62,14 @@ pub fn source() -> Result<String, Box<dyn Error>> {
     text.push_str(&table("DUCTS", &treble, |cell| cell.duct, "treble")?);
     text.push_str("\n/// The bass side's inlet ducts, as multiples of the tone hole's depth.\n");
     text.push_str(&table("BASS_DUCTS", &bass, |cell| cell.duct, "bass")?);
+    // The free bass (milestone 8p).
+    let free = voice_free(&Parameters::default());
+    text.push_str("\n/// The free bass's, for each voice (8′, 4′) and note (E1-C♯6).\n");
+    text.push_str(&table("FREE_CENTS", &free, |cell| cell.cents, "free bass")?);
+    text.push_str("\n/// The free bass's tip loads, by voice and note as `FREE_CENTS`.\n");
+    text.push_str(&table("FREE_LOADS", &free, |cell| cell.load, "free bass")?);
+    text.push_str("\n/// The free bass's inlet ducts, as multiples of the tone hole's depth.\n");
+    text.push_str(&table("FREE_DUCTS", &free, |cell| cell.duct, "free bass")?);
     Ok(text)
 }
 

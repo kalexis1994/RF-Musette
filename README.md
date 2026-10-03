@@ -25,9 +25,10 @@ from the pressure in one bellows that every reed shares.
 
 The bellows is the modulation wheel (CC 1, with CC 33 as its low bits) or
 Expression (CC 11, with CC 43) -- the last moved leads -- and rests at
-300 Pa until one of them moves. Key velocity does nothing: an accordion's
-keys have none. Digital accordions send Expression; a keyboard player moves
-the wheel as the arm, shaking it for the accordion's own vibrato. With Auto
+300 Pa until one of them moves -- with Key Touch off. Digital accordions
+send Expression (their program, Digital Accordion, has Key Touch off); a
+keyboard player with Key Touch off moves the wheel as the arm, shaking it
+for the accordion's own vibrato. With Auto
 Reverse on, the bellows runs out after its travel (12 L) and turns on its
 own, at a gap between notes once 70 % is spent, as a player turns it. The push is the arm's: one bellows
 feeds every reed and gives way a little as more of them draw air (Bellows
@@ -82,10 +83,29 @@ their SHA-256, and one changed or damaged after it was exported is refused
 whole. An imported program always comes in as a new one. A program saved by
 an older RF-Musette always loads: a setting it lacks takes its default.
 
+Played from a keyboard, Key Touch (on by default) lets each note's velocity
+set how far its key goes down, as an accordionist holds a key part-way:
+softer notes are quieter and a little flat, down to the shallowest each key
+still holds its tone at (some 15 dB at F3, 10 at F4, 4 at A5). With it on
+the bellows rests at 300 Pa and the wheel and Expression move nothing; off,
+every key goes fully down and the bellows is theirs.
+
+The left hand is Stradella -- bass buttons and chords -- or, with Bass
+System on Free Bass, a converter accordion's: every key under the split its
+own note, E1 to C♯6, in two voices an octave apart, for chords built at
+will from a keyboard.
+
 A controller's knobs reach it by meaning: where a controller package gives a
 knob the attack, release or LFO-rate role, it turns the pallet's opening and
-closing and the tremolo's beat. Everything else can be linked by hand from
-RackForge's menu on any control. Why each role is or is not published:
+closing and the tremolo's beat. The pads choose the treble register, as an
+accordion's switches do: on a keyboard with 16 pads in two banks (an
+Arturia's A and B, most others), the first 14 are the 14 registers from
+the most common to the rarest -- Clarinet, which every accordion has,
+first, Master last -- the 15th steps the bass register round and the 16th
+turns Key Touch on and off; ⏪ ⏩ step the register. Clarinet is pad 1 by
+the number the maker prints, wherever the maker puts it. Everything else can be linked by hand from RackForge's menu on any
+control. Why each role is or
+is not published, and what each controller gets:
 [docs/RACKFORGE_CONTROL_MAPPING.md](docs/RACKFORGE_CONTROL_MAPPING.md).
 
 ## How it is judged

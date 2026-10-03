@@ -339,6 +339,11 @@ impl Processor for MusetteProcessor {
                     if index == parameters::MOD_WHEEL && stored == 1.0 {
                         stored = parameters::WHEEL_PRESSURE;
                     }
+                    // Left Hand was retired at On (milestone 8p): the left
+                    // hand is always there.
+                    if index == parameters::LEFT_HAND && stored == 0.0 {
+                        stored = 1.0;
+                    }
                     if !loaded.set(index, stored) {
                         return false;
                     }

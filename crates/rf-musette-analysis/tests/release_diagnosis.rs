@@ -33,6 +33,8 @@ fn high_pass_energy(x: &[f32], at: usize, length: usize) -> f64 {
 fn the_release_of_a_note() {
     for &(name, note) in &[("F4", 65u8), ("C5", 72), ("A3", 57)] {
         let mut engine = Engine::new(RATE).unwrap();
+        // The bellows played: Key Touch off, or it rests (9h again).
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::MIC_LAYOUT, 6.0));
         engine.bellows_mut().expression_wide(0.6);
         engine.note_on(note, 1.0);
@@ -107,6 +109,7 @@ fn the_curtain_and_the_sealed_reed() {
         100.0 * design.tone_hole_area / full
     );
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::MIC_LAYOUT, 6.0));
     engine.bellows_mut().expression_wide(0.6);
     engine.note_on(65, 1.0);
@@ -161,6 +164,7 @@ fn the_curtain_and_the_sealed_reed() {
 fn the_flow_as_the_pallet_seals() {
     for &note in &[65u8, 57] {
         let mut engine = Engine::new(RATE).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::MIC_LAYOUT, 6.0));
         assert!(engine.set_parameter(parameters::OVERSAMPLING, 1.0));
         engine.bellows_mut().expression_wide(0.6);

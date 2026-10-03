@@ -33,6 +33,8 @@ fn engine(wheel: Option<u8>) -> Engine {
     for (index, value) in values.values().iter().enumerate() {
         assert!(engine.set_parameter(index, *value));
     }
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::PALLET_OPENING, 35.0));
     if let Some(value) = wheel {
         engine.wheel_msb(value);

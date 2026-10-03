@@ -19,8 +19,20 @@ pub struct Trace {
 }
 
 /// Blows `design` with the supply pressure `supply(t)` (Pa) for `seconds`,
-/// at `rate` samples per second, from rest.
+/// at `rate` samples per second, from rest -- its pallet away, as on a
+/// laboratory chamber.
 pub fn simulate(design: ReedDesign, rate: f64, seconds: f64, supply: impl Fn(f64) -> f64) -> Trace {
+    simulate_through(design, rate, seconds, supply, f64::INFINITY)
+}
+
+/// The same through a pallet's curtain of `curtain` m², held there.
+pub fn simulate_through(
+    design: ReedDesign,
+    rate: f64,
+    seconds: f64,
+    supply: impl Fn(f64) -> f64,
+    curtain: f64,
+) -> Trace {
     let model = ReedModel::new(design);
     let mut state = ReedState::default();
     let mut tube = Tube::default();
@@ -33,7 +45,7 @@ pub fn simulate(design: ReedDesign, rate: f64, seconds: f64, supply: impl Fn(f64
     };
     for n in 0..frames {
         let t = (n as f64 + 0.5) * h;
-        let rate_of_flow = reed::step(&model, &mut state, &mut tube, supply(t), f64::INFINITY, h);
+        let rate_of_flow = reed::step(&model, &mut state, &mut tube, supply(t), curtain, h);
         trace.zeta.push(state.zeta);
         trace.flow_rate.push(rate_of_flow);
     }
@@ -668,6 +680,7 @@ pub fn tune(
 pub fn tune_reed(parameters: &rf_musette_dsp::Parameters, key: u8, rank: usize) -> Option<f64> {
     use rf_musette_dsp::compass::{target, untuned};
     tune_design(
+        parameters,
         untuned(parameters, key, rank)?,
         target(parameters, key, rank),
     )
@@ -684,7 +697,11 @@ pub fn tune_bass(
     for (rank, row) in table.iter_mut().enumerate() {
         for (pitch_class, cell) in row.iter_mut().enumerate() {
             *cell = bass_untuned(parameters, pitch_class, rank).and_then(|design| {
-                tune_design(design, bass_target(parameters, pitch_class, rank)?)
+                tune_design(
+                    parameters,
+                    design,
+                    bass_target(parameters, pitch_class, rank)?,
+                )
             });
         }
     }
@@ -778,25 +795,7 @@ pub fn voice(
     use rf_musette_dsp::compass::{
         BASS_KEYS, FIRST_KEY, KEYS, bare, bass_bare, bass_target, target,
     };
-    // A finish as the tables keep it, f32 to three places: what the engine
-    // builds, and so what the reed is tuned as.
-    let kept = |value: f64| f64::from(format!("{value:.3}").parse::<f32>().unwrap_or(f32::NAN));
-    let finish = |bare: ReedDesign, aim: f64| {
-        let load = kept(load_reed(parameters, bare, aim)?);
-        let loaded = ReedDesign {
-            tip_load: load,
-            ..bare
-        };
-        let duct = kept(duct_reed(parameters, loaded, aim)?);
-        let cents = tune_design(
-            ReedDesign {
-                tone_hole_depth: loaded.tone_hole_depth * duct,
-                ..loaded
-            },
-            aim,
-        )?;
-        Some(Finish { load, duct, cents })
-    };
+    let finish = |bare: ReedDesign, aim: f64| finish(parameters, bare, aim);
     let mut treble = [[None; KEYS]; rf_musette_dsp::parameters::RANKS];
     for (rank, row) in treble.iter_mut().enumerate() {
         for (index, cell) in row.iter_mut().enumerate() {
@@ -815,15 +814,145 @@ pub fn voice(
     (treble, bass)
 }
 
+/// One reed finished as a maker finishes it, as the tables keep it -- f32
+/// to three places, what the engine builds and so what the reed is tuned
+/// as: its least tip load, its least inlet duct, then the cents.
+pub fn finish(
+    parameters: &rf_musette_dsp::Parameters,
+    bare: ReedDesign,
+    aim: f64,
+) -> Option<Finish> {
+    let kept = |value: f64| f64::from(format!("{value:.3}").parse::<f32>().unwrap_or(f32::NAN));
+    let load = kept(load_reed(parameters, bare, aim)?);
+    let loaded = ReedDesign {
+        tip_load: load,
+        ..bare
+    };
+    let duct = kept(duct_reed(parameters, loaded, aim)?);
+    let cents = tune_design(
+        parameters,
+        ReedDesign {
+            tone_hole_depth: loaded.tone_hole_depth * duct,
+            ..loaded
+        },
+        aim,
+    )?;
+    Some(Finish { load, duct, cents })
+}
+
+/// The free bass's reeds finished (milestone 8p), by voice (8′, 4′) and
+/// note (E1-C♯6), as `rf-musette-lab tune` writes them.
+pub fn voice_free(
+    parameters: &rf_musette_dsp::Parameters,
+) -> [[Option<Finish>; rf_musette_dsp::compass::FREE_NOTES]; rf_musette_dsp::compass::FREE_VOICES] {
+    use rf_musette_dsp::compass::{FREE_FIRST, FREE_NOTES, FREE_VOICES, free_bare, free_target};
+    let mut free = [[None; FREE_NOTES]; FREE_VOICES];
+    for (voice, row) in free.iter_mut().enumerate() {
+        for (index, cell) in row.iter_mut().enumerate() {
+            let note = FREE_FIRST + index as u8;
+            *cell = free_bare(parameters, note, voice).and_then(|design| {
+                finish(parameters, design, free_target(parameters, note, voice)?)
+            });
+        }
+    }
+    free
+}
+
 /// The cents `design`'s mode must sit above `aim` for it to sound on `aim`
-/// at its [`tuning_pressure`].
-pub fn tune_design(mut design: ReedDesign, aim: f64) -> Option<f64> {
+/// at its [`tuning_pressure`] -- blown through its pallet's curtain fully
+/// open, as the engine plays it: until 8p the pallet was away here, and the
+/// curtain's mass and loss left the low reeds flat in the engine (the 16′ C2
+/// -7.4 cents).
+pub fn tune_design(
+    parameters: &rf_musette_dsp::Parameters,
+    mut design: ReedDesign,
+    aim: f64,
+) -> Option<f64> {
     design.frequency = aim;
     let pressure = tuning_pressure(design)?;
+    let curtain = open_curtain(parameters, &design);
     let mut correction = 0.0;
     for _ in 0..2 {
         design.frequency = aim * 2f64.powf(correction / 1200.0);
-        correction += cents(sounding(design, pressure)?.frequency, aim);
+        correction += cents(sounding_through(design, pressure, curtain)?.frequency, aim);
     }
     Some(correction)
+}
+
+/// A reed's pallet curtain with its key fully down, m²: the rim times the
+/// lift, never more than the hole -- as the engine's pallet makes it.
+pub fn open_curtain(parameters: &rf_musette_dsp::Parameters, design: &ReedDesign) -> f64 {
+    let lift = parameters.pallet_design().lift;
+    (rf_musette_dsp::pallet::rim(design.tone_hole_area) * lift).min(design.tone_hole_area)
+}
+
+/// [`sounding`], through a pallet's curtain of `curtain` m².
+pub fn sounding_through(design: ReedDesign, pressure: f64, curtain: f64) -> Option<Tone> {
+    let seconds = (600.0 / design.frequency).clamp(1.5, 6.0);
+    let trace = simulate_through(design, 192_000.0, seconds, |_| pressure, curtain);
+    trace.tone(seconds - 0.5, seconds)
+}
+
+/// Whether a render holds a steady tone at its end: its last two half
+/// seconds within 1 dB, and within 40 dB of `full` when given (a note at
+/// its key's edge dies away rather than holding). Its level, dB, if so.
+fn holds_at_end(samples: &[f32], rate: f32, full: Option<f64>) -> Option<f64> {
+    let half = (0.5 * rate) as usize;
+    let n = samples.len();
+    let level = |s: &[f32]| {
+        let power = s.iter().map(|x| f64::from(*x).powi(2)).sum::<f64>() / s.len() as f64;
+        10.0 * (power + 1e-300).log10()
+    };
+    let (early, late) = (
+        level(&samples[n - 2 * half..n - half]),
+        level(&samples[n - half..]),
+    );
+    let steady = (early - late).abs() < 1.0 && late > -120.0;
+    let near = full.is_none_or(|full| late - full > -40.0);
+    (steady && near).then_some(late)
+}
+
+/// The shallowest a treble `key`'s pallet can stand, as its curtain's share
+/// of the M rank's hole, and still hold a steady tone (milestone 9h again):
+/// with `register` open, the arm's bellows asked for `pressure` Pa, Key
+/// Touch off so the pressure is the one asked. Found by halving, seven
+/// times. `None` where the key does not sound fully down.
+pub fn key_edge(key: u8, register: f64, pressure: f64) -> Option<f64> {
+    use rf_musette_dsp::parameters::{BELLOWS_CEILING, KEY_TOUCH, REGISTER};
+    const RATE: f32 = 48_000.0;
+    let parameters = rf_musette_dsp::Parameters::default();
+    let hole = parameters.reed_design().tone_hole_area;
+    let lift = parameters.pallet_design().lift;
+    let knee = (hole / (rf_musette_dsp::pallet::rim(hole) * lift)).min(1.0);
+    let ceiling = parameters.get(BELLOWS_CEILING).unwrap_or(1000.0);
+    let render = |share: f64| {
+        let mut engine = Box::new(rf_musette_dsp::Engine::new(RATE).unwrap());
+        assert!(engine.set_parameter(KEY_TOUCH, 0.0));
+        assert!(engine.set_parameter(REGISTER, register));
+        engine
+            .bellows_mut()
+            .expression_wide((pressure / ceiling).sqrt() as f32);
+        let mut block = [0.0f32; 256];
+        for _ in 0..(0.3 * RATE / 256.0) as usize {
+            engine.render(&mut block);
+        }
+        engine.press(key, (share * knee).min(1.0));
+        let mut out = Vec::new();
+        for _ in 0..(2.0 * RATE / 256.0) as usize {
+            engine.render(&mut block);
+            out.extend_from_slice(&block);
+        }
+        out
+    };
+    let full = holds_at_end(&render(1.0 / knee), RATE, None)?;
+    let (mut low, mut high) = (0.02, 1.0);
+    for _ in 0..7 {
+        let middle = 0.5 * (low + high);
+        if holds_at_end(&render(middle), RATE, Some(full)).is_some() {
+            high = middle;
+        } else {
+            low = middle;
+        }
+    }
+    Some(high)
 }

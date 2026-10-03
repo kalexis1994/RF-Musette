@@ -124,13 +124,11 @@ pub fn scenes() -> Vec<Scene> {
                 .events
                 .extend([53, 60, 64, 67, 72].map(|key| (2.2, Event::NoteOff(key))));
         }
-        if program.id == "wheel-bellows" {
-            // The wheel opens the bellows, then closes it: a reversal.
-            entry.wheel_ramps = vec![(0.0, 0.5, 0.0, 1.0), (0.6, 1.1, 1.0, 0.2)];
-        }
         scenes.push(entry);
     }
-    let master = settings(&[(parameters::REGISTER, 6.0)]);
+    // Key Touch off where the bellows is played: with it on, the bellows
+    // rests and Expression and the wheel move nothing (9h again).
+    let master = settings(&[(parameters::REGISTER, 6.0), (parameters::KEY_TOUCH, 0.0)]);
     scenes.push(scene(
         "master chord, mono",
         48_000.0,
@@ -193,7 +191,10 @@ pub fn scenes() -> Vec<Scene> {
         48_000.0,
         true,
         1.2,
-        settings(&[(parameters::MOD_WHEEL, parameters::WHEEL_PRESSURE)]),
+        settings(&[
+            (parameters::MOD_WHEEL, parameters::WHEEL_PRESSURE),
+            (parameters::KEY_TOUCH, 0.0),
+        ]),
         vec![
             (0.0, Event::Wheel(0.1)),
             (0.0, Event::Note(57, 0.7)),

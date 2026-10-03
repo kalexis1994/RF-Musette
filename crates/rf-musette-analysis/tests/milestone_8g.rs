@@ -13,6 +13,8 @@ fn engine(auto: bool, travel_litres: f64) -> Engine {
 
 fn engine_in(auto: bool, travel_litres: f64, register: f64) -> Engine {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     assert!(engine.set_parameter(parameters::REGISTER, register));
     assert!(engine.set_parameter(parameters::AUTO_REVERSE, if auto { 1.0 } else { 0.0 }));

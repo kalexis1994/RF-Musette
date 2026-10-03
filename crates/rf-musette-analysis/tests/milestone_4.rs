@@ -74,6 +74,8 @@ fn the_sixteen_and_four_foot_ranks_sound_their_octaves() {
 fn level(register: f64) -> f64 {
     let rate = 48_000.0f32;
     let mut engine = Engine::new(rate).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, parameters::STIFF));
     assert!(engine.set_parameter(parameters::REGISTER, register));
     engine.bellows_mut().expression_wide(0.547_722_6);
@@ -115,6 +117,7 @@ fn clarinet_opens_the_measured_reed_alone() {
     );
     assert_eq!(p.open_ranks(), [false, false, true, false, false]);
     let mut engine = Engine::new(48_000.0).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     engine.note_on(REED_KEY, 0.8);
     let mut out = vec![0.0f32; 24_000];
     engine.render(&mut out);

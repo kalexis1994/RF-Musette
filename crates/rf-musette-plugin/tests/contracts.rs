@@ -164,8 +164,10 @@ fn the_wheel_is_the_bellows() {
         BellowsSource::Expression
     );
 
-    // Wheel down: a key pressed, nothing sounds.
+    // Wheel down: a key pressed, nothing sounds -- with Key Touch off; on,
+    // the bellows rests and the wheel moves nothing (9h again).
     let mut plugin = prepared();
+    assert!(plugin.set_parameter(parameters::KEY_TOUCH as u32, 0.0));
     let out = run(
         &mut plugin,
         &[midi(0, [0xb0, CC_MOD_WHEEL, 0]), midi(0, [0x90, 69, 100])],
@@ -428,6 +430,17 @@ fn the_surfaces_are_in_the_package() {
     assert!(
         glue.trim_end().ends_with("__wbg_init();"),
         "app.js starts the page"
+    );
+}
+
+/// What follows the instrument in PLAY is suggested, not built in: RF-EQ,
+/// flat, so it changes nothing until the player turns it.
+#[test]
+fn the_suggested_chain_is_an_eq_left_flat() {
+    assert_eq!(MANIFEST.matches("[[suggested_chain]]").count(), 1);
+    assert!(
+        MANIFEST
+            .contains("[[suggested_chain]]\nplugin = \"org.rackforge.rf-eq\"\npreset = \"flat\"")
     );
 }
 

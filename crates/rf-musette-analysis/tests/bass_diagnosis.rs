@@ -107,6 +107,8 @@ fn the_c2_attack() {
     let rate = 48_000.0f32;
     for kick in [1.0, 0.0] {
         let mut engine = Engine::new(rate).unwrap();
+        // The bellows played: Key Touch off, or it rests (9h again).
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
         assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
         assert!(engine.set_parameter(parameters::ATTACK_KICK, kick));
@@ -429,6 +431,7 @@ fn llanos_table_one_against_the_model() {
     ];
     let attack = |note: i32, pressure: f32| -> Option<f64> {
         let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
         // The bass side in 16′ alone is register 16′/2′; the 2′ is far up.
         assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
@@ -490,6 +493,7 @@ fn the_a2_opening_traced() {
     let rate = 48_000.0f32;
     for (opening, kick) in [(50.0, 1.0), (50.0, 0.0), (5.0, 1.0)] {
         let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
         assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
         assert!(engine.set_parameter(parameters::PALLET_OPENING, opening));
@@ -537,6 +541,7 @@ fn the_c2_in_the_tune() {
     let rate = 48_000.0f32;
     for register in [3.0, 6.0] {
         let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::BASS_REGISTER, register));
         engine.bellows_mut().expression_msb(80);
         let mut one = [0.0f32; 1];
@@ -659,6 +664,7 @@ fn the_c2_stiff_against_the_arm() {
         ("arm ×5 fast", ARM, false),
     ] {
         let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, response));
         assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
         if push {
@@ -711,6 +717,7 @@ fn the_low_notes_under_the_arm() {
         let mut line = format!("note {note}:");
         for response in [STIFF, ARM] {
             let mut engine = Engine::new(rate).unwrap();
+            assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
             assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, response));
             assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
             assert!(engine.set_parameter(parameters::REGISTER, 11.0));

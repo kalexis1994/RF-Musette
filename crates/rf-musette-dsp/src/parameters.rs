@@ -129,8 +129,14 @@ pub const SPACED_PATTERN: usize = 70;
 pub const SINGLE_DISTANCE: usize = 71;
 pub const SINGLE_PATTERN: usize = 72;
 pub const PAD_SEATING: usize = 73;
+pub const KEY_TOUCH: usize = 74;
+pub const BASS_SYSTEM: usize = 75;
 
-pub const COUNT: usize = 74;
+pub const COUNT: usize = 76;
+
+/// [`BASS_SYSTEM`]'s values.
+pub const STRADELLA: f64 = 0.0;
+pub const FREE_BASS: f64 = 1.0;
 
 /// The pressure below which the air is too weak to push a tongue into its
 /// frame at a key's opening, Pa: half the start is reached here. Assumed, of
@@ -207,6 +213,33 @@ const fn spec(
     }
 }
 
+/// The smallest of a choice's values: the list may run in another order
+/// than its values (the treble registers, from the most common).
+const fn least(choices: &[(u32, &str)]) -> u32 {
+    let mut least = choices[0].0;
+    let mut i = 1;
+    while i < choices.len() {
+        if choices[i].0 < least {
+            least = choices[i].0;
+        }
+        i += 1;
+    }
+    least
+}
+
+/// The largest of a choice's values.
+const fn most(choices: &[(u32, &str)]) -> u32 {
+    let mut most = choices[0].0;
+    let mut i = 1;
+    while i < choices.len() {
+        if choices[i].0 > most {
+            most = choices[i].0;
+        }
+        i += 1;
+    }
+    most
+}
+
 const fn choice(
     id: &'static str,
     name: &'static str,
@@ -220,8 +253,8 @@ const fn choice(
         name,
         page,
         unit: "",
-        minimum: choices[0].0 as f64,
-        maximum: choices[choices.len() - 1].0 as f64,
+        minimum: least(choices) as f64,
+        maximum: most(choices) as f64,
         default: default as f64,
         step: 1.0,
         taper: Taper::Linear,
@@ -467,21 +500,24 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "register",
         "Register",
         PAGE_PLAY,
+        // Listed from the most common register to the rarest (milestone 9i
+        // again): M alone, with M+, with L, with H, with M−; fewer reeds
+        // first. The values are Roland's switch row's, as saved.
         &[
+            (11, "Clarinet"),
+            (12, "Celeste"),
             (0, "Bassoon"),
             (1, "Bandoneon"),
             (2, "Cello"),
-            (3, "Harmonium"),
+            (13, "Piccolo"),
             (4, "Organ"),
-            (5, "Accordion"),
-            (6, "Master"),
+            (10, "Oboe"),
+            (3, "Harmonium"),
+            (9, "Violin"),
             (7, "Tremolo"),
             (8, "Musette"),
-            (9, "Violin"),
-            (10, "Oboe"),
-            (11, "Clarinet"),
-            (12, "Celeste"),
-            (13, "Piccolo"),
+            (5, "Accordion"),
+            (6, "Master"),
         ],
         11,
         "Measured as a maker draws it: the 14 treble registers of Roland's FR-3x, with the reeds each opens (Owner's Manual, p. 27): Bassoon L, Bandoneon LM, Cello L M M+, Harmonium LMH, Organ LH, Accordion L M− M H, Master L M− M M+ H, Tremolo M− M+, Musette M− M M+, Violin M M+ H, Oboe MH, Clarinet M, Celeste M M+, Piccolo H.",
@@ -612,9 +648,9 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "left_hand",
         "Left Hand",
         PAGE_PLAY,
-        &[(0, "Off"), (1, "On")],
+        &[(1, "On")],
         1,
-        "Decided 2026-10-01, for a MIDI keyboard on one channel: under the Split Point the octave just below it plays the chord ranks, each key its pitch class, and everything lower the bass buttons. Channels 2 and 3 play the bass and chords as a V-Accordion sends them either way. On by default: under F3 the treble has no reeds.",
+        "Retired (2026-10-02, milestone 8p): the left hand is always there, under the Split Point of a MIDI keyboard on one channel and on channels 2 and 3. Kept, one value, so states and links by index still find what follows; a state saved with it off loads as on.",
     ),
     spec(
         "split_point",
@@ -623,7 +659,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "note",
         (24.0, 96.0, 53.0, 1.0),
         Taper::Linear,
-        "The lowest note the treble keeps when Left Hand is on, as a MIDI note: F3 (53), the treble's first key, by default. The octave below it plays the chords, the rest the bass buttons.",
+        "The lowest note the treble keeps, as a MIDI note: F3 (53), the treble's first key, by default. Under it the left hand: with Stradella the octave below it plays the chords and the rest the bass buttons; with Free Bass every key its own note.",
     ),
     spec(
         "bellows_smoothing",
@@ -706,9 +742,9 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "Wall Hardness",
         PAGE_MICS,
         "",
-        (0.0, 1.0, 0.4, 0.01),
+        (0.0, 1.0, 0.2, 0.01),
         Taper::Linear,
-        "Concert Grand's absorption from hardness, voiced there: alpha_mid = 0.5 e^(-2.6 h) + 0.035, the highs more absorbed in a soft room.",
+        "Concert Grand's absorption from hardness, voiced there: alpha_mid = 0.5 e^(-2.6 h) + 0.035, the highs more absorbed in a soft room. Default voiced by the player (2026-10-02): 0.2, a room with people in it.",
     ),
     spec(
         "room_level",
@@ -917,6 +953,22 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         Taper::Logarithmic,
         "Voiced against a measurement (2026-10-02): the time constant with which the pad, on its felt and leather, slows to the seat once a key is let go -- the last tenth of the pallet's travel, which is where the tone is shut off. No pad's compression is published. Measured instead on FreePats' Hohner releases (CC0, 17 notes): the steepest fall of the band above 3 kHz in any 1.5 ms is −6 to −23 dB, median −12, the D4 −17. A pad at constant speed made it −49 dB (the closing's sound); at 12 ms the D4 here is −16 (8 ms −20, 24 ms −13).",
     ),
+    choice(
+        "key_touch",
+        "Key Touch",
+        PAGE_PLAY,
+        &[(0, "Off"), (1, "On")],
+        1,
+        "Decided by the player (2026-10-02, milestone 9h): played from a keyboard without the wheel, a treble note's velocity sets how far its key goes down, and so how far its pallet opens -- as an accordionist holds a key part-way. The bellows is untouched. Off, every key goes fully down, as on an accordion's keyboard. The curve is derived from milestone 9g's measurement: even in decibels, never shallower than 0.18 of the travel, where the shallowest steady key was 0.17.",
+    ),
+    choice(
+        "bass_system",
+        "Bass System",
+        PAGE_PLAY,
+        &[(0, "Stradella"), (1, "Free Bass")],
+        0,
+        "Decided by the player (2026-10-02, milestone 8p): Stradella, the standard bass -- bass buttons and chords; or Free Bass, as a converter accordion's left hand, single notes at their own pitch from E1 to C#6 (the bayan's 58), two voices an octave apart (8' and 4', assumed from makers' \"octave tuned\" free bass).",
+    ),
 ];
 
 /// The air button's opening when fully pressed, m²: assumed.
@@ -987,6 +1039,8 @@ pub enum Side {
     Treble,
     Bass,
     Chord,
+    /// The free bass's single notes (milestone 8p).
+    Free,
 }
 
 /// One engine's parameter values, in the units of [`SPECS`].
@@ -1146,14 +1200,17 @@ impl Parameters {
         REGISTERS[self.values[REGISTER] as usize]
     }
 
-    /// Where a note on a treble channel goes: the treble, or, with Left Hand
-    /// on, the chords in the octave under the split and the bass buttons
-    /// below it.
+    /// Where a note on a treble channel goes: the treble from the split up;
+    /// under it the left hand -- with Stradella the chords in the octave
+    /// under the split and the bass buttons below it, with Free Bass the
+    /// note itself (milestone 8p).
     pub fn left_hand_side(&self, key: u8) -> Side {
         let split = self.values[SPLIT_POINT];
         let key = f64::from(key);
-        if self.values[LEFT_HAND] != 1.0 || key >= split {
+        if key >= split {
             Side::Treble
+        } else if self.values[BASS_SYSTEM] == FREE_BASS {
+            Side::Free
         } else if key >= split - 12.0 {
             Side::Chord
         } else {

@@ -5,7 +5,7 @@ id = "org.rackforge.musette"
 name = "RF-Musette"
 short_name = "MUSETTE"
 vendor = "RackForge"
-version = "0.13.10"
+version = "0.13.17"
 description = "Physically modelled accordion: free reeds driven by the bellows, with no samples"
 kind = "instrument"
 state_version = 2
@@ -47,3 +47,10 @@ banner = "branding/banner.png"
 splash = "branding/splash.png"
 background_color = "#26060A"
 accent_color = "#EC2634"
+
+# What the instrument would like after it in PLAY, for the player to take or
+# leave. The plugin delivers the instrument as recorded -- microphones, room
+# and preamp; its colour in a mix is the player's, so the EQ starts flat.
+[[suggested_chain]]
+plugin = "org.rackforge.rf-eq"
+preset = "flat"

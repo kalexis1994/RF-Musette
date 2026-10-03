@@ -18,6 +18,7 @@ serde_json.workspace = true
 
 [dev-dependencies]
 rackforge-plugin-api.workspace = true
+rackforge-midi-api.workspace = true
 
 # The SDK export macro implements the raw ABI. Handwritten code is safe Rust.
 [lints.clippy]

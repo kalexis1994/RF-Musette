@@ -40,6 +40,8 @@ fn a_musette_note_rank_by_rank() {
 fn trace(register: f64) {
     let key = 60u8;
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::REGISTER, register));
     engine.bellows_mut().expression_msb(80);
     let mut block = [0.0f32; 64];
@@ -99,6 +101,7 @@ fn trace(register: f64) {
 fn the_first_note_with_the_bellows() {
     let key = 60u8;
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::REGISTER, CLARINET));
     engine.bellows_mut().expression_msb(80);
     engine.note_on(key, 100.0 / 127.0);
@@ -126,6 +129,7 @@ fn a_held_key_through_a_reversal() {
     use rf_musette_dsp::PUSH_REED;
     let key = 65u8;
     let mut engine = Engine::new(RATE).unwrap();
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::REGISTER, CLARINET));
     engine.bellows_mut().expression_wide(0.4f32.sqrt());
     engine.note_on(key, 1.0);

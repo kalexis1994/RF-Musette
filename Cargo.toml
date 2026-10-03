@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.13.10"
+version = "0.13.17"
 edition = "2024"
 rust-version = "1.98"
 license = "GPL-3.0-only"
@@ -27,6 +27,8 @@ rackforge-plugin-sdk = { path = "../rackforge/crates/rackforge-plugin-sdk" }
 rackforge-program-api = { path = "../rackforge/crates/rackforge-program-api" }
 # RackForge's own schema validator and controller roles, for the contract tests.
 rackforge-plugin-api = { path = "../rackforge/crates/rackforge-plugin-api" }
+# RackForge's control layouts and link modes, for the layout's contract test.
+rackforge-midi-api = { path = "../rackforge/crates/rackforge-midi-api" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

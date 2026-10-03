@@ -134,6 +134,8 @@ fn the_attack_against_the_kick() {
             .iter()
             .map(|pressure: &f64| {
                 let mut engine = Engine::new(rate).unwrap();
+                // The bellows played: Key Touch off, or it rests (9h again).
+                assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
                 assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
                 assert!(engine.set_parameter(parameters::ATTACK_KICK, kick));
                 engine
@@ -177,6 +179,7 @@ fn the_bass_attack_against_the_kick() {
     let frequency = bass_target(&Parameters::default(), 0, BASS_16).unwrap();
     for kick in [1.0, 0.6, 0.5, 0.4, 0.3] {
         let mut engine = Engine::new(rate).unwrap();
+        assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
         assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
         assert!(engine.set_parameter(parameters::BASS_REGISTER, 6.0));
         assert!(engine.set_parameter(parameters::ATTACK_KICK, kick));

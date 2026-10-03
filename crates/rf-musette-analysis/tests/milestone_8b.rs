@@ -13,6 +13,8 @@ const RATE: f32 = 48_000.0;
 /// 8 MiB test threads (.cargo/config.toml).
 fn engine() -> Box<Engine> {
     let mut engine = Box::new(Engine::new(RATE).unwrap());
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::BELLOWS_RESPONSE, STIFF));
     engine.bellows_mut().expression_wide(0.3f32.sqrt());
     render(&mut engine, 0.1);
@@ -102,7 +104,11 @@ fn a_note_is_let_go_where_it_was_played() {
 }
 
 /// Prediction 3: Left Hand off, channel 1 under F3 is silent.
+///
+/// WITHDRAWN (2026-10-02, milestone 8p): Left Hand is retired at On -- the
+/// left hand is always there -- so there is no Left Hand off to test.
 #[test]
+#[ignore = "withdrawn: Left Hand retired at On (docs/ROADMAP.md, 8p)"]
 fn with_the_left_hand_off_the_low_keys_are_silent() {
     let mut engine = engine();
     assert!(engine.set_parameter(parameters::LEFT_HAND, 0.0));

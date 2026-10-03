@@ -1,6 +1,6 @@
-# Milestone 9g's study: the same phrase with every key fully down (A) and
-# with each key's velocity setting how far it goes down (B, the lab's
-# --key-depth). Musette Paris, the wheel at 79 %. A waltz phrase with
+# Milestone 9g's study, and 9h's Key Touch: the same phrase with every key
+# fully down (--set key_touch=0) and with each key's velocity setting how
+# far it goes down (key_touch=1, the default). Musette Paris, the wheel at 79 %. A waltz phrase with
 # accents, the same phrase soft, a scale rising in velocity, a low F3 and an
 # F major triad soft then hard.
 0 wheel 100

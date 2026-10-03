@@ -3320,3 +3320,467 @@ oscillation's phase -- but not the sound: each scene's total level within
 and releases and the tremolo's beats account for. The one-ulp nudge, the
 yardstick of 10c, moved nothing this time (0.00 dB in every scene), so it
 could not judge. Fingerprints taken again.
+
+## 9c again. The preamp set for the player's playing
+
+The player (2026-10-02): "it lacks output; I turn Output Gain up". The
+recording level was set so the loudest the model can play -- both hands'
+full chords in Master at the bellows' 1 kPa ceiling -- peaks at -6 dBFS.
+Played as the player plays (Musette Paris, the wheel at 79 %, a melody
+over bass and chords, `play.score` in the scratch) it peaks at -13.2 dBFS,
+-28 dBFS RMS: an engineer who set the preamp for a fortissimo nobody plays
+-- a real ff is about 300 Pa, the ceiling 1 kPa (8m, open). What the
+plugin delivers is the instrument recorded, preamp included, as RF
+Concert Grand does; equalisation is the mix's, after it (`suggested_chain`:
+RF-EQ, flat). The level up +7 dB, at the player's word.
+
+**Predictions:**
+1. The player's playing -- Musette Paris, the wheel at 79 %, a held A4
+   over a bass and its chord -- peaks at -6 dBFS within 1.5 dB.
+2. The loudest case now reaches the soft ceiling (above -6 dBFS) and
+   stays under full scale; nothing under the knee is touched (9c's 2,
+   unchanged).
+3. A C4 at mf near -18 dBFS (-25 + 7).
+
+**Status (2026-10-02): built (0.13.11); all three met**
+(`tests/milestone_9c.rs`).
+1. **Met.** The player's playing peaks at -5.3 dBFS.
+2. **Met.** The loudest case -1.0 dBFS, in the soft ceiling; under the
+   knee nothing changes (`the_ceiling_leaves_the_music_and_rounds_the_peaks`).
+3. **Met.** A C4 at mf -18.9 dBFS.
+The 25 stereo scenes' fingerprints taken again; the three mono ones did
+not move. With it, the walls' hardness 0.2 by default and in Musette Paris
+(voiced by the player: 0.5 put the ORTF pair at the hall's critical
+distance, the room as loud as the instrument; 0.2 puts it 7 dB under, the
+mid tail 0.53 s), and RF-EQ suggested after the instrument, flat.
+`milestone_9d`'s room tests took the default hardness; at 0.2 the 1500 m³
+room's echo density at 50 ms fell from 0.79 to 0.70, under its guard. They
+ask after the network's diffusion, not the walls: pinned at the 0.4 they
+were written and measured at, they read 0.91, 0.95 and 0.79 again.
+
+## 9h. Key Touch
+
+The player (2026-10-02): the plugin will be played from a MIDI keyboard,
+without the wheel, nine times in ten; 9g's A/B with velocity setting each
+key's depth "sounds almost the same" -- so let it be there, and on by
+default. A new parameter, Key Touch (Off / On, default On): On, a treble
+note's velocity sets how far its key goes down; the bellows is untouched,
+resting at 300 Pa and moved by the wheel or Expression as before. The bass
+and chord buttons stay fully down (9g measured the treble; its F3 already
+bent −90 to −214 cents).
+
+**The curve, derived from 9g.** Over the travel that matters the level
+falls about linearly with 1/depth (the F4 at 300 Pa: −1.4 to −1.9 dB per
+unit of 1/depth from 0.5 to 0.2). So velocity is spread evenly over 1/d:
+1/d = 1.5 + (1/d_min − 1.5)(1 − v), v = velocity/127, from 2/3 (the curtain
+is the hole) at v = 1 down to d_min. d_min = 0.18: the shallowest steady
+depth measured was 0.17 (the F3 at 300 Pa), and the edge moves with note
+and bellows (0.09-0.17 in 9g). Velocity 127 takes the key fully down, as
+with Key Touch off.
+
+**Predictions:**
+1. Velocity 127 renders exactly what Key Touch off renders.
+2. Every treble key that sounds at full depth still sounds, steadily, at
+   velocity 1 -- at 300 Pa and at the wheel's 79 %, Musette Paris.
+3. From velocity 127 to 1 the F4 at 300 Pa falls 7-10 dB (9g: −6.5 dB at
+   0.2, −8.4 at 0.17), in steps about even in decibels: velocity 64 within
+   2 dB of halfway.
+4. The held tone at velocity 127 does not move; with Key Touch off nothing
+   moves at all (every fingerprint whose scene plays at 127, or plays with
+   it off, unchanged).
+
+**Status (2026-10-02): built (0.13.12); 1 and 4 met, 2 met but for the
+A6 at 300 Pa, 3 not met** (`tests/milestone_9h.rs`).
+1. **Met.** Velocity 127 renders exactly Key Touch off.
+2. **Met but for the A6 at 300 Pa.** At 0.27 of the hole the A3 and the
+   G♯6 fell silent at velocity 1 at 300 Pa (`where_the_edge_keys_stop`:
+   they stop under 0.35; their neighbours sound at 0.27). The floor rose to
+   0.35, and every key sounds at velocity 1 at 300 Pa and at the wheel's
+   79 % -- except the A6 at 300 Pa, at its threshold fully down (-32.6 dB,
+   stopping under 0.6): the high reeds' open threshold, not a curve's.
+3. **Not met.** At 0.27 the F4 at 300 Pa fell 7.7 dB, velocity 64 at -3.4
+   (met); at 0.35 it falls 5.0, velocity 64 at -2.2 -- even, but under the
+   range written. At velocity 1, 300 Pa: F3 -10.5, A3 -9.3, F4 -5.0, A5
+   -1.2, G6 -3.9 dB; at the wheel's 79 %: F3 -11.6, F4 -7.0, A5 -1.8.
+4. **Met.** The scenes played at velocity 127 did not move; the others'
+   fingerprints taken again.
+The laboratory's --key-depth (9g's study, a linear curve) is gone: Key
+Touch is the parameter (--set key_touch=0 for the keys fully down).
+
+## 8p. The free bass
+
+The player (2026-10-02): to build chords freely from a MIDI keyboard, the
+left hand as single notes down as far as an accordion's reeds go -- "a
+fictional mode". Not fictional: free-bass and converter accordions play
+the left hand as single notes, the bayan's E1-C♯6, 58 notes (SOURCES.md,
+"The free bass"). A selector, Bass System: Stradella (the default) or Free
+Bass. Left Hand is retired -- the left hand is always there: it stays at
+On, off the panel; a state or program saved with it off loads as on.
+
+**The design.**
+* With Free Bass, what the left hand plays -- channel 1 under the Split
+  Point, or channels 2 and 3 -- sounds as single notes at their own pitch,
+  E1 (MIDI 28) to C♯6 (85); outside it nothing. The Split Point still
+  divides the hands.
+* Two voices, 8′ and 4′, an octave apart: "octave tuned" (Pigini's 42/B),
+  **assumed** as which; the Bass Register does not apply.
+* Each note its own pallet and cell, its reeds the bass side's -- the
+  bayan maker's slots carried down (`compass::unloaded`), from the 8′ E1 at
+  41 Hz, 8 semitones under the bass side's lowest reed (C2): **derived**,
+  an extrapolation -- each finished by the tuner (`rf-musette-lab tune`).
+  They sound from the bass box.
+* Not 58 keys held: 16 voices, each a pallet and two reeds' cells, given
+  to the notes as they are played and built then (a model is ~1.4 KiB and
+  shares the engine's tongue profile). 58 keys would take the engine from
+  1201 to ~1509 KiB, over its stack guard (a sixth of 8 MiB); 16 voices,
+  ~1286.
+
+**Predictions:**
+1. Stradella renders exactly as before (every fingerprint unmoved), Left
+   Hand retired included.
+2. Every free-bass note's 8′ reed speaks at 300 Pa, and once tuned sounds
+   within 5 cents of its pitch; the 4′ likewise wherever it speaks at
+   300 Pa (the top 4′, C♯7, may not, as the treble's top does not).
+3. A note played under the split with Free Bass sounds at its own pitch:
+   its fundamental within 5 cents of the note's.
+4. The free bass's lowest notes attack slower than the bass side's C2
+   (Llanos: the attack lengthens as the pitch falls): E1 over 143 ms at
+   400 Pa.
+5. Four free-bass notes struck at once, at 48 kHz in blocks of 128, take
+   under the block's 2.67 ms here (as the treble's chords are judged).
+
+**Status (2026-10-02): built (0.13.13); 1, 2, 4 and 5 met, 3 not met**
+(`tests/milestone_8p.rs`).
+1. **Met.** With Stradella every fingerprint is unmoved, Left Hand retired
+   included; the shared reed step (`blow_rank`) keeps the treble's and the
+   bass's arithmetic as it was.
+2. **Met.** Every 8′ speaks at 300 Pa and, alone as the tuner blows it,
+   within 5 cents; the 4′ too but for G♯6, A6 and C♯7 (the notes 80, 81
+   and 85's octave), which do not speak at 300 Pa, as the treble's top
+   does not. The tuner finished all 116 reeds (3 min 24 s): the E1's 8′
+   loaded 10.3 times its modal mass, its duct 17.7 times its hole's depth.
+3. **Not met at the bottom.** In the engine the E1 sounds -11.9 cents:
+   -7.7 with the bellows stiff, the rest the arm's sag under so large a
+   reed (297 to 223-251 Pa). The cause is older than the free bass: the
+   tuner blows a reed with its pallet away, the engine through the
+   pallet's curtain, whose mass and loss pull the low reeds flat -- free
+   bass E1 -7.7, A1 -7.7, E2 -6.2, B2 -3.7, E3 -1.5, E5 -0.2 cents; the
+   Stradella's 16′ C2 -7.4, E2 -6.2, A2 -4.3, the same. Open: tune with
+   the curtain as played.
+4. **Met.** The E1 attacks in 191 ms at 400 Pa (the bass side's C2: 143).
+5. **Met.** Four free-bass notes at once: the slowest block 0.27 ms of 2.67
+   (release).
+Found on the way: Pad Seating, added after the microphones' parameters,
+returned before the pallet was rebuilt (8m); it rebuilds it now. And a
+fresh tuning now differs from the shipped tables in three cells (the
+largest 0.11 cents), since 8o's curtain: the shipped tables kept, the
+free bass's added.
+
+**Tuning as played (2026-10-02).** The player: correct it. The tuner's
+last step -- the cents it files a reed's mode to so it sounds on its target
+at 300 Pa -- now blows the reed through its pallet's curtain fully open, as
+the engine plays it: the curtain min(rim × lift, hole), its mass and its
+Bernoulli and viscous loss, where it blew it with the pallet away. The
+loads and ducts, what makes a low reed speak at all, stay as they were
+found. Every table retuned.
+
+**Predictions:**
+1. In the engine, the bellows stiff at 300 Pa, the free bass's E1, A1, E2
+   and B2 and the Stradella's 16′ C2, E2 and A2 sound within 2 cents of
+   their targets (-7.7 to -3.7 before).
+2. The treble moves by under 1 cent in its middle (F4's M).
+3. Every reed still finishes: the tuner writes every cell.
+
+**Retuned (2026-10-02, 3 min 11 s); 1 and 3 met, 2 not met.**
+1. **Met.** In the engine, stiff at 300 Pa: free bass E1 -0.0, A1 +0.0,
+   E2 -0.1, B2 -0.4 cents; the Stradella's 16′ C2, E2 and A2 -0.1.
+2. **Not met:** the F4's M moved +1.8 cents, not under 1 -- it was that
+   flat in the engine. The curtain had pulled every reed flat: the
+   8′ ranks +4.7 to +4.8 cents at F3, +2 through the middle, +0.6 at the
+   top; the L rank (16′) +23.7 at F3, falling to +0.5 -- the 16′ registers'
+   low notes had been a quarter-tone flat. The three 8′ ranks moved alike,
+   so the tremolo's beats did not. Now in the engine: L F3 -0.7, F4 +0.1,
+   A5 +0.1; M F3 +0.1, F4 +0.2, A5 -0.3; H -0.4 to +0.2 cents.
+3. **Met.** Every reed finished; the loads unchanged, two ducts moved by
+   hundredths.
+With it 8p's prediction 3 is met: E1 -4.8 cents with the arm (its sag),
+E2 +2.8, B2 +2.4. Every fingerprint moves with the tuning.
+The tests that hold every reed to its pitch -- the treble's (7), the bass
+side's (8), the free bass's (8p) -- blew it with the pallet away; they now
+blow it through its open curtain, as it is tuned and played, and all pass
+within their 2 and 5 cents.
+
+## 9h again. Key Touch holds the bellows; each key its own floor
+
+The player (2026-10-02): the velocity's range is short -- "barely touching
+the key should sound softer" -- and with Key Touch on the wheel should not
+work. Physically a part-open key cannot reach pianissimo: under its edge
+the reed stops, it does not fade (9g); a real accordion's soft playing is
+the bellows'. But the one floor, 0.35 of the hole, is set by the A3's and
+the G♯6's edges, and holds every other key far from its own (the F4's at
+300 Pa: steady to 0.13 of the travel, -13.7 dB, where 0.35 gives -5).
+
+**The design.**
+* Key Touch on: the bellows rests -- the wheel and Expression move nothing
+  (their position kept for when it is off); the pressure is the resting
+  push's for the program's ceiling: 300 Pa by default, ~205-420 Pa in the
+  instruments' programs (9f). Off: as before.
+* Each treble key its own floor: the shallowest curtain, as a share of the
+  hole, at which it holds a steady tone, measured as a maker would try it
+  -- each rank alone (L, M, H: Bassoon, Clarinet, Piccolo), at 200, 300 and
+  400 Pa, the arm's bellows; the worst rank's, raised 20 % for a chord's
+  sag. `rf-musette-lab touch` measures it into `touch.rs`; a key's floor
+  at the resting pressure is read from it, between the measured pressures.
+* Digital Accordion, whose bellows sensor sends Expression, has Key Touch
+  off; the scenes that play the wheel or Expression likewise.
+
+**Predictions:**
+1. With Key Touch on, the wheel and Expression change nothing: a phrase
+   with them moving renders exactly as with them still.
+2. Every treble key, each rank alone, holds a steady tone at velocity 1 at
+   the resting 300 Pa (and at 200 and 400).
+3. At 300 Pa, velocity 1 against 127: the F4 falls 10 dB or more, the F3
+   14 or more, the A5 4 or more (with 0.35: 5.0, 10.5, 1.2).
+4. Key Touch off renders as before.
+
+**Status (2026-10-02): built (0.13.14); 1, 2 and 4 met, 3 not met by a few
+tenths** (`tests/milestone_9h.rs`).
+1. **Met.** With Key Touch on, the wheel at 20, 100 and 127 renders the
+   F4 bit for bit as with it still.
+2. **Met**, after two corrections. The floor first took the worst edge
+   over every rank, open or not, and the piccolo's, the highest, held the
+   whole keyboard up; it is now the worst over the ranks the register
+   opens. And the steady test, 1 dB between the last two half seconds,
+   read Musette's A3 as silent: its three reeds beat, the level wobbling
+   about a dB at every depth -- steady at 0.22 and 0.3 of the hole,
+   "dead" at 0.25 and 0.27, heard as one held tone at all of them. The
+   test takes 3 dB; the edges stay measured with one rank alone, where
+   nothing beats (measured in Musette they came out ragged: the A3's 0.53
+   at 200 Pa). Every key sounds at velocity 1 in every case asked, the
+   F3 in Musette 14.7 dB under 127, the A5 3.9.
+3. **Not met.** The F4 falls 9.7 dB, the F3 14.7, the A5 3.9 (velocity 64:
+   4.3, 7.2, 1.4). The floor is the edge raised 20 % for a chord's sag; the
+   prediction reckoned with the edge alone. Kept, failing, as written.
+4. **Met.** Key Touch off takes the same path as before; the master
+   chords, now with it off, and every scene struck at 127 keep their
+   fingerprints. 23 scenes taken again: those struck under 127, Digital
+   Accordion and the wheel as pressure (Key Touch off there, as designed).
+
+## 9c for Key Touch. The preamp set for the resting bellows
+
+The player (2026-10-02): "subí el preamp para Key Touch". 9c again set the
+recording level for the player's playing with the wheel at 79 % (~620 Pa):
+-4.9 dBFS now. With Key Touch on, the default, the bellows rests at 300 Pa
+and the same playing peaks at -9.3 dBFS. An engineer sets the preamp for
+the way the instrument is played; Key Touch is a way of playing in which
+the bellows never moves, so its level is known.
+
+**The design.** Two recording levels: with Key Touch off, 9c again's,
+unchanged; with it on, 3.3 dB higher (0.2917 × 1.462 = 0.4265), the same
+playing at -6 dBFS. Derived from the measured -9.3, not voiced.
+
+**Predictions:**
+1. With Key Touch on, the player's playing (Musette Paris, Pallet Opening
+   35 ms, a held A4 over F2 and its chord) peaks at -6 dBFS within 0.5 dB.
+2. With Key Touch off every sample is as before: 9c again's tests and the
+   fingerprints of the scenes with it off unmoved.
+3. With Key Touch on, the loudest it can play -- both hands' full chords
+   in Master at the resting 300 Pa -- stays under full scale; under the
+   soft ceiling's -6 dBFS start or rounded by it, never clipped.
+
+**Status (2026-10-02): built (0.13.15); all three met** (`tests/milestone_9c.rs`).
+1. **Met.** With Key Touch on the player's playing peaks at -6.0 dBFS.
+2. **Met.** With it off: -4.9 dBFS, the loudest -0.9, the C4 at mf -18.9,
+   as before; Digital Accordion and the wheel as pressure keep their
+   fingerprints. The 23 stereo scenes with Key Touch on taken again.
+3. **Met.** The loudest with Key Touch on, both hands' full chords in
+   Master at the resting 300 Pa: -3.7 dBFS, rounded by the ceiling.
+
+## 9i. The registers on a controller's pads
+
+The player (2026-10-02): the treble registers have no controls -- "on the
+Arturia and others the pads could switch between them; with banks A and B,
+16 pads hold the 14". An accordionist changes register with the switches
+over the keyboard, by a press, mid-phrase; on a MIDI keyboard the pads are
+where the hand goes for that.
+
+RackForge already lays a plugin out on any keyboard by slots: a plugin's
+`metadata/control-layout.json` names its parameters on `switch-1.*` (pad
+bank 1: notes 40-43 and 36-39), `switch-2.*` (bank 2: 48-51, 44-47),
+`step.*` and `step-2.*` (⏪ ⏩ and a second pair), each controller package
+says which of its controls fill them, and a `set` press selects one value
+(RF-Organ's preset keys). RF-Musette carries no layout yet, so its pads
+play notes -- an MPK2's, on channel 2, bass buttons.
+
+**The design.** RF-Musette's own layout, switches and steps only (its
+knobs keep RackForge's roles; the wheel is the bellows, not laid out):
+* By note, 36 up: the 14 registers in Roland's order, Bassoon to Piccolo,
+  each a `set` -- pad 1 Bassoon, pad 8 Musette, pad 9 Violin, pad 14
+  Piccolo; notes 36-39 and 40-43 are `switch-1.5-1.8` and `switch-1.1-1.4`,
+  44-47 and 48-49 `switch-2.5-2.8` and `switch-2.1-2.2`.
+* Note 50 (`switch-2.3`): the bass register, cycled. Note 51
+  (`switch-2.4`): Key Touch, toggled on and off.
+* ⏪ ⏩: the register, stepped, not wrapping; the second pair the bass
+  register.
+* A mapped pad no longer plays its note (RackForge's rule).
+
+**Predictions:**
+1. The layout passes RackForge's own validation (`ControlLayout::validate`)
+   and names only RF-Musette's parameters, every value in its range.
+2. On every 16-pad controller in RackForge's catalog that sends notes
+   36-51, each of the 14 registers is one pad; on the 8-pad ones the first
+   eight (Bassoon to Musette), and with step buttons all 14 by stepping.
+3. Nothing a keyboard without pads or step buttons sends changes: the
+   layout adds links, it takes none.
+
+**Status (2026-10-02): built (0.13.15); 1 and 3 met, 2 met but on two 8-pad
+keyboards** (`crates/rf-musette-plugin/tests/control_layout.rs`; the
+controllers through RackForge's `slotted_controllers` and `factory_maps`,
+a scratch program, not kept).
+1. **Met.** `ControlLayout::validate` accepts it; every value is one of its
+   parameter's choices.
+2. **Met on the 16-pad keyboards and button rows:** 35 of the 64 packages
+   give all 14 registers a pad or a button. On the 8-pad keyboards the
+   first eight, Bassoon to Tremolo (the prediction's "to Musette" was a
+   miscount: the eighth is Tremolo) -- but for two whose pads do not start
+   at note 36: the Oxygen Pro Mini (40-51) gets Organ to Tremolo, Celeste
+   and Piccolo, and the Alesis V (scattered) eight scattered registers;
+   the catalog's rule of slots by note, not RF-Musette's layout, decides
+   them. Where a keyboard has step buttons all 14 are reached by stepping.
+3. **Met.** The ten packages that name no pad or step slot get no map;
+   the layout lays out no knob or the wheel.
+
+## 9i again. The pads from the most common register to the rarest
+
+The player (2026-10-02), on 0.13.15: the pads should go "from the most
+basic to the most complex" -- Clarinet, which every accordion has, on pad
+1 -- "ordered by relevance". Roland's order, which 9i followed, is the
+FR-3x's switch row, not how common a register is.
+
+**The order.** A register sounds only on an accordion that has every rank
+it opens (Roland FR-3x, p. 27: measured, as `REGISTERS`). The builds, from
+the most common to the rarest (assumed, from the makers' ranges: the
+two-voice student, the three-voice, the four-voice, and the musette's
+third middle reed, M−, only in musette and five-voice builds):
+1. M alone (every accordion): Clarinet.
+2. M and M+ (two-voice MM): Celeste.
+3. With L (three-voice LMM): Bassoon, Bandoneon, Cello.
+4. With H (four-voice LMMH): Piccolo, Organ, Oboe, Harmonium, Violin.
+5. With M− (musette MMM, five-voice LMMMH): Tremolo, Musette, Accordion,
+   Master.
+Within a tier, fewer reeds first; at equal reeds, the switch row's order.
+So pads 1-14: Clarinet, Celeste, Bassoon, Bandoneon, Cello, Piccolo,
+Organ, Oboe, Harmonium, Violin, Tremolo, Musette, Accordion, Master. Pads
+15 and 16, ⏪ ⏩ and the second pair as in 9i.
+
+⏪ ⏩ step the parameter's choices in their order -- the PLAY panel's,
+Roland's -- not the pads': RackForge steps an enum by its schema's list,
+and that list's order also sets the parameter's range. Left as it is.
+
+**Predictions:**
+1. The layout still passes RackForge's validation; by note from 36, pad n
+   sets the n-th register of the order above.
+2. On every keyboard that gave all 14 a pad in 9i, all 14 still have one;
+   on the 8-pad keyboards that start at note 36, the eight are Clarinet
+   to Oboe -- every register of the two-, three-voice builds and three of
+   the four-voice.
+3. No sound moves: the fingerprints unmoved (the layout is not the engine).
+
+**Status (2026-10-02): built (0.13.16); all three met**
+(`crates/rf-musette-plugin/tests/control_layout.rs`, which derives the
+order from `REGISTERS` by the rule; the controllers through RackForge's
+`factory_maps` again).
+1. **Met.** RackForge accepts the layout; pad n sets the n-th register.
+2. **Met.** The same 35 keyboards give all 14 a pad; the ten 8-pad ones
+   from note 36 give Clarinet to Oboe. The two whose pads start elsewhere
+   get others: the Oxygen Pro Mini Cello, Piccolo, Organ, Oboe, Accordion
+   and Master; the Alesis V Clarinet, Celeste, Bassoon, Bandoneon,
+   Piccolo, Organ, Tremolo and Master.
+3. **Met.** The fingerprints unmoved.
+
+## 9i again, the panel. One order for the pads, the panel and ⏪ ⏩
+
+The player (2026-10-02): "that same order should be in the UI too". The
+register's choices are listed from the most common to the rarest (9i
+again's rule), their values kept: a register is still the number it was,
+so saved programs, presets, states and the engine's `REGISTERS` table are
+untouched. The PLAY panel draws its switches in the list's order, RackForge
+lists the choices and steps ⏪ ⏩ through them in it -- so pads, panel and
+steps agree. The choice's range, taken until now from its first and last
+entries, is taken from the smallest and largest values.
+
+**Predictions:**
+1. The PLAY panel's treble switches run Clarinet, Celeste, Bassoon, ...,
+   Master; each still sets the register it names (its value unchanged).
+2. RackForge's schema lists the register's choices in that order, and its
+   step goes from Clarinet up to Celeste and from Accordion up to Master,
+   stopping there.
+3. No sound moves: every fingerprint unmoved; a state or program saved by
+   0.13.15 loads to the same register.
+
+**Status (2026-10-02): built (0.13.16); all three met**
+(`crates/rf-musette-plugin/tests/control_layout.rs`; the panel seen in
+`tools/ui-preview.html`). 9i again's "left as it is" for ⏪ ⏩ is withdrawn:
+they now step the same order.
+1. **Met.** The panel's treble switches, two rows of seven: Clarinet,
+   Celeste, Bassoon, Bandoneon, Cello, Piccolo, Organ / Oboe, Harmonium,
+   Violin, Tremolo, Musette, Accordion, Master; Musette pressed sets 8.
+2. **Met.** `parameters.json` lists the choices in that order, values 0-13
+   unchanged, range 0-13; RackForge's step walks the list's order without
+   wrapping (`step_value`, `rackforge-core/src/parameter_link.rs`).
+3. **Met.** Every fingerprint unmoved; the state and program tests pass
+   unchanged.
+
+## 9i again, by the slots' order. Pad 1 is the first register
+
+The player (2026-10-02), on 0.13.16 and the KeyLab Essential mk3: "pad 1
+should be Clarinet; pad 5 is" -- the lower row, pads 5-8, holds the first
+four, the upper, pads 1-4, the next four. 9i laid the registers out by
+note from 36, but a slot is not a note: `switch-1.1` is a layout's first
+switch, and each controller package says which of its pads fills it. The
+KeyLab's pad 1 sends note 40 and fills `switch-1.1` (`MIDI-MAP.md`); note
+36 is its pad 5, `switch-1.5`.
+
+How the 46 packages with pad or button slots number them (read from their
+`inputs`): pad or button 1 fills `switch-1.1` on the KeyLab Essential mk3,
+the Launchkeys, Oxygen Pro, Hammer 88 Pro, nanoKONTROL2, Launch Controls
+and FLkeys; it fills `switch-1.5` -- the catalog's rule places pads by
+note, and their maker numbers from note 36 -- on the Akai MPK2, MPK mini,
+LPD8, MPD218 and APCs, the Arturia MiniLabs, KeyLab mkII and BeatStep. No
+order of slots is pad 1 on both; the layout says what each slot does, the
+catalog where the slot is.
+
+**The design.** The registers in the slots' order: `switch-1.1`-`1.8` the
+first eight, `switch-2.1`-`2.6` the next six; `switch-2.7` the bass
+register, cycled; `switch-2.8` Key Touch. Steps as before.
+
+**Predictions:**
+1. On the KeyLab Essential mk3, pad n of bank A is the n-th register
+   (pad 1 Clarinet, pad 5 Cello), pad n of bank B the (8+n)-th, B7 the
+   bass register, B8 Key Touch.
+2. On every package whose pad or button 1 fills `switch-1.1`, pad 1 is
+   Clarinet; on those whose pad 1 fills `switch-1.5`, Clarinet moves to
+   their pad 5 until the catalog numbers their slots by their pads.
+3. The layout still passes RackForge's validation; no sound moves.
+
+**Status (2026-10-02): built (0.13.17); all three met**
+(`crates/rf-musette-plugin/tests/control_layout.rs`; the controllers through
+RackForge's `factory_maps` again).
+1. **Met.** On the KeyLab Essential mk3 Clarinet is `pad-1`; the n-th
+   register is pad n of bank A, then of bank B.
+2. **Met.** Clarinet is pad or button 1 on the 28 packages whose 1 fills
+   `switch-1.1` (KeyLab Essential mk3, Launchkeys, Oxygen Pro and Pro Mini,
+   Hammer, nanoKONTROL2, Launch Controls, FLkeys); `pad-5` on the Akai
+   MPK2, MPK mini, LPD8 and the Arturia MiniLabs and KeyLab mkII, `pad-a5`
+   on the MPD218, `clip-9` on the APCs, `pad-13` on the BeatStep. Open, in
+   RackForge: number the catalog's pad slots by the maker's pad numbers.
+3. **Met.** RackForge accepts the layout; the fingerprints unmoved.
+
+**After (2026-10-02), in RackForge:** the player asked for the catalog to be
+numbered by pad. Its rule is now "pads by the number their maker gives
+them": pads 1-8 `switch-1`, 9-16 (or bank B's 1-8) `switch-2`; 350 slot
+lines moved in 34 packages, and the KeyLab mk3's and SL MkIII's DAW pads
+and the MiniLab mkII's CC pads, left out by the note rule, took their
+numbers' slots. Through `factory_maps` again: Clarinet is pad 1 (or button
+1) on every package with numbered pads, `clip-9` on the APCs' unnumbered
+grids; 37 packages give all 14 registers a pad or a button.

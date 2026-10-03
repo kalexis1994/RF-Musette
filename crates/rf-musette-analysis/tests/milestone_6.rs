@@ -12,6 +12,8 @@ const INTENT_400_PA: f32 = 0.632_455_5;
 
 fn engine(cassotto: bool) -> Engine {
     let mut engine = Engine::new(RATE).unwrap();
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::CASSOTTO, if cassotto { 1.0 } else { 0.0 }));
     engine.bellows_mut().expression_wide(INTENT_400_PA);
     engine

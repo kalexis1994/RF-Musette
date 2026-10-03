@@ -13,6 +13,8 @@ fn share_of_ceiling(id: &str) -> f64 {
     for index in 0..parameters::COUNT {
         assert!(engine.set_parameter(index, settings.get(index).unwrap()));
     }
+    // The bellows played: Key Touch off, or it rests (9h again).
+    assert!(engine.set_parameter(rf_musette_dsp::parameters::KEY_TOUCH, 0.0));
     assert!(engine.set_parameter(parameters::REGISTER, 6.0));
     assert!(engine.set_parameter(parameters::MIC_LAYOUT, 6.0));
     engine.bellows_mut().expression_wide(1.0);

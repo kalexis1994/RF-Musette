@@ -3946,3 +3946,83 @@ server, the handheld load, several runs each.
    pallets and the sums outside it.
 3. **Met.** The engine is 1342 KiB, as after 10e; the queue, 594 reeds at
    40 bytes, is in the render's frame.
+
+## 10g. Every reed built before it is played
+
+The user's report (2026-10-04): on the Raspberry Pi 4 RF-Musette has many
+underruns.
+
+**Measured first** (the handheld load of 10e through RackForge's host, run
+on the Pi itself, out of real time): 15.4-16.0 ms a 256-frame block on
+average against a 5.33 ms deadline, after 10e and 10f (0.13.19:
+19.9-20.2); the worst block 25.6-25.8 ms, in the first half second, and
+19.7-21.6 after it. A key's reeds' models are built when it is first
+pressed (a fresh engine marks every key stale, and builds two idle ones a
+block): natively 0.064 ms a model, 17 ms for all 265; on the Pi, in the
+plugin, some ten times that -- 3 ms a five-rank key, and the load's first
+chord, bass button and melody note build some 25 models in one block.
+
+**Change (exact):** the plugin, as it is prepared -- out of real time, and
+after it has set the parameters it carries -- has the engine build every
+key's reeds (`Engine::prepare_reeds`); the reeds built are the ones the
+first press built. A program loaded later still builds them as before.
+
+**Predictions:**
+1. Every fingerprint unchanged, every test passes, and the handheld load
+   through RackForge's host gives 5f54dee8600d2327.
+2. On the Pi the load's worst block in its first half second at most 10 ms
+   (25.6-25.8); its average within 3 % of 15.4-16.0.
+3. Preparing every reed at most 30 ms natively: the price, paid when the
+   plugin is prepared.
+
+**Status (2026-10-04): built; all three met.** Measured as before: the
+handheld load through RackForge's host, on the Pi and on this server, the
+previous build against this one, twice each.
+1. **Met.** Every fingerprint unchanged, every test passes, and the load
+   gives 5f54dee8600d2327 on both machines.
+2. **Met.** On the Pi the first half second's worst block 26.0-27.5 ms to
+   7.8-8.0; the average 15.6-15.8 to 15.5-15.6. The worst block after it,
+   20.1-20.6 ms, did not move: it is the load's busiest moments, not
+   building. On this server the first half second 4.1-4.2 ms to 1.8.
+3. **Met.** Preparing every reed takes 17 ms natively.
+
+## 10h. A reed at rest says so
+
+**Measured first** (natively on the Pi, the handheld load, `perf`): 9.2 ms
+a block natively against the plugin's 15.5 (the plugin's epoch checks are
+8.5 % of that; the rest is the compiler). The load runs at 1.18
+instructions a cycle, and 13.7 % of its L1 data accesses miss (4.7 of 34.1
+billion) while almost none miss L2 (16 million), with 410 million TLB
+refills: what a substep touches is larger than the Pi's 32 KiB of L1 and
+spread over many pages. A reed's model is 1600 bytes, its state 88, its
+cell 520; a key's five ranks some 14 KiB apart from the next key's. By
+function, `queue_rank` -- which computes almost nothing -- is 30 % of the
+cycles and 41 % of the L1 misses: for every rank of every sounding key it
+compares each reed's whole state with the state at rest, two cache lines a
+reed, a key's ten reeds 2.8 KiB apart; and so do `Rank::is_still` for
+every sounding key at every substep and the check that everything has
+stopped at every sample.
+
+**Change (exact):** each plate keeps, beside the share of its start, a flag
+per reed that is set exactly when its state is the state at rest, kept
+wherever a state is written; a reed at rest with no air is passed over on
+that flag, and a plate is still when both flags are set.
+
+**Predictions:**
+1. Every fingerprint unchanged, every test passes, and the handheld load
+   through RackForge's host gives 5f54dee8600d2327.
+2. Natively on the Pi the load's L1 data refills at least 20 % fewer
+   (4.7 billion) and its time at least 10 % less (9.2-9.4 ms a block).
+3. Through RackForge's host on the Pi at least 8 % less (15.5-15.6 ms).
+
+**Status (2026-10-04): built; all three met.**
+1. **Met.** Every fingerprint unchanged, every test passes, and the load
+   through RackForge's host gives 5f54dee8600d2327, on this server and on
+   the Pi.
+2. **Met.** Natively on the Pi: 9.24 ms a block to 7.58 (−18 %); its L1
+   data refills 4.57 to 3.47 billion (−24 %), its cycles 95.0 to 77.7
+   billion. Its TLB refills did not move (412 million): the reeds' data is
+   still spread over many pages.
+3. **Met.** Through RackForge's host on the Pi 15.4-15.6 ms to 13.0
+   (−16 %); on this server 3.47-3.49 to 3.16-3.18 (−9 %). Since 0.13.19 the
+   load on the Pi has gone from 19.9-20.2 ms to 13.0 (−35 %), bit for bit.

@@ -143,22 +143,39 @@ pub enum EngineError {
 /// state. On an instrument a plate's reeds share one cell; here each keeps
 /// its own copy of it, which differs only while both still move, through a
 /// reversal (docs/MODEL.md).
+///
+/// Laid out as written, the flags and the starts first: they are what every
+/// substep reads of every sounding plate (milestone 10h).
+#[repr(C)]
 struct Rank {
+    /// Each reed's state is the state at rest, `ReedState::default()`,
+    /// exactly when its flag is set: kept wherever a state is written, so a
+    /// reed at rest is known without reading its state (milestone 10h). Every
+    /// substep asked it of every reed of every sounding key by comparing the
+    /// whole state, two cache lines a reed, and on a Raspberry Pi nearly
+    /// every one was a miss.
+    resting: [bool; 2],
+    /// How much of its start each reed has been given since air could last
+    /// reach it, as the share P/(P + P₀) of the full start.
+    started: [f64; 2],
     /// `None` until the key is first built, or where the rank has no reed.
     model: Option<ReedModel>,
     states: [ReedState; 2],
     /// Each reed's cell, a tube (milestone 8l).
     tubes: [Tube; 2],
-    /// How much of its start each reed has been given since air could last
-    /// reach it, as the share P/(P + P₀) of the full start.
-    started: [f64; 2],
 }
 
 impl Rank {
     fn is_still(&self) -> bool {
-        self.states
-            .iter()
-            .all(|state| *state == ReedState::default())
+        self.resting == [true, true]
+    }
+
+    /// Both reeds back at rest, and their cells empty.
+    fn rest(&mut self) {
+        self.resting = [true, true];
+        self.states = [ReedState::default(); 2];
+        self.tubes = [Tube::default(); 2];
+        self.started = [0.0; 2];
     }
 }
 
@@ -320,10 +337,11 @@ impl Engine {
         let parameters = Parameters::default();
         let mode = TongueMode::with_ratio(parameters.reed_design().mode_ratio);
         let rank = || Rank {
+            resting: [true, true],
+            started: [0.0; 2],
             model: None,
             states: [ReedState::default(); 2],
             tubes: [Tube::default(); 2],
-            started: [0.0; 2],
         };
         let keys = core::array::from_fn(|_| Key {
             pallet: Pallet::default(),
@@ -368,6 +386,23 @@ impl Engine {
         };
         engine.rebuild();
         Ok(engine)
+    }
+
+    /// Builds every key's reeds now, for the parameters as they stand
+    /// (milestone 10g). Out of real time only -- as a plugin is prepared:
+    /// a key's reeds are otherwise built at its first press, a few
+    /// milliseconds a key in the plugin on a Raspberry Pi, and a first chord
+    /// with its bass took a block four times its deadline. The reeds are the
+    /// ones that press would have built.
+    pub fn prepare_reeds(&mut self) {
+        if self.dirty {
+            self.rebuild();
+        }
+        for index in 0..ALL_KEYS {
+            if self.keys[index].stale {
+                self.build_key(index);
+            }
+        }
     }
 
     pub fn sample_rate(&self) -> f32 {
@@ -586,9 +621,7 @@ impl Engine {
             voice.note = Some(note);
             voice.pallet = Pallet::default();
             for rank in voice.ranks.iter_mut() {
-                rank.states = [ReedState::default(); 2];
-                rank.tubes = [Tube::default(); 2];
-                rank.started = [0.0; 2];
+                rank.rest();
             }
             self.build_free(slot);
         }
@@ -822,9 +855,7 @@ impl Engine {
             key.pallet = Pallet::default();
             key.chord = Pallet::default();
             for rank in key.ranks.iter_mut() {
-                rank.states = [ReedState::default(); 2];
-                rank.tubes = [Tube::default(); 2];
-                rank.started = [0.0; 2];
+                rank.rest();
             }
         }
         for voice in self.free.iter_mut() {
@@ -832,9 +863,7 @@ impl Engine {
             voice.pallet = Pallet::default();
             for rank in voice.ranks.iter_mut() {
                 rank.model = None;
-                rank.states = [ReedState::default(); 2];
-                rank.tubes = [Tube::default(); 2];
-                rank.started = [0.0; 2];
+                rank.rest();
             }
         }
         self.ask = 0.0;
@@ -912,22 +941,29 @@ impl Engine {
     ) {
         let [area, signed, kick] = step;
         let Rank {
+            resting,
+            started,
             model,
             states,
-            started,
             ..
         } = rank;
         let Some(model) = model.as_ref() else {
             return;
         };
-        for ((which, state), given) in states.iter_mut().enumerate().zip(started.iter_mut()) {
+        for (which, state) in states.iter_mut().enumerate() {
             let (side, sign) = if which == PULL_REED {
                 ((-signed).max(0.0), -1.0)
             } else {
                 (signed.max(0.0), 1.0)
             };
             let blow = if opened { side } else { 0.0 };
-            Self::start_into_frame(model, state, given, down, blow, kick);
+            // A reed at rest with no air: all its start would do is clear
+            // its share, and it is not computed (10h).
+            if blow == 0.0 && resting[which] {
+                started[which] = 0.0;
+                continue;
+            }
+            Self::start_into_frame(model, state, &mut started[which], down, blow, kick);
             if blow == 0.0 && *state == ReedState::default() {
                 continue;
             }
@@ -960,6 +996,7 @@ impl Engine {
         for blown in &queue.reeds[..queue.count] {
             let (at, rank) = (usize::from(blown.at), usize::from(blown.rank));
             let Rank {
+                resting,
                 model,
                 states,
                 tubes,
@@ -976,6 +1013,7 @@ impl Engine {
             let (state, tube) = (&mut states[which], &mut tubes[which]);
             let swing = state.velocity;
             let rate = reed::step(model, state, tube, blown.blow, blown.area, h);
+            resting[which] = *state == ReedState::default();
             let source = usize::from(blown.source);
             let into = if blown.boxed {
                 &mut boxed[source]
@@ -994,6 +1032,7 @@ impl Engine {
             if (blown.blow == 0.0 || blown.area == 0.0) && state.energy(model) < 1.0e-12 {
                 *state = ReedState::default();
                 *tube = Tube::default();
+                resting[which] = true;
             }
         }
     }
@@ -1454,10 +1493,16 @@ fn settle(ranks: &mut [Rank]) {
         let Some(model) = &rank.model else {
             continue;
         };
-        for (state, tube) in rank.states.iter_mut().zip(rank.tubes.iter_mut()) {
+        for ((state, tube), resting) in rank
+            .states
+            .iter_mut()
+            .zip(rank.tubes.iter_mut())
+            .zip(rank.resting.iter_mut())
+        {
             if state.energy(model) < 1.0e-12 {
                 *state = ReedState::default();
                 *tube = Tube::default();
+                *resting = true;
             }
         }
     }

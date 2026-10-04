@@ -210,6 +210,9 @@ impl Processor for MusetteProcessor {
         if let Some(previous) = &self.engine {
             *engine.bellows_mut() = *previous.bellows();
         }
+        // Every reed built here, out of real time, rather than at its key's
+        // first press (milestone 10g).
+        engine.prepare_reeds();
         self.engine = Some(Box::new(engine));
         self.maximum_frames = frames;
         self.channels = outputs;

@@ -3845,3 +3845,104 @@ it opens: their holes, their pallets, the bellows they share.
 4. **Met.** Of the fingerprints, the 20 scenes that strike the left hand
    under 127 with Key Touch on moved; Digital Accordion, the master chords
    and the wheel as pressure, with it off, did not.
+
+## 10e. The step's constants, once
+
+The user's report (2026-10-03): on a handheld (ROG Ally, Ryzen Z1
+Extreme, low-power profile) RF-Musette under RackForge misses blocks at
+256 frames. The user's ask: make it cheaper without losing anything --
+first what is bit for bit, then two reeds at a time (SIMD).
+
+**Measured first.** The load: 30 s of a triad every half second (roots
+C4 to A4), a low note (C2-B2) that the default split makes a bass button,
+velocities 40-126, and four short melody notes above at 100; the Accordion
+program as it comes, Key Touch on, stereo, 256-frame blocks at 48 kHz.
+* Through RackForge on the handheld: 3.0-3.5 ms a block of a 5.33 ms
+  deadline, 0-5 blocks late a run.
+* Natively on the handheld, `perf`: 86 % in the reeds' step (`blow_rank`,
+  `reed::step` inlined), 7 % the per-key loop, 2.6 % the stage, 1.6 % the
+  decimator; no single hot spot inside the step. Some 13 treble and 17
+  bass reeds move a block; without the low notes the block costs 40 %
+  less.
+* RackForge already runs every plugin through `wasm-opt -O3` as it loads
+  it (its `optimize.rs`), so the package gains nothing from running it
+  again.
+* Through RackForge's own plugin host on this server (a harness outside
+  the repository: the package loaded as the host loads it, subnormals
+  flushed, the load above): 4590 µs a block, three runs within 15 µs;
+  the output's fingerprint 5f54dee8600d2327.
+
+Found in the step: eleven divisions and two square roots a reed a
+substep. Of them, the cell's tube (its length in steps, its impedance,
+where the slot's points fall on it), the hole's radiating end and the
+near field's weights depend on the reed's model and the step's length
+and nothing else; the curtain's mass and its viscous resistance on the
+pallet's opening, which does not change while the pallet is still.
+
+**Change (exact):** what depends only on the model and `h` computed once,
+when the engine builds a reed, by the same operations in the same order;
+the curtain's mass and viscous resistance kept with the reed's state while
+the pallet does not move, as its Bernoulli factor already is (10c). A step
+at an `h` its model was not prepared for computes them as it did.
+
+**Predictions:**
+1. Every fingerprint unchanged (`tests/fingerprints.rs`), every test
+   passes, and the handheld load through RackForge's host gives the same
+   fingerprint, 5f54dee8600d2327.
+2. That load at most 3900 µs a block on this server (−15 %).
+3. The engine still inside a sixth of its stack
+   (`a_whole_instrument_fits_the_stack`).
+
+**Status (2026-10-03): built; predictions 1 and 3 met, 2 NOT MET.**
+1. **Met.** Every fingerprint unchanged, every test passes, and the
+   handheld load through RackForge's host gives 5f54dee8600d2327 again.
+2. **NOT MET.** 4590-4612 µs a block to 3978-3988 (four runs): −13.5 %,
+   not the −15 % predicted -- 85 µs short of 3900.
+3. **Met.** The engine is 1342 KiB, of 1365 (it was 1286): the prepared
+   constants take 56 KiB, a reed's two curtain values 9.
+
+## 10f. Two reeds at a time
+
+The plugin is built with WebAssembly's SIMD (`+simd128`), and the reed's
+step uses it only for a square root: the step is scalar, one reed after
+another, and it is 86 % of the block (10e).
+
+Within a substep the reeds do not see each other: each is blown by the
+bellows' pressure the substep began with, through its own pallet, and what
+they draw is summed after. So any two can be stepped side by side, in the
+two lanes of an `f64x2`, each lane doing the operations its reed's own
+step does, in the same order -- IEEE 754 per lane -- with what is a table,
+a tube or a branch on one reed taken a reed at a time; and what they give
+the bellows and the microphones summed in the order it always was.
+
+**Change (exact):** each substep queues its reeds as it always visited
+them, steps them two at a time, and sums them in that order.
+
+**Predictions:**
+1. Every fingerprint unchanged, every test passes, and the handheld load
+   through RackForge's host gives 5f54dee8600d2327.
+2. That load at most 3600 µs a block on this server (−10 % from 10e's
+   3985): the step's divisions and roots, two for the price of one, against
+   what packing two reeds into lanes costs.
+3. The engine no larger: the queue lives in the render's frame.
+
+**Status (2026-10-03): the two-lane step built, measured and withdrawn;
+the queue kept.** Measured as 10e, through RackForge's host on this
+server, the handheld load, several runs each.
+1. **Met,** both ways: with the reeds stepped in lanes and with the queue
+   alone, every fingerprint unchanged and 5f54dee8600d2327 again.
+2. **NOT MET as written.** Two reeds in the lanes of an `f64x2`:
+   4343-4401 µs a block, 10 % *slower* than 10e's 3974-3988. Taken apart:
+   the queue with each pair stepped as two scalar steps, 3526-3533; the
+   lanes loaded field by field rather than through closures, 4343-4376.
+   Under RackForge's compiler the lanes cost more than they save: packing
+   two reeds' numbers into lanes and taking them apart again for the
+   section table, the cell's tube and the curtain, and both branches of the
+   hole's row computed -- a shut pallet's divisions included -- where one
+   reed takes one. Withdrawn. Kept: the queue, its reeds stepped one at a
+   time in order: 3460-3487 µs, −12.8 % from 10e and −24 % from where 10e
+   began (4581-4612), bit for bit. Why queuing alone is faster is not
+   measured; the step now runs in a loop of its own, with the starts, the
+   pallets and the sums outside it.
+3. **Met.** The engine is 1342 KiB, as after 10e; the queue, 594 reeds at
+   40 bytes, is in the render's frame.

@@ -189,6 +189,9 @@ pub struct ReedModel {
     slot_points: [f64; SLOT_POINTS],
     slot_weights: [f64; SLOT_POINTS],
     section: [f32; SECTION_POINTS],
+    /// What a step of one length asks of this model and nothing else, for
+    /// the length an engine runs it at ([`Self::prepare`], milestone 10e).
+    prepared: StepConstants,
 }
 
 impl ReedModel {
@@ -335,9 +338,17 @@ impl ReedModel {
             slot_points,
             slot_weights,
             section: [0.0; SECTION_POINTS],
+            prepared: StepConstants::UNPREPARED,
         };
         model.build_section(mode);
         model
+    }
+
+    /// Computes once what every step of `h` seconds asks of this model alone
+    /// (milestone 10e). A step of any other length computes it again, as it
+    /// always did; either way the same operations give the same bits.
+    pub fn prepare(&mut self, h: f64) {
+        self.prepared = StepConstants::new(self, h);
     }
 
     /// The tongue's stiffness at the tip, N/m: what a static push there meets.
@@ -508,7 +519,110 @@ impl ReedModel {
         for point in self.slot_points.iter_mut() {
             *point = 1.0 - *point;
         }
+        self.prepared = StepConstants::UNPREPARED;
         self
+    }
+}
+
+/// What a step of `h` seconds asks of a model and of nothing else
+/// (milestone 10e): the cell's tube at that step -- its length in steps,
+/// its impedance, where the slot's points fall on it and their weights --
+/// and the weights of the hole's radiating end and of the near field. They
+/// were computed at every step, eleven divisions and the slot's points'
+/// roundings among them; computed here by the same operations, in the same
+/// order, they are the same numbers.
+#[derive(Debug, Clone, Copy)]
+struct StepConstants {
+    /// The step's length these are for; NaN, never equal, before any.
+    h: f64,
+    /// [`Tube::lengths`]: ⌊D⌋, K and φ (D itself only made the rest).
+    whole: usize,
+    steps: usize,
+    share: f64,
+    /// [`Tube::impedance`].
+    z: f64,
+    /// The slot's points as steps back from the tube's writing end toward
+    /// the closed end, i (the waves toward the opening are read whole - i
+    /// back), and their weights; points on the same step merged.
+    points: [(usize, f64); SLOT_POINTS],
+    count: usize,
+    /// Z_s = (Z/2) Σ w_k².
+    slot_impedance: f64,
+    /// The hole's radiating end: g and R_e.
+    toward_mass: f64,
+    radiating: f64,
+    /// The near field's θ, and its g and R_e.
+    near_theta: f64,
+    to_mass: f64,
+    far_side: f64,
+}
+
+impl StepConstants {
+    const UNPREPARED: Self = Self {
+        h: f64::NAN,
+        whole: 0,
+        steps: 0,
+        share: 0.0,
+        z: 0.0,
+        points: [(0, 0.0); SLOT_POINTS],
+        count: 0,
+        slot_impedance: 0.0,
+        toward_mass: 0.0,
+        radiating: 0.0,
+        near_theta: 0.0,
+        to_mass: 0.0,
+        far_side: 0.0,
+    };
+
+    fn new(model: &ReedModel, h: f64) -> Self {
+        let (delay, whole, steps, share) = Tube::lengths(model, h);
+        let z = Tube::impedance(model, delay, h);
+        // Points that fall on one step of a short tube are one point, their
+        // weights summed: a step given air twice over would be given the
+        // cross term 2g₁g₂ of energy from nowhere. The points run along the
+        // tube in order, so only neighbours can meet; within a tube shorter
+        // than the lines, one step back is one slot of each line.
+        let mut points = [(0usize, 0.0f64); SLOT_POINTS];
+        let mut count = 0;
+        for (at, weight) in model.slot_points.into_iter().zip(model.slot_weights) {
+            let i = (math::round(at * delay) as usize).clamp(1, whole - 1);
+            match points[..count].last_mut() {
+                Some(last) if last.0 == i => last.1 += weight,
+                _ => {
+                    points[count] = (i, weight);
+                    count += 1;
+                }
+            }
+        }
+        let mut squares = 0.0;
+        for (_, weight) in &points[..count] {
+            squares += weight * weight;
+        }
+        let radiation_weight = 2.0 * model.radiation_mass / h;
+        let toward_mass =
+            model.radiation_resistance / (radiation_weight + model.radiation_resistance);
+        let m_n = model.inertance;
+        let near_theta = if h * model.slot_radiation > 2.0 * m_n {
+            1.0 - m_n / (h * model.slot_radiation)
+        } else {
+            0.5
+        };
+        let near_weight = m_n / (near_theta * h);
+        Self {
+            h,
+            whole,
+            steps,
+            share,
+            z,
+            points,
+            count,
+            slot_impedance: 0.5 * z * squares,
+            toward_mass,
+            radiating: model.radiation_resistance * (1.0 - toward_mass),
+            near_theta,
+            to_mass: model.slot_radiation / (near_weight + model.slot_radiation),
+            far_side: model.slot_radiation * near_weight / (near_weight + model.slot_radiation),
+        }
     }
 }
 
@@ -613,6 +727,10 @@ pub struct ReedState {
     /// ρ / (2 α² A_p²) for that curtain, kept while it does not change
     /// (milestone 10c).
     pub pallet_factor: f64,
+    /// The curtain's air mass ρw/A for that curtain, kg/m⁴, and its viscous
+    /// resistance 12 μ w R²/A³, Pa·s/m³, kept likewise (milestone 10e).
+    pub curtain_mass: f64,
+    pub viscous: f64,
     /// The flow through the hole's radiating mass, m³/s (milestone 8m);
     /// the rest of the hole's flow passes its radiation resistance.
     pub radiation_flow: f64,
@@ -635,9 +753,12 @@ impl ReedState {
             flow,
             hole_flow: flow,
             cell_pressure: supply,
-            // No curtain: ρ / (2 α² ∞²) is nothing.
+            // No curtain: ρ / (2 α² ∞²) is nothing, and so are its mass and
+            // its viscous resistance.
             pallet: f64::INFINITY,
             pallet_factor: 0.0,
+            curtain_mass: 0.0,
+            viscous: 0.0,
             // A steady flow passes the masses, not the resistances.
             radiation_flow: flow,
             near_flow: flow,
@@ -701,6 +822,25 @@ pub fn step(
     pallet: f64,
     h: f64,
 ) -> f64 {
+    if model.prepared.h == h {
+        step_with(model, &model.prepared, state, tube, supply, pallet, h)
+    } else {
+        let constants = StepConstants::new(model, h);
+        step_with(model, &constants, state, tube, supply, pallet, h)
+    }
+}
+
+/// [`step`] with what it asks of the model alone already computed.
+#[inline(always)]
+fn step_with(
+    model: &ReedModel,
+    constants: &StepConstants,
+    state: &mut ReedState,
+    tube: &mut Tube,
+    supply: f64,
+    pallet: f64,
+    h: f64,
+) -> f64 {
     let d = &model.design;
     let omega2 = model.omega2;
     let lift = (state.zeta + 0.5 * h * state.velocity) * model.inverse_width;
@@ -708,46 +848,34 @@ pub fn step(
     let limit = model.swing_density * speed * d.width * d.length * lift * lift;
     let damping = model.linear_damping + limit * model.inverse_mass;
     let s_r = model.effective_area;
-    let (m_n, m_h) = (model.inertance, model.hole_inertance);
+    let m_h = model.hole_inertance;
     // The cell, a tube (8m). At its opening its pressure is twice the wave
     // arriving there plus its impedance times the hole's flow in: p_h = 2q⁻
     // + Z a. Its closed end sends back what reaches it. At each of the
     // slot's points the pressure is the two waves passing plus Z/2 times
     // the air the slot puts in there, -w_k u; the tongue feels Σ w_k p_k =
     // A - Z_s u, A the waves' share and Z_s = (Z/2) Σ w_k². The waves take
-    // a step or more between points, so each is solved alone.
-    let (delay, whole, steps, share) = Tube::lengths(model, h);
-    let z = Tube::impedance(model, delay, h);
+    // a step or more between points, so each is solved alone. The tube's
+    // lengths, Z, the points and Z_s are the model's at this h
+    // ([`StepConstants`]).
+    let StepConstants {
+        whole,
+        steps,
+        share,
+        z,
+        slot_impedance,
+        ..
+    } = *constants;
     let arriving_at_opening = f64::from(tube.toward_opening[tube.back(whole)]);
     let arriving_at_closed = (1.0 - share) * f64::from(tube.toward_closed[tube.back(steps)])
         + share * f64::from(tube.toward_closed[tube.back(steps + 1)]);
-    // Points that fall on one step of a short tube are one point, their
-    // weights summed: a step given air twice over would be given the cross
-    // term 2g₁g₂ of energy from nowhere. The points run along the tube in
-    // order, so only neighbours can meet.
-    let mut points = [(0usize, 0usize, 0.0f64); SLOT_POINTS];
-    let mut count = 0;
-    for (at, weight) in model.slot_points.into_iter().zip(model.slot_weights) {
-        let i = (math::round(at * delay) as usize).clamp(1, whole - 1);
-        let point = (tube.back(i), tube.back(whole - i));
-        match points[..count].last_mut() {
-            Some(last) if (last.0, last.1) == point => last.2 += weight,
-            _ => {
-                points[count] = (point.0, point.1, weight);
-                count += 1;
-            }
-        }
-    }
-    let points = &points[..count];
+    let points = &constants.points[..constants.count];
     let mut waves = 0.0;
-    let mut squares = 0.0;
-    for (toward_closed, toward_opening, weight) in points {
+    for (i, weight) in points {
         waves += weight
-            * (f64::from(tube.toward_closed[*toward_closed])
-                + f64::from(tube.toward_opening[*toward_opening]));
-        squares += weight * weight;
+            * (f64::from(tube.toward_closed[tube.back(*i)])
+                + f64::from(tube.toward_opening[tube.back(whole - *i)]));
     }
-    let slot_impedance = 0.5 * z * squares;
     let jet_flow = state.flow - s_r * state.velocity;
     let section = model.section(state.zeta + 0.5 * h * state.velocity);
     let alpha_section = d.contraction * section;
@@ -790,12 +918,20 @@ pub fn step(
             0.0
         }
     };
-    let m_h = m_h + curtain_mass(pallet);
-    let before = model.hole_inertance + curtain_mass(state.pallet);
+    // The curtain's mass is kept with the state while the curtain does not
+    // move (10e); it was the same number computed again.
+    let curtain = if moving {
+        curtain_mass(pallet)
+    } else {
+        state.curtain_mass
+    };
+    let m_h = m_h + curtain;
+    let before = model.hole_inertance + state.curtain_mass;
     if pallet > 0.0 && m_h > before {
         state.hole_flow *= before / m_h;
     }
     state.pallet = pallet;
+    state.curtain_mass = curtain;
     // The hole's row solved for a (above, the curtain's quadratic), and
     // nothing for a closed pallet. While the curtain is all but shut the row
     // is stiff -- hR_p > 2M_h -- and the trapezoid answers a decay faster
@@ -809,14 +945,18 @@ pub fn step(
     // g) m₀ + g a, g = R_r/(2M_r/h + R_r), and the drop across it R_r (a -
     // m) = R_e (a - m₀), R_e = R_r (1 - g): one more resistance in the
     // hole's row, and a push R_e m₀ from the air still moving in the mass.
-    let radiation_weight = 2.0 * model.radiation_mass / h;
-    let toward_mass = model.radiation_resistance / (radiation_weight + model.radiation_resistance);
-    let radiating = model.radiation_resistance * (1.0 - toward_mass);
+    // g and R_e are the model's at this h ([`StepConstants`]).
+    let StepConstants {
+        toward_mass,
+        radiating,
+        ..
+    } = *constants;
     let mut theta = 0.5;
     let a = if pallet > 0.0 {
         let alpha_pallet = d.contraction * pallet;
         if moving {
             state.pallet_factor = AIR_DENSITY / (2.0 * alpha_pallet * alpha_pallet);
+            state.viscous = model.seat_viscosity / (pallet * pallet * pallet);
         }
         // The curtain is also a thin slit, the pad's gap g = A/R over the
         // seat's width w, round the hole's rim R: laminar, its resistance is
@@ -826,8 +966,8 @@ pub fn step(
         // touches: Bernoulli's alone falls with the flow it throttles, so the
         // hole passed the tone until the curtain was nothing, then cut it, a
         // click as a note was let go under the bellows' push.
-        let viscous = model.seat_viscosity / (pallet * pallet * pallet);
-        let linear = viscous + z + model.wall_resistance + radiating;
+        // Kept with the state while the curtain does not move (10e).
+        let linear = state.viscous + z + model.wall_resistance + radiating;
         let pushed =
             h * (supply + radiating * state.radiation_flow) - 2.0 * h * arriving_at_opening;
         // The stiffness that sets θ, judged with the curtain's resistance at
@@ -851,6 +991,7 @@ pub fn step(
         // Forgotten with the curtain, so a reed rung down to nothing is the
         // reed at rest again (`ReedState::default()`).
         state.pallet_factor = 0.0;
+        state.viscous = 0.0;
         0.0
     };
     // The hole alone; a shut pallet passes nothing and the tube's end is
@@ -873,14 +1014,13 @@ pub fn step(
     // R_e = R_s W/(W + R_s). The near-field row is then u's alone:
     //   -hRS_r w + (hR + hZ_s + hR_e) u = h A + h R_e m₀
     // where it was (2M_n + hR + hZ_s) u = 2M_n u₀ + h A.
-    let near_theta = if h * model.slot_radiation > 2.0 * m_n {
-        1.0 - m_n / (h * model.slot_radiation)
-    } else {
-        0.5
-    };
-    let near_weight = m_n / (near_theta * h);
-    let to_mass = model.slot_radiation / (near_weight + model.slot_radiation);
-    let far_side = model.slot_radiation * near_weight / (near_weight + model.slot_radiation);
+    // θ, g and R_e are the model's at this h ([`StepConstants`]).
+    let StepConstants {
+        near_theta,
+        to_mass,
+        far_side,
+        ..
+    } = *constants;
     let a11 = 2.0 + h * damping + 0.5 * h * h * omega2 + h * model.mu * r * s_r;
     let a12 = -h * model.mu * r;
     let a21 = -h * r * s_r;
@@ -894,10 +1034,10 @@ pub fn step(
     // The ends send their waves on; the slot's points put their air in.
     tube.toward_closed[tube.at] = (hole_pressure - arriving_at_opening) as f32;
     tube.toward_opening[tube.at] = arriving_at_closed as f32;
-    for (toward_closed, toward_opening, weight) in points {
+    for (i, weight) in points {
         let given = (-0.5 * z * weight * u) as f32;
-        tube.toward_closed[*toward_closed] += given;
-        tube.toward_opening[*toward_opening] += given;
+        tube.toward_closed[tube.back(*i)] += given;
+        tube.toward_opening[tube.back(whole - *i)] += given;
     }
     tube.at = (tube.at + 1) % TUBE_SAMPLES;
     let previous_hole_flow = state.hole_flow;
@@ -981,6 +1121,8 @@ mod tests {
             cell_pressure: 150.0,
             pallet: f64::INFINITY,
             pallet_factor: 0.0,
+            curtain_mass: 0.0,
+            viscous: 0.0,
             radiation_flow: 0.0,
             near_flow: 4.0e-5,
         };

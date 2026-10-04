@@ -162,6 +162,36 @@ impl Rank {
     }
 }
 
+/// A reed queued for a substep (milestone 10f): where it is -- a key's
+/// number or a free voice's slot, its rank, which of the plate's two reeds
+/// -- what blows it, and where what it gives goes.
+#[derive(Clone, Copy, Default)]
+struct Blown {
+    at: u8,
+    free: bool,
+    rank: u8,
+    which: u8,
+    /// Its side's pressure while its register is open, else nothing, Pa.
+    blow: f64,
+    /// Its pallet's curtain, m².
+    area: f64,
+    /// −1 for the pull reed, whose hole's flow is inward; 1 for the push.
+    sign: f64,
+    /// The source that hears it, and whether through the cassotto.
+    source: u8,
+    boxed: bool,
+}
+
+/// The most reeds a substep can queue: every plate's two, keys and free
+/// voices.
+const MOST_BLOWN: usize = ALL_KEYS * parameters::RANKS * 2 + FREE_SLOTS * compass::FREE_VOICES * 2;
+
+/// A substep's reeds, in the order they are visited.
+struct Queue {
+    reeds: [Blown; MOST_BLOWN],
+    count: usize,
+}
+
 /// A key of the compass, or a pitch class of the bass side: its pallets and
 /// its ranks' plates behind them.
 struct Key {
@@ -604,9 +634,10 @@ impl Engine {
         let Some(note) = self.free[slot].note else {
             return;
         };
+        let h = self.step_length();
         for (voice, rank) in self.free[slot].ranks.iter_mut().enumerate() {
             rank.model = compass::free_design(&self.parameters, note, voice)
-                .map(|design| ReedModel::with_mode(design, &self.mode));
+                .map(|design| Self::prepared(ReedModel::with_mode(design, &self.mode), h));
         }
     }
 
@@ -824,14 +855,27 @@ impl Engine {
 
     /// Builds one key's reeds from the parameters, tuned as the compass says.
     fn build_key(&mut self, index: usize) {
+        let h = self.step_length();
         for (rank, slot) in self.keys[index].ranks.iter_mut().enumerate() {
             let design = match index.checked_sub(BASS_START) {
                 Some(pitch_class) => compass::bass_design(&self.parameters, pitch_class, rank),
                 None => compass::design(&self.parameters, compass::FIRST_KEY + index as u8, rank),
             };
-            slot.model = design.map(|design| ReedModel::with_mode(design, &self.mode));
+            slot.model =
+                design.map(|design| Self::prepared(ReedModel::with_mode(design, &self.mode), h));
         }
         self.keys[index].stale = false;
+    }
+
+    /// A reed's model prepared for the engine's step (milestone 10e).
+    fn prepared(mut model: ReedModel, h: f64) -> ReedModel {
+        model.prepare(h);
+        model
+    }
+
+    /// The reeds' step, s: the sample's over the oversampling.
+    fn step_length(&self) -> f64 {
+        1.0 / (f64::from(self.sample_rate) * self.decimator.factor() as f64)
     }
 
     /// Brings stale keys up to date: every key in use now, and a few others.
@@ -850,38 +894,33 @@ impl Engine {
         }
     }
 
-    /// Blows one plate's two reeds for a step: each from its own side of the
-    /// bellows' `signed` pressure while `opened`, through a curtain of
-    /// `area`; adds the outward flow's rate to `into`, the tongues' volume
-    /// acceleration to `inside`, the air the holes pass to `drawn`. `step`
-    /// is [area, signed pressure, Attack Kick, h]. A treble key's ranks, a
-    /// bass pitch class's and a free-bass voice's alike (8p).
+    /// Readies one plate's two reeds for a step and queues those with
+    /// anything to compute (milestone 10f): each blown from its own side of
+    /// the bellows' `signed` pressure while `opened`, through a curtain of
+    /// `area`, and started if the air has just reached it. `step` is [area,
+    /// signed pressure, Attack Kick]; `place` says where the rank is and
+    /// where what it gives goes. A treble key's ranks, a bass pitch class's
+    /// and a free-bass voice's alike (8p).
     #[inline]
-    fn blow_rank(
+    fn queue_rank(
         rank: &mut Rank,
-        step: [f64; 4],
+        step: [f64; 3],
         down: bool,
         opened: bool,
-        into: &mut f64,
-        inside: &mut f64,
-        drawn: &mut f64,
+        place: Blown,
+        queue: &mut Queue,
     ) {
-        let [area, signed, kick, h] = step;
+        let [area, signed, kick] = step;
         let Rank {
             model,
             states,
-            tubes,
             started,
+            ..
         } = rank;
         let Some(model) = model.as_ref() else {
             return;
         };
-        for (((which, state), tube), given) in states
-            .iter_mut()
-            .enumerate()
-            .zip(tubes.iter_mut())
-            .zip(started.iter_mut())
-        {
+        for ((which, state), given) in states.iter_mut().enumerate().zip(started.iter_mut()) {
             let (side, sign) = if which == PULL_REED {
                 ((-signed).max(0.0), -1.0)
             } else {
@@ -892,9 +931,59 @@ impl Engine {
             if blow == 0.0 && *state == ReedState::default() {
                 continue;
             }
+            queue.reeds[queue.count] = Blown {
+                which: which as u8,
+                blow,
+                area,
+                sign,
+                ..place
+            };
+            queue.count += 1;
+        }
+    }
+
+    /// Steps the queued reeds and sums what each gives, in the order they
+    /// were queued -- the order they were always visited in: the outward
+    /// flow's rate to its source or the cassotto's, the tongues' volume
+    /// acceleration to `inside`, the air the holes pass to `drawn`.
+    #[allow(clippy::too_many_arguments)]
+    fn step_queued(
+        keys: &mut [Key; ALL_KEYS],
+        free: &mut [FreeVoice; FREE_SLOTS],
+        queue: &Queue,
+        h: f64,
+        outward: &mut [f64; stage::SOURCES],
+        boxed: &mut [f64; stage::TREBLE_SOURCES],
+        inside: &mut [f64; stage::SOURCES],
+        drawn: &mut f64,
+    ) {
+        for blown in &queue.reeds[..queue.count] {
+            let (at, rank) = (usize::from(blown.at), usize::from(blown.rank));
+            let Rank {
+                model,
+                states,
+                tubes,
+                ..
+            } = if blown.free {
+                &mut free[at].ranks[rank]
+            } else {
+                &mut keys[at].ranks[rank]
+            };
+            let Some(model) = model.as_ref() else {
+                continue;
+            };
+            let which = usize::from(blown.which);
+            let (state, tube) = (&mut states[which], &mut tubes[which]);
             let swing = state.velocity;
-            *into += sign * reed::step(model, state, tube, blow, area, h);
-            *inside += sign * model.effective_area * (state.velocity - swing) / h;
+            let rate = reed::step(model, state, tube, blown.blow, blown.area, h);
+            let source = usize::from(blown.source);
+            let into = if blown.boxed {
+                &mut boxed[source]
+            } else {
+                &mut outward[source]
+            };
+            *into += blown.sign * rate;
+            inside[source] += blown.sign * model.effective_area * (state.velocity - swing) / h;
             *drawn += state.hole_flow;
             // An unblown reed rings down; once it is negligible it stops
             // exactly, and is no longer computed. A shut pallet seals the
@@ -902,7 +991,7 @@ impl Engine {
             // the bellows' pressure no longer reaches it (`reed::step`), and
             // it rings down the same way (milestone 10c; it was computed
             // until it underflowed, tens of seconds).
-            if (blow == 0.0 || area == 0.0) && state.energy(model) < 1.0e-12 {
+            if (blown.blow == 0.0 || blown.area == 0.0) && state.energy(model) < 1.0e-12 {
                 *state = ReedState::default();
                 *tube = Tube::default();
             }
@@ -996,16 +1085,17 @@ impl Engine {
         for key in self.keys.iter_mut() {
             key.stale = true;
         }
-        // The free bass's few voices are built again at once.
-        for slot in 0..FREE_SLOTS {
-            self.build_free(slot);
-        }
-        self.pallet_design = self.parameters.pallet_design();
+        // The step's length first: the reeds are prepared for it (10e).
         if self.decimator.factor() != self.parameters.oversampling() {
             self.decimator = Decimator::new(self.parameters.oversampling());
             self.zone_decimators =
                 core::array::from_fn(|_| Decimator::new(self.parameters.oversampling()));
         }
+        // The free bass's few voices are built again at once.
+        for slot in 0..FREE_SLOTS {
+            self.build_free(slot);
+        }
+        self.pallet_design = self.parameters.pallet_design();
         self.dirty = false;
     }
 
@@ -1053,7 +1143,7 @@ impl Engine {
         let staged = stereo && self.stage.is_active();
         self.build_stale();
         let factor = self.decimator.factor();
-        let h = 1.0 / (f64::from(self.sample_rate) * factor as f64);
+        let h = self.step_length();
         // The arm: the wheel or the pedal is the player's hand already, and
         // the bellows follows it as it comes. With Key Touch on the keys are
         // the dynamics and the bellows rests, whatever the wheel or the pedal
@@ -1116,6 +1206,10 @@ impl Engine {
         // The bellows' walls: the mass law's pole, 2ρc/m rad/s, at the
         // oversampled rate.
         let walls = 1.0 - math::exp(-2.0 * AIR_IMPEDANCE / BELLOWS_WALL_MASS * h);
+        let mut queue = Queue {
+            reeds: [Blown::default(); MOST_BLOWN],
+            count: 0,
+        };
         for n in 0..frames {
             // Where the bass box is: the air let through -- pulling opens
             // the bellows, pushing shuts it.
@@ -1187,6 +1281,9 @@ impl Engine {
                 let mut boxed = [0.0f64; stage::TREBLE_SOURCES];
                 // The air every reed's hole passes, drawn from the bellows.
                 let mut drawn = 0.0;
+                // The reeds are readied and queued key by key, then stepped
+                // two at a time and summed in the same order (10f).
+                queue.count = 0;
                 for &number in sounding {
                     let number = usize::from(number);
                     let key = &mut self.keys[number];
@@ -1224,19 +1321,20 @@ impl Engine {
                         // The bass side has no cassotto (Llanos-Vázquez,
                         // thesis 2015).
                         let boxed_here = !bass && Parameters::in_cassotto(index);
-                        let into = if cassotto.is_some() && boxed_here {
-                            &mut boxed[source]
-                        } else {
-                            &mut outward[source]
+                        let place = Blown {
+                            at: number as u8,
+                            rank: index as u8,
+                            source: source as u8,
+                            boxed: cassotto.is_some() && boxed_here,
+                            ..Blown::default()
                         };
-                        Self::blow_rank(
+                        Self::queue_rank(
                             rank,
-                            [area, signed, kick, h],
+                            [area, signed, kick],
                             down,
                             opened,
-                            into,
-                            &mut inside_flow[source],
-                            &mut drawn,
+                            place,
+                            &mut queue,
                         );
                     }
                 }
@@ -1249,7 +1347,7 @@ impl Engine {
                     }
                     voice.pallet.advance(&self.pallet_design, h);
                     let down = voice.pallet.target > 0.0;
-                    for rank in voice.ranks.iter_mut() {
+                    for (index, rank) in voice.ranks.iter_mut().enumerate() {
                         let Some(model) = &rank.model else {
                             continue;
                         };
@@ -1258,17 +1356,26 @@ impl Engine {
                             model.design.tone_hole_area,
                             model.hole_rim,
                         );
-                        Self::blow_rank(
-                            rank,
-                            [area, signed, kick, h],
-                            down,
-                            true,
-                            &mut outward[stage::BASS_SOURCE],
-                            &mut inside_flow[stage::BASS_SOURCE],
-                            &mut drawn,
-                        );
+                        let place = Blown {
+                            at: slot,
+                            free: true,
+                            rank: index as u8,
+                            source: stage::BASS_SOURCE as u8,
+                            ..Blown::default()
+                        };
+                        Self::queue_rank(rank, [area, signed, kick], down, true, place, &mut queue);
                     }
                 }
+                Self::step_queued(
+                    &mut self.keys,
+                    &mut self.free,
+                    &queue,
+                    h,
+                    &mut outward,
+                    &mut boxed,
+                    &mut inside_flow,
+                    &mut drawn,
+                );
                 self.draw = drawn;
                 if travel.is_some() {
                     self.spent += drawn.abs() * h;

@@ -30,15 +30,47 @@ cargo build --locked --release --target wasm32-unknown-unknown -p rf-musette-plu
 
 `Cargo.lock` records the version of the sibling SDK it was resolved against:
 RackForge **0.1.24**. CI checks out `kalexis1994/rackforge` at
-`988e4b70b0bb49eb8f99438dc6f332394b073c50`, the 0.1.24 release on `main`, so
-the two agree. That commit's SDK, plugin API, core and store crates are
-byte-identical to the local checkout this skeleton was built against.
+`de3ffc47230bd947d13bcce478c467c3988f2669` (the hybrid-plugin work on
+`feat/hybrid-plugins`, still 0.1.24), so the two agree: its SDK exports the
+native table beside the component, and its core and store compare and pack
+the two. The pin is written in all three workflows; move them together.
 
 When the sibling checkout moves to another RackForge version, a `--locked`
 build fails here because the lock names the old one. Do not drop `--locked`
 to get past it: that rewrites the lock silently, and CI breaks. Update both
 together — regenerate the lock (`cargo update -w --offline`) against the new
 host and move the CI `ref` to the commit of that release — in one commit.
+
+## Native builds
+
+The plugin crate is a `cdylib`, and the SDK's `export_processor!` exports the
+same processor twice: the `wasm-v1` component, and, built for a native
+target, the portable table a RackForge host may run in the component's place
+when the release's official set installed the package. One `.rfplugin`
+carries both (`.github/workflows/package.yml`):
+
+1. the component job builds, inspects, smoke-tests and packs the component
+   (`rf-musette-lab package`), exactly as before;
+2. one job per platform builds the native library and, on every runner that
+   can execute it, holds it to that packed component with
+   `rackforge-core compare-native`: all the programs, played through both,
+   must come out the same bits and leave the same state;
+3. the pack job puts the component and every native build into one package
+   (`rackforge-store pack-wasm --native PLATFORM=LIBRARY`), installs it as
+   the official set would, and checks that its own platform's build loads.
+
+The platforms are `linux-x86_64` and `linux-aarch64` (built on Ubuntu 22.04,
+glibc 2.35, so they load on any newer distribution), `windows-x86_64`,
+`macos-aarch64`, and `android-aarch64`, which is built but not run. A host
+whose system cannot load its build runs the component instead.
+
+By hand, on one machine:
+
+```text
+cargo build --locked --release -p rf-musette-plugin
+cargo run --locked --release -p rf-musette-lab -- package
+../rackforge/target/release/rackforge-core compare-native package target/release/rf_musette_plugin.dll
+```
 
 ## Render and inspect
 

@@ -21,16 +21,16 @@ jobs:
         working-directory: RF-Musette
     steps:
       - name: Check out RF-Musette
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: RF-Musette
           persist-credentials: false
       - name: Check out the compatible SDK
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kalexis1994/rackforge
-          # RackForge 0.1.24, the SDK Cargo.lock records. See docs/DEVELOPMENT.md.
-          ref: 988e4b70b0bb49eb8f99438dc6f332394b073c50
+          # The same RackForge as package.yml. See docs/DEVELOPMENT.md.
+          ref: de3ffc47230bd947d13bcce478c467c3988f2669
           path: rackforge
           persist-credentials: false
       - name: Install the pinned Rust toolchain
@@ -50,58 +50,7 @@ jobs:
       - name: Verify the reference file
         run: cargo run --locked --release -p rf-musette-lab -- inspect renders/ci.wav
 
-  rfplugin:
-    name: Portable .rfplugin
+  package:
+    name: Package
     needs: rust
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: RF-Musette
-    steps:
-      - name: Check out RF-Musette
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          path: RF-Musette
-          persist-credentials: false
-      - name: Check out the compatible SDK and its packager
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          repository: kalexis1994/rackforge
-          ref: 988e4b70b0bb49eb8f99438dc6f332394b073c50
-          path: rackforge
-          persist-credentials: false
-      - name: Install the pinned Rust toolchain
-        run: rustup show
-      - name: Install the system libraries RackForge's tools link against
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev pkg-config
-      - name: Build RackForge's packager and inspector
-        working-directory: rackforge
-        run: cargo build --locked --release -p rackforge-store -p rackforge-core
-      - name: Install the wasm-bindgen CLI the PLAY surface pins
-        run: cargo install --locked wasm-bindgen-cli --version 0.2.127
-      - name: Build, inspect, smoke-test and pack the plugin
-        id: package
-        shell: bash
-        run: |
-          version="$(sed -n 's/^version = "\([^"]*\)"$/\1/p' package/rackforge-plugin.toml | head -n 1)"
-          if [[ -z "$version" ]]; then
-            echo 'Could not read the plugin version from rackforge-plugin.toml.' >&2
-            exit 1
-          fi
-          cargo run --locked --release -p rf-musette-lab -- package
-          mkdir -p artifacts
-          mv "dist/RF-Musette-$version.rfplugin" artifacts/RF-Musette.rfplugin
-          (cd artifacts && sha256sum RF-Musette.rfplugin > RF-Musette.rfplugin.sha256)
-          cat artifacts/RF-Musette.rfplugin.sha256
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Upload the package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: RF-Musette-${{ steps.package.outputs.version }}-${{ github.sha }}
-          path: |
-            RF-Musette/artifacts/RF-Musette.rfplugin
-            RF-Musette/artifacts/RF-Musette.rfplugin.sha256
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
+    uses: ./.github/workflows/package.yml

@@ -30,7 +30,7 @@ cargo build --locked --release --target wasm32-unknown-unknown -p rf-musette-plu
 
 `Cargo.lock` records the version of the sibling SDK it was resolved against:
 RackForge **0.1.24**. CI checks out `kalexis1994/rackforge` at
-`de3ffc47230bd947d13bcce478c467c3988f2669` (the hybrid-plugin work on
+`e68611b4bed5dcc351522153894a76a08c89b1d2` (the hybrid-plugin work on
 `feat/hybrid-plugins`, still 0.1.24), so the two agree: its SDK exports the
 native table beside the component, and its core and store compare and pack
 the two. The pin is written in all three workflows; move them together.

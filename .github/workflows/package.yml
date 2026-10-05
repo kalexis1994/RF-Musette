@@ -25,7 +25,7 @@ env:
   CARGO_TERM_COLOR: always
   # The RackForge whose SDK the plugin builds against and whose tools check
   # and pack it. See docs/DEVELOPMENT.md.
-  RACKFORGE_REF: de3ffc47230bd947d13bcce478c467c3988f2669
+  RACKFORGE_REF: e68611b4bed5dcc351522153894a76a08c89b1d2
 
 jobs:
   component:

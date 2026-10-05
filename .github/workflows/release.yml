@@ -35,7 +35,7 @@ jobs:
         with:
           repository: kalexis1994/rackforge
           # The same RackForge as package.yml. See docs/DEVELOPMENT.md.
-          ref: de3ffc47230bd947d13bcce478c467c3988f2669
+          ref: e68611b4bed5dcc351522153894a76a08c89b1d2
           path: rackforge
           persist-credentials: false
       - name: Match the tag to the package version

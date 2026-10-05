@@ -927,13 +927,15 @@ impl Engine {
     /// anything to compute (milestone 10f): each blown from its own side of
     /// the bellows' `signed` pressure while `opened`, through a curtain of
     /// `area`, and started if the air has just reached it. `step` is [area,
-    /// signed pressure, Attack Kick]; `place` says where the rank is and
-    /// where what it gives goes. A treble key's ranks, a bass pitch class's
+    /// signed pressure, Attack Kick]; `shares` each side's P/(P + P₀), the
+    /// pull's then the push's, computed once a substep (10k); `place` says
+    /// where the rank is and where what it gives goes. A treble key's ranks, a bass pitch class's
     /// and a free-bass voice's alike (8p).
     #[inline]
     fn queue_rank(
         rank: &mut Rank,
         step: [f64; 3],
+        shares: [f64; 2],
         down: bool,
         opened: bool,
         place: Blown,
@@ -963,7 +965,15 @@ impl Engine {
                 started[which] = 0.0;
                 continue;
             }
-            Self::start_into_frame(model, state, &mut started[which], down, blow, kick);
+            Self::start_into_frame(
+                model,
+                state,
+                &mut started[which],
+                down,
+                blow,
+                kick,
+                shares[which],
+            );
             if blow == 0.0 && *state == ReedState::default() {
                 continue;
             }
@@ -1057,7 +1067,10 @@ impl Engine {
     ///
     /// Checked at every step, so it does not hang on how the host cuts its
     /// blocks. `given` is the share the reed has had; `blow` its side's
-    /// pressure, zero when its register is shut.
+    /// pressure, zero when its register is shut; `share` that side's
+    /// P/(P + P₀), the same for every reed it blows, computed once a substep
+    /// (10k) and read only when `blow` is the side's pressure.
+    #[allow(clippy::too_many_arguments)]
     fn start_into_frame(
         model: &ReedModel,
         state: &mut ReedState,
@@ -1065,6 +1078,7 @@ impl Engine {
         down: bool,
         blow: f64,
         kick: f64,
+        share: f64,
     ) {
         if !down || blow <= parameters::KICK_PRESSURE {
             *given = 0.0;
@@ -1080,7 +1094,6 @@ impl Engine {
         // gives the start as its pressure rises rather than half of it the
         // moment it passes P₀ (8j); a key pressed into a blowing bellows
         // gets all but P₀/P of it at once, as before.
-        let share = blow / (blow + parameters::KICK_PRESSURE);
         if share > *given {
             state.velocity += model.omega * kick * model.design.set * (share - *given);
             *given = share;
@@ -1249,6 +1262,10 @@ impl Engine {
             reeds: [Blown::default(); MOST_BLOWN],
             count: 0,
         };
+        // The bellows holds its pressure with or without a key down: a power
+        // of the intent, which does not change within a block, so computed
+        // once a block rather than at every sample (10k).
+        let target = self.parameters.bellows_pressure(asked);
         for n in 0..frames {
             // Where the bass box is: the air let through -- pulling opens
             // the bellows, pushing shuts it.
@@ -1259,8 +1276,6 @@ impl Engine {
                 self.turn_if_spent(travel);
             }
             let direction = self.direction();
-            // The bellows holds its pressure with or without a key down.
-            let target = self.parameters.bellows_pressure(asked);
             if sounding
                 .iter()
                 .all(|&number| self.keys[usize::from(number)].is_idle())
@@ -1307,6 +1322,10 @@ impl Engine {
                 };
                 self.turn = toward(self.turn, direction, turning);
                 let signed = self.turn * self.supply;
+                // Each side's share of a start, P/(P + P₀): what every reed it
+                // blows was dividing out for itself (10k).
+                let shares = [(-signed).max(0.0), signed.max(0.0)]
+                    .map(|side| side / (side + parameters::KICK_PRESSURE));
                 // Each reed is blown only from its own side, and only while
                 // its rank's register is open; the other's valve is shut,
                 // and its reed sees nothing of the bellows. The flow through
@@ -1338,6 +1357,17 @@ impl Engine {
                     key.pallet.advance(&self.pallet_design, h);
                     key.chord.advance(&self.pallet_design, h);
                     for (index, rank) in key.ranks.iter_mut().enumerate() {
+                        let opened = if bass { open_bass[index] } else { open[index] };
+                        // A shut register's plate at rest: all `queue_rank`
+                        // would do is clear its starts, and that is done
+                        // here, from its flags and starts alone, without
+                        // reading its model or computing its curtain (10j).
+                        if !opened && rank.is_still() {
+                            if rank.model.is_some() {
+                                rank.started = [0.0; 2];
+                            }
+                            continue;
+                        }
                         let Some(model) = &rank.model else {
                             continue;
                         };
@@ -1356,7 +1386,6 @@ impl Engine {
                             area = area.max(key.chord.area_by_rim(&self.pallet_design, hole, rim));
                             down |= key.chord.target > 0.0;
                         }
-                        let opened = if bass { open_bass[index] } else { open[index] };
                         // The bass side has no cassotto (Llanos-Vázquez,
                         // thesis 2015).
                         let boxed_here = !bass && Parameters::in_cassotto(index);
@@ -1370,6 +1399,7 @@ impl Engine {
                         Self::queue_rank(
                             rank,
                             [area, signed, kick],
+                            shares,
                             down,
                             opened,
                             place,
@@ -1402,7 +1432,15 @@ impl Engine {
                             source: stage::BASS_SOURCE as u8,
                             ..Blown::default()
                         };
-                        Self::queue_rank(rank, [area, signed, kick], down, true, place, &mut queue);
+                        Self::queue_rank(
+                            rank,
+                            [area, signed, kick],
+                            shares,
+                            down,
+                            true,
+                            place,
+                            &mut queue,
+                        );
                     }
                 }
                 Self::step_queued(

@@ -4026,3 +4026,132 @@ that flag, and a plate is still when both flags are set.
 3. **Met.** Through RackForge's host on the Pi 15.4-15.6 ms to 13.0
    (−16 %); on this server 3.47-3.49 to 3.16-3.18 (−9 %). Since 0.13.19 the
    load on the Pi has gone from 19.9-20.2 ms to 13.0 (−35 %), bit for bit.
+
+## 10i. A cell's tube no longer than its waves
+
+The user's report (2026-10-05): on the Raspberry Pi 4, with 0.13.20's
+native build, Student 72 underruns when many right-hand keys are held. The
+user's ask: lossless only; 1x oversampling sounds poor and is not an option.
+
+**Measured first** (natively on the Pi, a bench outside the repository: the
+plugin's processor, Student 72, ten right-hand keys C4-E5 held at velocity
+100, 256-frame blocks at 48 kHz, the first half second left out): 5115-5161
+µs a block against a 5.33 ms deadline; six keys 3087-3289, two 1319. At 1x
+the ten keys cost 2598: the reeds' substeps are the cost. `perf stat`: 1.25
+instructions a cycle; 408 million L1 data refills of 4.2 billion accesses
+(9.7 %), 1.7-2.3 million L2 refills, 56 million TLB refills. By function the
+L1 refills are 60 % `render_with` (the step inlined), 27 % `queue_rank`,
+6.5 % the stage, 6 % the decimator; by instruction, some 30 % are the reads
+of the cells' two lines of waves, 7 % the section table, some 15 % the
+model's step constants. Ten keys of Cello are some 30 reeds, and what one
+substep touches is about the Pi's 32 KiB of L1.
+
+Each cell's two lines are rings of 64 waves, read up to its delay back --
+some 15 steps at 2x for a 50 mm cell -- and written at a position that
+walks the ring: over 64 substeps a reed's lines pass through all eight of
+their cache lines, two at a time.
+
+**Change (exact):** each reed's rings are as long as the smallest power of
+two above the farthest its step reads back, and the position the ring is
+written and read at is the one it was, taken modulo that length. The waves
+read are the ones they were, bit for bit, and a reed's lines stay in the
+same one or two cache lines. The one place that reads differently is a
+cell whose delay changes while its reed sounds -- the oversampling changed
+mid-note -- where the old rings reinterpreted their history too.
+
+**Predictions:**
+1. Every fingerprint unchanged and every test passes; the native build
+   against 0.13.20's packaged component (`rackforge-core compare-native`)
+   identical in all twenty programs.
+2. On the Pi, the bench above: at least 15 % fewer L1 data refills (from
+   407-409 million) and the block at least 8 % cheaper (at most 4700 µs).
+3. The engine no larger: the rings keep their 64 slots, only fewer are
+   touched.
+
+**Status (2026-10-05): built, measured and withdrawn; prediction 1 met, 2
+NOT MET.** Measured on the Pi with the bench, the previous build and this
+one in turn, three runs each, `perf stat`.
+1. **Met.** Every test passes, and against 0.13.20's packaged component
+   the native build was identical in all twenty programs.
+2. **NOT MET.** The block 5002-5286 µs to 5382-5421 (+5 %), and the L1 data
+   refills 371-380 million to 389-399 (+5 %), not 15 % fewer. Not
+   measured, the likeliest reason: the rings walking their 64 slots spread
+   the reeds' lines over the L1's sets, and shortened they all sit at the
+   same offsets of their structures, which the Pi's two-way L1 cannot hold
+   at once. Withdrawn: the code is as it was.
+3. Not reached.
+
+## 10j. A shut register's plate, passed over
+
+Student 72 sounds Cello, three of a treble key's five ranks; the other two
+are shut. At every substep each sounding key's loop still reads, for every
+rank, the model's tone hole and rim -- two of its cache lines -- and computes
+the pallet's curtain for it, before `queue_rank` finds the register shut and
+both reeds at rest and only clears their starts. With ten keys held that is
+some forty model lines a substep for nothing.
+
+**Change (exact):** a rank whose register is shut and whose plate is still
+-- both reeds' resting flags set, read beside its starts -- has its starts
+cleared, as `queue_rank` would, and nothing else read or computed. A shut
+rank still ringing down is handled as before.
+
+**Predictions:**
+1. Every fingerprint unchanged and every test passes; the native build
+   against 0.13.20's packaged component identical in all twenty programs.
+2. On the Pi, 10i's bench, the previous build and this one in turn, five
+   runs each: at least 8 % fewer L1 data refills and the block at least 4 %
+   cheaper.
+3. Nothing changes where every register is open (Musette Paris and the
+   other full registers): within the runs' spread there.
+
+**Status (2026-10-05): built; predictions 1 and 2 met, 3 NOT MET as
+written.** Measured on the Pi with 10i's bench, the previous build and this
+one in turn.
+1. **Met.** Every test passes, and against 0.13.20's packaged component the
+   native build is identical in all twenty programs.
+2. **Met.** Student 72, ten keys, five runs each: the block 5015-5316 µs
+   (median 5136) to 4723-5060 (median 4881), −5.0 %; the L1 data refills
+   372-422 million (median 382) to 333-362 (median 343), −10.1 %; the
+   cycles 10.95 billion to 10.46 (medians), −4.5 %.
+3. **NOT MET as written,** for a wrong premise: Musette Paris is not a full
+   register -- Musette is the three middle reeds, the bassoon and the
+   piccolo shut -- so it gained too: 5014-5382 µs to 4793-4846, three runs
+   each.
+
+## 10k. What a substep shares, computed once
+
+**Measured first** (the Pi, 10i's bench at 10j, `perf stat` by key count):
+the cycles a held key costs fall as keys are added -- 1.12, 0.98 and 0.95
+billion for two, four and ten keys over six seconds -- while its L1 refills
+rise, 15, 19 and 33 million: the misses are hidden behind the work, and the
+work is the instructions, some 720 a reed's step at 1.3 a cycle. Gathering
+the sounding reeds' data into one place to fit the L1, the next step this
+roadmap considered, would not pay; it is not done. What remains is fewer
+instructions for the same results.
+
+Two of them are the same number computed many times:
+* the share of its start a reed is owed, P/(P + P₀), is divided out for
+  every blown reed at every substep, and P is its side's pressure, the same
+  for every reed on that side;
+* the bellows' target pressure is a power of the intent, computed at every
+  sample, and the intent does not change within a block.
+
+**Change (exact):** each substep computes the share once for each side, and
+each reed takes its side's; the target is computed once a block. The same
+operations on the same numbers.
+
+**Predictions:**
+1. Every fingerprint unchanged and every test passes; the native build
+   against 0.13.20's packaged component identical in all twenty programs.
+2. On the Pi, 10i's bench, Student 72 with ten keys, 10j's build and this
+   one in turn, five runs each: the block at least 2 % cheaper (median).
+
+**Status (2026-10-05): built; both met.** Measured on the Pi with 10i's
+bench, 10j's build and this one in turn, five runs each.
+1. **Met.** Every test passes, and against 0.13.20's packaged component the
+   native build is identical in all twenty programs.
+2. **Met.** Student 72, ten keys: the block 4972-5104 µs (median 5038) to
+   4841-4877 (median 4854), −3.7 %; the cycles 10.36-10.73 billion (median
+   10.57) to 9.93-10.23 (median 9.99), −5.5 %; the instructions 12.94 to
+   12.70 billion, −1.9 %. With 10j, Student 72's ten keys have gone from
+   5136 µs a block to 4854 on the Pi, bit for bit; 91 % of the deadline.

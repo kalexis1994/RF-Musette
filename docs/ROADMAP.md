@@ -4289,3 +4289,21 @@ the mode ratio, and one prepared for another step plays the same bits
 (it computes its step's constants every step instead), so this is about
 cost alone; the test covers a change of step as well. Back to 0.13.21's
 7.8 MiB.
+
+**Prediction 4, the hour through RackForge** (2026-10-07, the Pi, 0.13.22
+native, RackForge's soak changing between Student 72 and Musette Paris
+every five minutes, a four-key chord around C5 every minute): NOT MET.
+Twelve overruns in the hour, exactly one at each of the twelve changes,
+none in the other 48 minutes; the late block 5.4-6.9 ms. The soak strikes
+its chord the moment it has changed program, and the bench, the chord
+moved from 50 ms after the change to the blocks right after it, gives the
+same: struck within 0-3 blocks (16 ms) of the change, that block takes
+6.5-8.4 ms, its four keys built on press; struck 50 ms after, none over.
+The "6-9 an hour" the prediction named came from soaks changing between
+instruments, not programs (77-81 overruns an hour, most from the
+instruments' resets): there is no like-for-like hour of 0.13.21, whose
+bench gave 26 late blocks after every change.
+
+So a program change no longer clicks unless a chord lands within some
+16 ms of it, or keys from before it still ring. Both are keys that must
+sound the new program at once, built in the block they need it.

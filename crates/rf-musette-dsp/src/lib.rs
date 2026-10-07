@@ -222,10 +222,6 @@ struct Key {
     /// Its reeds' models are out of date: built again before it next sounds,
     /// or a few at a time while nothing asks.
     stale: bool,
-    /// The step and the mode ratio each rank's model was built for, as bits:
-    /// a model is kept through a rebuild only while both are the same and
-    /// its design is the same bits (milestone 10l).
-    built_for: [Option<(u64, u64)>; parameters::RANKS],
 }
 
 impl Key {
@@ -359,7 +355,6 @@ impl Engine {
             chord: Pallet::default(),
             ranks: core::array::from_fn(|_| rank()),
             stale: true,
-            built_for: [None; parameters::RANKS],
         });
         let free = core::array::from_fn(|_| FreeVoice {
             note: None,
@@ -915,7 +910,6 @@ impl Engine {
     /// returns how many it built.
     fn build_key(&mut self, index: usize, most: usize) -> usize {
         let h = self.step_length();
-        let built_for = self.built_for();
         let mut built = 0;
         let mut left = false;
         for rank in 0..parameters::RANKS {
@@ -932,7 +926,6 @@ impl Engine {
             }
             self.keys[index].ranks[rank].model =
                 design.map(|design| Self::prepared(ReedModel::with_mode(design, &self.mode), h));
-            self.keys[index].built_for[rank] = Some(built_for);
         }
         self.keys[index].stale = left;
         built
@@ -946,23 +939,14 @@ impl Engine {
         }
     }
 
-    /// Whether key `index`'s model on `rank` is the one `design` builds.
+    /// Whether key `index`'s model on `rank` is the one `design` builds: a
+    /// rebuild that changes the step or the mode lets every model go first.
     fn keeps(&self, index: usize, rank: usize, design: Option<&ReedDesign>) -> bool {
-        self.keys[index].built_for[rank] == Some(self.built_for())
-            && match (&self.keys[index].ranks[rank].model, design) {
-                (Some(model), Some(design)) => model.design.same_bits(design),
-                (None, None) => true,
-                _ => false,
-            }
-    }
-
-    /// What a model is built for besides its design: the step and the
-    /// tongue's mode, as bits.
-    fn built_for(&self) -> (u64, u64) {
-        (
-            self.step_length().to_bits(),
-            self.mode.ratio_asked.to_bits(),
-        )
+        match (&self.keys[index].ranks[rank].model, design) {
+            (Some(model), Some(design)) => model.design.same_bits(design),
+            (None, None) => true,
+            _ => false,
+        }
     }
 
     /// A reed's model prepared for the engine's step (milestone 10e).
@@ -1224,17 +1208,29 @@ impl Engine {
     /// built again as they are needed, or a few per block meanwhile.
     fn rebuild(&mut self) {
         let design = self.parameters.reed_design();
+        // A key's models are kept while their designs are the same (10l):
+        // all of them go when the tongue's mode changes, or the step they
+        // are prepared for (one prepared for another step plays the same,
+        // but computes its step's constants every step).
+        let mut models_go = false;
         if design.mode_ratio != self.mode.ratio_asked {
             self.mode = TongueMode::with_ratio(design.mode_ratio);
-        }
-        for key in self.keys.iter_mut() {
-            key.stale = true;
+            models_go = true;
         }
         // The step's length first: the reeds are prepared for it (10e).
         if self.decimator.factor() != self.parameters.oversampling() {
             self.decimator = Decimator::new(self.parameters.oversampling());
             self.zone_decimators =
                 core::array::from_fn(|_| Decimator::new(self.parameters.oversampling()));
+            models_go = true;
+        }
+        for key in self.keys.iter_mut() {
+            key.stale = true;
+            if models_go {
+                for rank in key.ranks.iter_mut() {
+                    rank.model = None;
+                }
+            }
         }
         // The free bass's few voices are built again at once.
         for slot in 0..FREE_SLOTS {
@@ -1806,6 +1802,21 @@ mod tests {
                         "{} after {}, sounding",
                         to.id,
                         from.id
+                    );
+                }
+                // And a change of step, which lets every model go.
+                for oversampling in [4.0, 1.0] {
+                    let mut changed = engine_with(&[&all[0]]);
+                    assert!(changed.set_parameter(parameters::OVERSAMPLING, oversampling));
+                    changed.prepare_reeds();
+                    let mut fresh = Engine::new(48_000.0).unwrap();
+                    apply(&mut fresh, &all[0]);
+                    assert!(fresh.set_parameter(parameters::OVERSAMPLING, oversampling));
+                    fresh.prepare_reeds();
+                    assert!(
+                        played(&mut changed) == played(&mut fresh),
+                        "{} at {oversampling}x",
+                        all[0].id
                     );
                 }
             })

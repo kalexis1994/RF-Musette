@@ -4278,3 +4278,14 @@ What remains, the keys still ringing at a change, is the hardware's root
 and exactness: making it cheaper would mean a ringing reed keeping the old
 program's model until it is still, which is a change of sound, the user's
 to decide.
+
+**After 0.13.22:** its record of the step and mode each model was built
+for, per rank, added 6 KiB to the engine, and the debug build of a test
+holding two engines (milestone 3's) overflowed CI's 8 MiB test stack: it
+needed 7.5-7.8 MiB already, at 0.13.21. The record is gone: a rebuild that
+changes the tongue's mode or the oversampling lets every model go, and a
+kept model is one whose design is the same bits. A model's design carries
+the mode ratio, and one prepared for another step plays the same bits
+(it computes its step's constants every step instead), so this is about
+cost alone; the test covers a change of step as well. Back to 0.13.21's
+7.8 MiB.

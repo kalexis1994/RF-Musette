@@ -126,6 +126,64 @@ pub struct ReedDesign {
     pub tip_load: f64,
 }
 
+impl ReedDesign {
+    /// Whether two designs are the same bits, field by field: a model built
+    /// from either is then the same model (milestone 10l). Stricter than
+    /// `==`, which takes 0.0 for −0.0.
+    pub fn same_bits(&self, other: &Self) -> bool {
+        // Every field named: one added to the design and not compared here
+        // does not compile, rather than let a model outlive its design.
+        let fields = |d: &Self| {
+            let Self {
+                frequency,
+                q,
+                length,
+                width,
+                mode_ratio,
+                modulus,
+                density,
+                set,
+                plate_thickness,
+                side_clearance,
+                tip_clearance,
+                contraction,
+                inertance_scale,
+                cell_volume,
+                tone_hole_area,
+                tone_hole_depth,
+                end_correction,
+                swing_limit,
+                tip_load,
+            } = *d;
+            [
+                frequency,
+                q,
+                length,
+                width,
+                mode_ratio,
+                modulus,
+                density,
+                set,
+                plate_thickness,
+                side_clearance,
+                tip_clearance,
+                contraction,
+                inertance_scale,
+                cell_volume,
+                tone_hole_area,
+                tone_hole_depth,
+                end_correction,
+                swing_limit,
+                tip_load,
+            ]
+        };
+        fields(self)
+            .iter()
+            .zip(fields(other))
+            .all(|(a, b)| a.to_bits() == b.to_bits())
+    }
+}
+
 /// Speed of sound, m/s (20 °C).
 pub const SPEED_OF_SOUND: f64 = 343.2;
 
@@ -385,6 +443,33 @@ impl ReedModel {
                 math::sqrt(beyond * beyond + clearance * clearance)
             }
         };
+        // Each side element's gap, as `gap` gives it, in three passes
+        // (milestone 10l): what each needs, the square roots in one loop the
+        // compiler vectorises, and the sum in the same order as ever. Nine
+        // in ten of a model's build went to these roots, one at a time. An
+        // element flush with the plate, whose gap is the clearance itself,
+        // is marked by a negative argument, which no sum of squares is.
+        let mut arguments = [0.0; SPAN_POINTS];
+        for (i, argument) in arguments.iter_mut().enumerate() {
+            let thickness = self.root_thickness * mode.thickness[i];
+            // The tongue at rest is the set's shape, not the mode's: each
+            // element sits set·φ(x) above the plate, so it crosses it when
+            // the tip has moved set·φ(x)/ψ(x), not all at the tip's set.
+            let x = i as f64 / (SPAN_POINTS - 1) as f64;
+            let offset = d.set * (mode.shape[i] - set_shape(x));
+            let depth = y * mode.shape[i] + offset;
+            let clearance = d.side_clearance;
+            *argument = if depth < 0.0 {
+                depth * depth + clearance * clearance
+            } else if depth - thickness <= d.plate_thickness {
+                -1.0
+            } else {
+                let beyond = depth - thickness - d.plate_thickness;
+                beyond * beyond + clearance * clearance
+            };
+        }
+        let mut gaps = arguments;
+        math::sqrt_all(&mut gaps);
         let mut sides = 0.0;
         for i in 0..SPAN_POINTS {
             let weight = if i == 0 || i == SPAN_POINTS - 1 {
@@ -392,13 +477,12 @@ impl ReedModel {
             } else {
                 1.0
             };
-            let thickness = self.root_thickness * mode.thickness[i];
-            // The tongue at rest is the set's shape, not the mode's: each
-            // element sits set·φ(x) above the plate, so it crosses it when
-            // the tip has moved set·φ(x)/ψ(x), not all at the tip's set.
-            let x = i as f64 / (SPAN_POINTS - 1) as f64;
-            let offset = d.set * (mode.shape[i] - set_shape(x));
-            sides += weight * gap(y * mode.shape[i] + offset, thickness, d.side_clearance);
+            let gap_i = if arguments[i] < 0.0 {
+                d.side_clearance
+            } else {
+                gaps[i]
+            };
+            sides += weight * gap_i;
         }
         let sides = 2.0 * d.length * sides / (SPAN_POINTS - 1) as f64;
         let tip_thickness = self.root_thickness * mode.thickness[SPAN_POINTS - 1];
@@ -1069,6 +1153,86 @@ mod tests {
 
     pub(crate) fn f4() -> ReedDesign {
         crate::parameters::Parameters::default().reed_design()
+    }
+
+    /// `section_at` as it was before milestone 10l: one root at a time.
+    fn section_one_root_at_a_time(model: &ReedModel, y: f64, mode: &TongueMode) -> f64 {
+        let d = model.design;
+        let gap = |depth: f64, thickness: f64, clearance: f64| -> f64 {
+            if depth < 0.0 {
+                math::sqrt(depth * depth + clearance * clearance)
+            } else if depth - thickness <= d.plate_thickness {
+                clearance
+            } else {
+                let beyond = depth - thickness - d.plate_thickness;
+                math::sqrt(beyond * beyond + clearance * clearance)
+            }
+        };
+        let mut sides = 0.0;
+        for i in 0..SPAN_POINTS {
+            let weight = if i == 0 || i == SPAN_POINTS - 1 {
+                0.5
+            } else {
+                1.0
+            };
+            let thickness = model.root_thickness * mode.thickness[i];
+            let x = i as f64 / (SPAN_POINTS - 1) as f64;
+            let offset = d.set * (mode.shape[i] - set_shape(x));
+            sides += weight * gap(y * mode.shape[i] + offset, thickness, d.side_clearance);
+        }
+        let sides = 2.0 * d.length * sides / (SPAN_POINTS - 1) as f64;
+        let tip_thickness = model.root_thickness * mode.thickness[SPAN_POINTS - 1];
+        let slope = y * mode.tip_slope / d.length;
+        let tilt = 0.5 * tip_thickness * (slope / math::sqrt(1.0 + slope * slope)).abs();
+        let drawn_back = y * y / (2.0 * d.length) * mode.slope_squared;
+        let front_clearance = (d.tip_clearance + drawn_back - tilt).max(0.1 * d.tip_clearance);
+        let front = (d.width + 2.0 * d.side_clearance) * gap(y, tip_thickness, front_clearance);
+        (sides + front).min(model.slot_area)
+    }
+
+    /// Milestone 10l takes the section's roots two at a time; every reed of
+    /// every program must keep its table bit for bit.
+    #[test]
+    fn every_reeds_section_is_the_one_a_root_at_a_time_gives() {
+        let mut tables = 0;
+        for program in crate::programs::PROGRAMS {
+            let parameters = program.parameters();
+            let mode = TongueMode::with_ratio(parameters.reed_design().mode_ratio);
+            let treble = (0..crate::compass::KEYS).flat_map(|index| {
+                (0..crate::parameters::RANKS).map(move |rank| (Some(index), None, rank))
+            });
+            let bass = (0..crate::compass::BASS_KEYS).flat_map(|pitch_class| {
+                (0..crate::parameters::RANKS).map(move |rank| (None, Some(pitch_class), rank))
+            });
+            for (key, pitch_class, rank) in treble.chain(bass) {
+                let design = match (key, pitch_class) {
+                    (Some(index), _) => crate::compass::design(
+                        &parameters,
+                        crate::compass::FIRST_KEY + index as u8,
+                        rank,
+                    ),
+                    (_, Some(pitch_class)) => {
+                        crate::compass::bass_design(&parameters, pitch_class, rank)
+                    }
+                    _ => unreachable!(),
+                };
+                let Some(design) = design else { continue };
+                let model = ReedModel::with_mode(design, &mode);
+                for i in 0..SECTION_POINTS {
+                    let y = model.section_low
+                        + model.section_span * i as f64 / (SECTION_POINTS - 1) as f64;
+                    let expected = section_one_root_at_a_time(&model, y, &mode) as f32;
+                    assert_eq!(
+                        model.section[i].to_bits(),
+                        expected.to_bits(),
+                        "{} key {key:?} bass {pitch_class:?} rank {rank} point {i}",
+                        program.id
+                    );
+                }
+                tables += 1;
+            }
+        }
+        assert!(tables > 20 * 200, "{tables} tables compared");
     }
 
     #[test]

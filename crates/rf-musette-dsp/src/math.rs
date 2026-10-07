@@ -35,6 +35,17 @@ pub fn sqrt(x: f64) -> f64 {
     }
 }
 
+/// The square root of every element, in place: one loop with nothing in it
+/// but the root, which the compiler turns into the vector unit's root --
+/// the same IEEE operation [`sqrt`] takes alone, so each element is the
+/// same bits [`sqrt`] would give it (milestone 10l).
+#[inline]
+pub fn sqrt_all(values: &mut [f64]) {
+    for value in values.iter_mut() {
+        *value = sqrt(*value);
+    }
+}
+
 /// `e^x` by splitting off powers of two and a Taylor series on the rest;
 /// relative error below 1e-15 over the range the engine uses.
 pub fn exp(x: f64) -> f64 {

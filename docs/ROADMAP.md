@@ -4155,3 +4155,126 @@ bench, 10j's build and this one in turn, five runs each.
    10.57) to 9.93-10.23 (median 9.99), −5.5 %; the instructions 12.94 to
    12.70 billion, −1.9 %. With 10j, Student 72's ten keys have gone from
    5136 µs a block to 4854 on the Pi, bit for bit; 91 % of the deadline.
+
+## 10l. A program change that does not click
+
+The user's report (2026-10-07, through RackForge on the Raspberry Pi 4):
+every change of program clicks.
+
+**Measured first** (RackForge's engine on the Pi, and a bench of the native
+processor alone, nothing held): loading a program takes 12-16 µs, but the
+26 blocks after it take 6.8-7.1 ms each against a 5.33 ms deadline. A
+program moves the reed parameters, so every key is marked stale and two
+idle ones are built a block (10g's arrangement); `perf` puts 95 % of that
+time in `ReedModel::section_at`, the useful-section table: 256 points, each
+summing 65 points along the tongue, a square root at most of them -- some
+16,600 a model, five models a key.
+
+**Change (exact):**
+* one idle key is built a block, not two; an idle key does not sound, so
+  when it is built changes nothing it gives;
+* the section's square roots are taken two at a time (NEON), the sum kept
+  in the same order: IEEE square roots round the same in a vector as alone;
+* the models built for a program are kept, by design, for the programs
+  used last, so going back to one builds nothing.
+
+**Predictions:**
+1. Every fingerprint unchanged and every test passes; the native build
+   against 0.13.21's packaged component identical in all twenty programs;
+   every reed's section table, in every program, identical bit for bit to
+   the one the scalar loop builds.
+2. On the Pi, the bench of a change between Student 72 and Musette Paris
+   (nothing held, the first change from each): no block over the deadline
+   after it (26 now); the worst at most 3.5 ms (6.8-7.1).
+3. Changing back to a program used just before builds nothing: the first
+   block after it under 1 ms.
+4. Through RackForge on the Pi, an hour changing program every five
+   minutes with a chord every minute: no underrun at the changes (6-9 an
+   hour now).
+
+**After the first two changes** (measured, before the rest is written):
+the section's roots now run in the vector unit and the table is the same
+bits for every reed of every program, but the Pi 4's Cortex-A72 takes a
+double's root unpipelined, some thirty cycles a lane, so a key went from
+3.45 ms to 3.1 ms, not to a half: what is left is the hardware's. With one
+key a block the Pi's worst block after a change is 3.1-3.2 ms, none over
+the deadline; the rebuild lasts 53 blocks, 280 ms. Keeping the models of
+past programs (the third change) is withdrawn: the engine allocates
+nothing, and a program's models would add some 265 KB to it, which 8p
+kept small for its stack.
+
+What remains is a key pressed within those 280 ms: it is built in the
+block it is pressed in, 3.1 ms a key. Two more changes, exact, since an
+idle key's models change nothing it gives:
+* idle keys are built nearest the last key played first, the treble's
+  and the bass's, where the player's hands are;
+* they are built only while no key is held, so a chord being played is
+  not given a key's build on top.
+
+**Predictions** (in addition to 1-4):
+5. On the Pi, the bench's change with a chord of four keys around C5 50 ms
+   after it (as a player changing and playing on): no block over the
+   deadline (the same chord's keys, built on press, in 10l's first part:
+   measured at the start of this part).
+
+**Measured before the last change:** with those two, the chord bench's
+first block after a change took 18 ms: the keys still ringing from before
+it are rebuilt at once, as exactness asks (their next sample is the new
+program's), five or six keys of 3.1 ms. Blocks 1-8, one idle key each on
+top of the tails, 5.5 ms.
+
+One more change, exact: a model is a function of its design, the tongue's
+mode and the step alone, so a key's model whose three are the same bits is
+kept through the rebuild rather than built again. Measured across every
+pair of the twenty programs, 71 % of the reeds keep their design (Student
+72 and Musette Paris: 183 of 265). A key that keeps all five of its models
+is not counted against the block's build.
+
+**Predictions** (in addition to 1-5):
+6. Prediction 1's checks all hold (a kept model is the model a build
+   would have given).
+7. On the Pi, the chord bench's first block after a change at most 9 ms
+   (18), and the idle bench's rebuild over in at most 25 blocks (53).
+
+**Measured, and the budget changed** (the bench on the Pi, the first change
+from each program and three more): kept models took the idle rebuild from
+53 blocks to 41 and its worst block from 3.1 ms to 1.4, but a key now
+builds one or two models, not five, and the chord bench's first block
+after a change was 8.6 ms. So the budget became models, not keys: five a
+block, a key's worth. The idle rebuild then took 21 blocks, its worst
+2.75 ms, but the chord bench's first block grew to 10.2 ms and the block
+releasing the chord went over (5.4-5.6 ms): five models on top of keys
+still ringing. Last change, exact like the rest: while anything sounds,
+held or ringing, a single model a block; five only in silence. A key may
+be left half built, so the step and mode each model was built for are
+kept per rank, and the key stays stale until its last model is built.
+This replaces building only while nothing is held: a player who changes
+program and plays on, never letting go, still sees the rest built.
+
+**Results** (2026-10-07):
+1. MET. Every test passes (195), the fingerprints with them; the native
+   build against 0.13.21's packaged component is identical in all twenty
+   programs; every reed's section table, in every program, is the scalar
+   loop's to the bit.
+2. MET. Idle bench: no block over the deadline (26 before); the worst
+   3.26-3.32 ms (6.8-7.1); the rebuild lasts 17 blocks, 91 ms.
+3. WITHDRAWN with the third change (keeping past programs' models). A
+   change back now builds what differs between the two programs only,
+   the same 17 blocks either way between Student 72 and Musette Paris.
+4. Pending: the hour through RackForge.
+5. NOT MET as written. The chord 50 ms after a change no longer costs a
+   block: blocks 1-59 are all under the deadline, the chord's block among
+   them (it was 11.2 ms on the first change). But the change's own block
+   goes over when the previous chord still rings, 8.1-8.2 ms: its keys are
+   built at once, as exactness asks, and a key that rings for seconds at
+   -40 dB and below still rings.
+6. MET: the checks of prediction 1, and a test plays every program after
+   every other, at once and with a key sounding through the change, bit
+   for bit against an engine built for the program alone.
+7. MET. The chord bench's first block 8.1-8.2 ms (18), the idle rebuild
+   17 blocks (53).
+
+What remains, the keys still ringing at a change, is the hardware's root
+and exactness: making it cheaper would mean a ringing reed keeping the old
+program's model until it is still, which is a change of sound, the user's
+to decide.

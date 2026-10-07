@@ -38,7 +38,7 @@ pub use bellows::{Bellows, BellowsSource, RESTING_PUSH};
 pub use decimator::Decimator;
 use pallet::{Pallet, PalletDesign};
 pub use parameters::{COUNT as PARAMETER_COUNT, Parameters, SPECS as PARAMETER_SPECS, Side};
-use reed::{ReedModel, ReedState, Tube};
+use reed::{ReedDesign, ReedModel, ReedState, Tube};
 use tongue::TongueMode;
 
 /// MIDI key numbers the engine tracks.
@@ -222,6 +222,10 @@ struct Key {
     /// Its reeds' models are out of date: built again before it next sounds,
     /// or a few at a time while nothing asks.
     stale: bool,
+    /// The step and the mode ratio each rank's model was built for, as bits:
+    /// a model is kept through a rebuild only while both are the same and
+    /// its design is the same bits (milestone 10l).
+    built_for: [Option<(u64, u64)>; parameters::RANKS],
 }
 
 impl Key {
@@ -263,9 +267,12 @@ impl FreeVoice {
     }
 }
 
-/// Stale keys built per render while nothing asks for them: enough to catch
-/// up within a few blocks, few enough not to load one.
-const BUILDS_PER_BLOCK: usize = 2;
+/// Reed models built per render while nothing asks for them: enough to catch
+/// up within a few blocks, few enough not to load one. Two keys' ten cost a
+/// Raspberry Pi 4 some 6.9 ms a block, over a 256-frame block's 5.33; one
+/// key's five, 3.1 (milestone 10l). An idle key does not sound, so when it
+/// is built changes nothing it gives.
+const BUILDS_PER_BLOCK: usize = parameters::RANKS;
 
 pub struct Engine {
     sample_rate: f32,
@@ -279,6 +286,10 @@ pub struct Engine {
     /// side's pitch classes, C-B, with their ranks [`parameters::BASS_16`]
     /// .. [`parameters::BASS_2`].
     keys: [Key; ALL_KEYS],
+    /// Where the hands last were, as indices into [`Self::keys`]: the last
+    /// treble key and the last bass pitch class pressed. Stale idle keys are
+    /// built nearest them first (milestone 10l).
+    hands: [usize; 2],
     /// The free bass's voices (milestone 8p), and how many notes they have
     /// been given.
     free: [FreeVoice; FREE_SLOTS],
@@ -348,6 +359,7 @@ impl Engine {
             chord: Pallet::default(),
             ranks: core::array::from_fn(|_| rank()),
             stale: true,
+            built_for: [None; parameters::RANKS],
         });
         let free = core::array::from_fn(|_| FreeVoice {
             note: None,
@@ -360,6 +372,9 @@ impl Engine {
             parameters,
             mode,
             keys,
+            // Before anything is played, the middle of each side: C5, and
+            // the bass's C.
+            hands: [usize::from(72 - compass::FIRST_KEY), BASS_START],
             free,
             free_given: 0,
             pallet_design: parameters.pallet_design(),
@@ -400,7 +415,7 @@ impl Engine {
         }
         for index in 0..ALL_KEYS {
             if self.keys[index].stale {
-                self.build_key(index);
+                self.build_key(index, parameters::RANKS);
             }
         }
     }
@@ -543,6 +558,9 @@ impl Engine {
         *held = depth > 0.0;
         if let Some(index) = compass_index(key) {
             self.keys[index].pallet.press(depth);
+            if depth > 0.0 {
+                self.hands[0] = index;
+            }
         }
     }
 
@@ -764,6 +782,9 @@ impl Engine {
             .skip(pitch_class)
             .step_by(compass::BASS_KEYS)
             .fold(0.0_f64, |deepest, held| deepest.max(*held));
+        if depth > 0.0 {
+            self.hands[1] = BASS_START + pitch_class;
+        }
         let key = &mut self.keys[BASS_START + pitch_class];
         if bass {
             key.pallet.press(depth);
@@ -883,17 +904,65 @@ impl Engine {
     }
 
     /// Builds one key's reeds from the parameters, tuned as the compass says.
-    fn build_key(&mut self, index: usize) {
+    ///
+    /// A model is a function of its design, the tongue's mode and the step
+    /// alone, so one whose three are the same bits is kept rather than built
+    /// again: the same model, without the section table that is most of a
+    /// build. Seven reeds in ten are the same design from one program to
+    /// another (milestone 10l).
+    ///
+    /// Builds at most `most` models, the key staying stale while any is left;
+    /// returns how many it built.
+    fn build_key(&mut self, index: usize, most: usize) -> usize {
         let h = self.step_length();
-        for (rank, slot) in self.keys[index].ranks.iter_mut().enumerate() {
-            let design = match index.checked_sub(BASS_START) {
-                Some(pitch_class) => compass::bass_design(&self.parameters, pitch_class, rank),
-                None => compass::design(&self.parameters, compass::FIRST_KEY + index as u8, rank),
-            };
-            slot.model =
+        let built_for = self.built_for();
+        let mut built = 0;
+        let mut left = false;
+        for rank in 0..parameters::RANKS {
+            let design = self.design(index, rank);
+            if self.keeps(index, rank, design.as_ref()) {
+                continue;
+            }
+            if design.is_some() {
+                if built == most {
+                    left = true;
+                    continue;
+                }
+                built += 1;
+            }
+            self.keys[index].ranks[rank].model =
                 design.map(|design| Self::prepared(ReedModel::with_mode(design, &self.mode), h));
+            self.keys[index].built_for[rank] = Some(built_for);
         }
-        self.keys[index].stale = false;
+        self.keys[index].stale = left;
+        built
+    }
+
+    /// The design of key `index`'s reed on `rank`, from the parameters.
+    fn design(&self, index: usize, rank: usize) -> Option<ReedDesign> {
+        match index.checked_sub(BASS_START) {
+            Some(pitch_class) => compass::bass_design(&self.parameters, pitch_class, rank),
+            None => compass::design(&self.parameters, compass::FIRST_KEY + index as u8, rank),
+        }
+    }
+
+    /// Whether key `index`'s model on `rank` is the one `design` builds.
+    fn keeps(&self, index: usize, rank: usize, design: Option<&ReedDesign>) -> bool {
+        self.keys[index].built_for[rank] == Some(self.built_for())
+            && match (&self.keys[index].ranks[rank].model, design) {
+                (Some(model), Some(design)) => model.design.same_bits(design),
+                (None, None) => true,
+                _ => false,
+            }
+    }
+
+    /// What a model is built for besides its design: the step and the
+    /// tongue's mode, as bits.
+    fn built_for(&self) -> (u64, u64) {
+        (
+            self.step_length().to_bits(),
+            self.mode.ratio_asked.to_bits(),
+        )
     }
 
     /// A reed's model prepared for the engine's step (milestone 10e).
@@ -907,18 +976,42 @@ impl Engine {
         1.0 / (f64::from(self.sample_rate) * self.decimator.factor() as f64)
     }
 
-    /// Brings stale keys up to date: every key in use now, and a few others.
+    /// Brings stale keys up to date: every key in use now, and a few models
+    /// of the others, nearest where the hands last were first (milestone
+    /// 10l). While anything sounds, a single model: what sounds is already
+    /// this block's load. An idle key built later or sooner gives nothing
+    /// either way.
     fn build_stale(&mut self) {
-        let mut spare = BUILDS_PER_BLOCK;
+        let mut sounding = self.free.iter().any(|voice| !voice.is_idle());
         for index in 0..ALL_KEYS {
-            if !self.keys[index].stale {
-                continue;
-            }
             if !self.keys[index].is_idle() {
-                self.build_key(index);
-            } else if spare > 0 {
-                self.build_key(index);
-                spare -= 1;
+                sounding = true;
+                if self.keys[index].stale {
+                    self.build_key(index, parameters::RANKS);
+                }
+            }
+        }
+        // Only the models built count: a key whose reeds are all kept costs
+        // its designs alone.
+        let budget = if sounding { 1 } else { BUILDS_PER_BLOCK };
+        let mut builds = 0;
+        loop {
+            let nearest = (0..ALL_KEYS)
+                .filter(|&index| self.keys[index].stale)
+                .min_by_key(|&index| {
+                    let hand = if index < BASS_START {
+                        self.hands[0]
+                    } else {
+                        self.hands[1]
+                    };
+                    // The treble's keys and the bass's pitch classes in turn,
+                    // each by its distance from its hand.
+                    (index.abs_diff(hand), index >= BASS_START)
+                });
+            let Some(index) = nearest else { break };
+            builds += self.build_key(index, budget - builds);
+            if self.keys[index].stale {
+                break;
             }
         }
     }
@@ -1638,5 +1731,86 @@ mod tests {
         let mut tail = vec![1.0f32; 4 * 48_000];
         engine.render(&mut tail);
         assert!(tail[3 * 48_000..].iter().all(|sample| *sample == 0.0));
+    }
+
+    /// A program change keeps the models whose design, mode and step are the
+    /// same bits (milestone 10l): what plays after it must be what an engine
+    /// built for the new program alone plays, every program after every
+    /// other. And with a key sounding through the change, so that idle keys
+    /// are built a model a block, some left half built.
+    #[test]
+    fn a_kept_model_plays_as_one_built_for_the_program() {
+        fn apply(engine: &mut Engine, program: &programs::Program) {
+            for (index, value) in program.parameters().values().iter().enumerate() {
+                assert!(engine.set_parameter(index, *value));
+            }
+        }
+        fn engine_with(programs: &[&programs::Program]) -> Engine {
+            let mut engine = Engine::new(48_000.0).unwrap();
+            for program in programs {
+                apply(&mut engine, program);
+                engine.prepare_reeds();
+            }
+            engine
+        }
+        fn changed_while_sounding(from: &programs::Program, to: &programs::Program) -> Engine {
+            let mut engine = engine_with(&[from]);
+            engine.note_on(64, 0.8);
+            let mut block = [0.0f32; 256];
+            engine.render(&mut block);
+            apply(&mut engine, to);
+            for _ in 0..7 {
+                engine.render(&mut block);
+            }
+            engine.note_off(64);
+            engine.render(&mut block);
+            engine.prepare_reeds();
+            engine.reset();
+            engine
+        }
+        fn played(engine: &mut Engine) -> vec::Vec<u32> {
+            for key in [60, 67, 72, 76, 84] {
+                engine.note_on(key, 0.8);
+            }
+            engine.bass_on(36, 0.8);
+            engine.chord_on(36, 0.8);
+            let mut output = vec![0.0f32; 9_600];
+            engine.render(&mut output);
+            output.iter().map(|sample| sample.to_bits()).collect()
+        }
+        std::thread::Builder::new()
+            .stack_size(16 << 20)
+            .spawn(|| {
+                let all = programs::PROGRAMS;
+                for (number, to) in all.iter().enumerate() {
+                    let from = &all[(number + 1) % all.len()];
+                    let mut changed = engine_with(&[from, to]);
+                    let mut fresh = engine_with(&[to]);
+                    let expected = played(&mut fresh);
+                    assert!(
+                        expected
+                            .iter()
+                            .any(|bits| f32::from_bits(*bits).abs() > 1.0e-4)
+                    );
+                    assert!(
+                        played(&mut changed) == expected,
+                        "{} after {}",
+                        to.id,
+                        from.id
+                    );
+                    let mut fresh = engine_with(&[to]);
+                    fresh.reset();
+                    let mut changed = changed_while_sounding(from, to);
+                    assert!(
+                        played(&mut changed) == played(&mut fresh),
+                        "{} after {}, sounding",
+                        to.id,
+                        from.id
+                    );
+                }
+            })
+            .unwrap()
+            .join()
+            .unwrap();
     }
 }

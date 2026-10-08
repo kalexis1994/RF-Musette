@@ -4307,3 +4307,10 @@ bench gave 26 late blocks after every change.
 So a program change no longer clicks unless a chord lands within some
 16 ms of it, or keys from before it still ring. Both are keys that must
 sound the new program at once, built in the block they need it.
+
+**The hour again, the chord half a second after each change** (the same
+soak, 2026-10-07, RackForge's new `--chord-after 0.5`): no overrun in the
+hour, none at any of the twelve changes; no block over the deadline in the
+engine's log, the slowest 3.46 ms of 5.33. A player's chord after a change
+of program no longer clicks; one struck with it, within some 16 ms, still
+does.

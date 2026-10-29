@@ -221,7 +221,8 @@ dependencies = [
 
 [[package]]
 name = "rackforge-control-profile"
-version = "0.1.24"
+version = "0.1.29"
+source = "git+https://github.com/kalexis1994/rackforge?rev=6fdbe643fe470ce62cb17c7ea982d5d8881b3854#6fdbe643fe470ce62cb17c7ea982d5d8881b3854"
 dependencies = [
  "serde",
  "thiserror",
@@ -229,7 +230,8 @@ dependencies = [
 
 [[package]]
 name = "rackforge-midi-api"
-version = "0.1.24"
+version = "0.1.29"
+source = "git+https://github.com/kalexis1994/rackforge?rev=6fdbe643fe470ce62cb17c7ea982d5d8881b3854#6fdbe643fe470ce62cb17c7ea982d5d8881b3854"
 dependencies = [
  "serde",
  "thiserror",
@@ -237,7 +239,8 @@ dependencies = [
 
 [[package]]
 name = "rackforge-plugin-api"
-version = "0.1.24"
+version = "0.1.29"
+source = "git+https://github.com/kalexis1994/rackforge?rev=6fdbe643fe470ce62cb17c7ea982d5d8881b3854#6fdbe643fe470ce62cb17c7ea982d5d8881b3854"
 dependencies = [
  "rackforge-control-profile",
  "rackforge-midi-api",
@@ -251,11 +254,13 @@ dependencies = [
 
 [[package]]
 name = "rackforge-plugin-sdk"
-version = "0.1.24"
+version = "0.1.29"
+source = "git+https://github.com/kalexis1994/rackforge?rev=6fdbe643fe470ce62cb17c7ea982d5d8881b3854#6fdbe643fe470ce62cb17c7ea982d5d8881b3854"
 
 [[package]]
 name = "rackforge-program-api"
-version = "0.1.24"
+version = "0.1.29"
+source = "git+https://github.com/kalexis1994/rackforge?rev=6fdbe643fe470ce62cb17c7ea982d5d8881b3854#6fdbe643fe470ce62cb17c7ea982d5d8881b3854"
 dependencies = [
  "semver",
  "serde",
@@ -266,6 +271,7 @@ dependencies = [
 [[package]]
 name = "rackforge-surface-api"
 version = "0.1.0"
+source = "git+https://github.com/kalexis1994/rackforge?rev=6fdbe643fe470ce62cb17c7ea982d5d8881b3854#6fdbe643fe470ce62cb17c7ea982d5d8881b3854"
 dependencies = [
  "serde",
  "thiserror",

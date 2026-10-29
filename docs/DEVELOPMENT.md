@@ -4,14 +4,15 @@
 
 Rust 1.98.0 is pinned, with the `wasm32-unknown-unknown` target. The engine
 has no dependencies at all; the laboratory uses `serde_json` for its reports,
-and the plugin uses the public RackForge SDK from a sibling `rackforge`
-checkout through an explicit Cargo path.
+and the plugin uses the public RackForge SDK as a git dependency pinned to
+one RackForge revision, so what it builds against does not depend on what a
+sibling checkout happens to hold.
 
 The PLAY surface (`crates/rf-musette-ui`) is Rust built for the browser with
 `wasm-bindgen`, pinned at 0.2.127; building it needs the matching CLI:
 
 ```text
-cargo install --locked wasm-bindgen-cli --version 0.2.127
+cargo install --locked wasm-bindgen-cli --version $(bash tools/pins.sh wasm-bindgen)
 ```
 
 `.cargo/config.toml` is tracked, not ignored: it builds the component with
@@ -26,20 +27,39 @@ cargo build --locked --release --workspace
 cargo build --locked --release --target wasm32-unknown-unknown -p rf-musette-plugin
 ```
 
-## The SDK pin, and the lock-file trap
+## The SDK pin
 
-`Cargo.lock` records the version of the sibling SDK it was resolved against:
-RackForge **0.1.24**. CI checks out `kalexis1994/rackforge` at
-`e68611b4bed5dcc351522153894a76a08c89b1d2` (the hybrid-plugin work on
-`feat/hybrid-plugins`, still 0.1.24), so the two agree: its SDK exports the
-native table beside the component, and its core and store compare and pack
-the two. The pin is written in all three workflows; move them together.
+The four RackForge crates the plugin uses are git dependencies in
+`Cargo.toml`, all at one revision, which `Cargo.lock` records.
+`tools/pins.sh` prints it, and the wasm-bindgen version the surface links:
 
-When the sibling checkout moves to another RackForge version, a `--locked`
-build fails here because the lock names the old one. Do not drop `--locked`
-to get past it: that rewrites the lock silently, and CI breaks. Update both
-together — regenerate the lock (`cargo update -w --offline`) against the new
-host and move the CI `ref` to the commit of that release — in one commit.
+```text
+bash tools/pins.sh rackforge
+bash tools/pins.sh wasm-bindgen
+```
+
+The workflows read both from there, so there is one place a pin lives. The
+host's own tools -- `inspect`, `smoke`, `compare-native` and the packer --
+are built from a RackForge checkout at that same revision. Locally that is
+the sibling `../rackforge`; the lab warns when it is somewhere else, because
+a package checked by other tools than CI's is not the package CI checks, and
+leaves the choice to you, since running against newer host work is
+sometimes the point:
+
+```text
+git -C ../rackforge checkout $(bash tools/pins.sh rackforge)
+```
+
+To move to another RackForge, change the `rev` of all four crates in
+`Cargo.toml` together, let Cargo re-resolve them (`cargo update -p
+rackforge-plugin-sdk -p rackforge-program-api -p rackforge-plugin-api -p
+rackforge-midi-api`), and commit `Cargo.toml` and `Cargo.lock` as one change.
+
+The revision must be one a branch or tag still reaches. The previous pin,
+`e68611b`, was the tip of `feat/hybrid-plugins`; that branch went into
+`main` squashed, as `6fdbe64` (#128), and was deleted, which left the commit
+reachable from nothing -- GitHub kept serving it, and could stop. `6fdbe64`
+carries the same SDK crates byte for byte and is on `main`.
 
 ## Native builds
 

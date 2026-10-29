@@ -5,7 +5,8 @@ cargo run --locked --release -p rf-musette-lab -- audition
 ```
 
 One command builds the WASM, builds RackForge's packaging tools in the sibling
-checkout, validates and packs the archive, installs it, selects RF-Musette in a
+checkout (at the revision `tools/pins.sh rackforge` prints, or with a warning
+when it is elsewhere), validates and packs the archive, installs it, selects RF-Musette in a
 session, and launches Desktop on a library that belongs to this project alone.
 
 ## What it owns, and what it leaves alone

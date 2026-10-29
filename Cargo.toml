@@ -22,13 +22,13 @@ rf-musette-ui = { path = "crates/rf-musette-ui" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # Development checkout, deliberately explicit. See docs/DEVELOPMENT.md.
-rackforge-plugin-sdk = { path = "../rackforge/crates/rackforge-plugin-sdk" }
+rackforge-plugin-sdk = { git = "https://github.com/kalexis1994/rackforge", rev = "6fdbe643fe470ce62cb17c7ea982d5d8881b3854" }
 # The program documents and their envelopes, RackForge's own.
-rackforge-program-api = { path = "../rackforge/crates/rackforge-program-api" }
+rackforge-program-api = { git = "https://github.com/kalexis1994/rackforge", rev = "6fdbe643fe470ce62cb17c7ea982d5d8881b3854" }
 # RackForge's own schema validator and controller roles, for the contract tests.
-rackforge-plugin-api = { path = "../rackforge/crates/rackforge-plugin-api" }
+rackforge-plugin-api = { git = "https://github.com/kalexis1994/rackforge", rev = "6fdbe643fe470ce62cb17c7ea982d5d8881b3854" }
 # RackForge's control layouts and link modes, for the layout's contract test.
-rackforge-midi-api = { path = "../rackforge/crates/rackforge-midi-api" }
+rackforge-midi-api = { git = "https://github.com/kalexis1994/rackforge", rev = "6fdbe643fe470ce62cb17c7ea982d5d8881b3854" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

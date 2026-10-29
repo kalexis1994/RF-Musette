@@ -25,12 +25,18 @@ jobs:
         with:
           path: RF-Musette
           persist-credentials: false
-      - name: Check out the compatible SDK
+      - name: Read the pins from the lockfile
+        id: pins
+        working-directory: RF-Musette
+        run: |
+          echo "rackforge=$(bash tools/pins.sh rackforge)" >> "$GITHUB_OUTPUT"
+          echo "wasm_bindgen=$(bash tools/pins.sh wasm-bindgen)" >> "$GITHUB_OUTPUT"
+      - name: Check out the RackForge host tools
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kalexis1994/rackforge
           # The same RackForge as package.yml. See docs/DEVELOPMENT.md.
-          ref: e68611b4bed5dcc351522153894a76a08c89b1d2
+          ref: ${{ steps.pins.outputs.rackforge }}
           path: rackforge
           persist-credentials: false
       - name: Install the pinned Rust toolchain

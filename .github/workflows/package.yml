@@ -23,9 +23,6 @@ permissions:
 env:
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
-  # The RackForge whose SDK the plugin builds against and whose tools check
-  # and pack it. See docs/DEVELOPMENT.md.
-  RACKFORGE_REF: e68611b4bed5dcc351522153894a76a08c89b1d2
 
 jobs:
   component:
@@ -34,6 +31,10 @@ jobs:
     timeout-minutes: 60
     outputs:
       version: ${{ steps.package.outputs.version }}
+      # The RackForge whose SDK the plugin builds against and whose tools
+      # check and pack it, read from Cargo.lock for the jobs after this one.
+      rackforge: ${{ steps.pins.outputs.rackforge }}
+      wasm_bindgen: ${{ steps.pins.outputs.wasm_bindgen }}
     defaults:
       run:
         working-directory: RF-Musette
@@ -43,11 +44,17 @@ jobs:
         with:
           path: RF-Musette
           persist-credentials: false
-      - name: Check out the compatible SDK and its tools
+      - name: Read the pins from the lockfile
+        id: pins
+        working-directory: RF-Musette
+        run: |
+          echo "rackforge=$(bash tools/pins.sh rackforge)" >> "$GITHUB_OUTPUT"
+          echo "wasm_bindgen=$(bash tools/pins.sh wasm-bindgen)" >> "$GITHUB_OUTPUT"
+      - name: Check out the RackForge host tools
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kalexis1994/rackforge
-          ref: ${{ env.RACKFORGE_REF }}
+          ref: ${{ steps.pins.outputs.rackforge }}
           path: rackforge
           persist-credentials: false
       - name: Install the pinned Rust toolchain
@@ -58,7 +65,7 @@ jobs:
         working-directory: rackforge
         run: cargo build --locked --release -p rackforge-store -p rackforge-core
       - name: Install the wasm-bindgen CLI the PLAY surface pins
-        run: cargo install --locked wasm-bindgen-cli --version 0.2.127
+        run: cargo install --locked wasm-bindgen-cli --version "${{ steps.pins.outputs.wasm_bindgen }}"
       - name: Build, inspect, smoke-test and pack the component
         id: package
         shell: bash
@@ -131,11 +138,11 @@ jobs:
         with:
           path: RF-Musette
           persist-credentials: false
-      - name: Check out the compatible SDK and its tools
+      - name: Check out the RackForge host tools
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kalexis1994/rackforge
-          ref: ${{ env.RACKFORGE_REF }}
+          ref: ${{ needs.component.outputs.rackforge }}
           path: rackforge
           persist-credentials: false
       - name: Install the pinned Rust toolchain and the target
@@ -188,11 +195,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Check out the compatible tools
+      - name: Check out the RackForge host tools
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kalexis1994/rackforge
-          ref: ${{ env.RACKFORGE_REF }}
+          ref: ${{ needs.component.outputs.rackforge }}
           path: rackforge
           persist-credentials: false
       - name: Install the system libraries RackForge's tools link against

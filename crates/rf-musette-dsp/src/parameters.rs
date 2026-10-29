@@ -977,7 +977,7 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         "cents",
         (0.0, 5.0, 1.5, 0.01),
         Taper::Linear,
-        "Voiced by ear, not physics (the player, 2026-10-29, milestone 10m): how far each reed's pitch drifts either side of its tuning, slowly and never the same way twice, about one swing every two seconds. With steady air a reed is a clock, and a tremolo of clocks beats in the same pattern every few seconds, heard as a loop; the model's own causes -- its pitch under pressure, -0.25 cents for 10 % more at A4, and its jet's turbulence -- move a beat too little to hear (measured). 0 keeps the reeds as clocks.",
+        "Voiced by ear, not physics (the player, 2026-10-29, milestone 10m): how far the tremolo's reeds, M− and M+, drift in pitch either side of their tuning, slowly and never the same way twice, about one swing every two seconds. With steady air a reed is a clock, and a tremolo of clocks beats in the same pattern every few seconds, heard as a loop; the model's own causes -- its pitch under pressure, -0.25 cents for 10 % more at A4, and its jet's turbulence -- move a beat too little to hear (measured). The other reeds stay clocks: their partials, which coincide across a chord, pull into step through the bellows. 0 keeps every reed a clock.",
     ),
 ];
 

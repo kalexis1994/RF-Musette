@@ -163,76 +163,55 @@ struct Rank {
     states: [ReedState; 2],
     /// Each reed's cell, a tube (milestone 8l).
     tubes: [Tube; 2],
-    /// The rank's slow drift either side of its tuning ([`Drift`]), its
-    /// two reeds' alike: the model makes them twins, and one sounds at a
-    /// time.
-    drift: Drift,
 }
 
 /// How many swings a second a reed's drift makes, on average: voiced with
 /// [`parameters::REED_DRIFT`] (the player, 2026-10-29, milestone 10m).
 const DRIFT_SWINGS: f64 = 0.5;
 
-/// A reed's pitch drifting either side of its tuning, slowly and never the
-/// same way twice: from one place to the next on the other side, 0.4 to 1
-/// of the way out, eased as `progress` goes 0 to 1 by `pace` a step, over
-/// 0.6 to 1.4 of the average time; the places and paces drawn from `seed`,
-/// 0 until the reed is first blown.
+/// A tremolo reed's pitch drifting either side of its tuning, slowly and
+/// never the same way twice, as the tongue's stiffness this step: `cents`
+/// the drift's reach, `seed` the rank's own, `time` the engine's, s.
+///
+/// Each rank swings at its own pace, 0.6 to 1.4 of the average time a
+/// swing, from its own moment; each swing goes to the other side, 0.4 to 1
+/// of the way out, drawn from the seed and the swing's number, and is
+/// eased there (smoothstep). A function of time alone, so a rank keeps no
+/// state for it: the engine must fit its stack (milestone 10m). The
+/// plate's two reeds share it, as the model makes them twins.
 ///
 /// Not physics, stated as such (docs/MODEL.md): a reed with steady air is a
 /// clock, and a tremolo of clocks beats in the same pattern every few
 /// seconds, heard as a loop. What moves a real reed's pitch as played was
 /// not found measured; the model's own -- its pitch under pressure, its
 /// jet's turbulence -- move a beat too little to hear (milestone 10m).
-#[derive(Debug, Clone, Copy, Default)]
-struct Drift {
-    from: f64,
-    to: f64,
-    progress: f64,
-    pace: f64,
-    seed: u32,
+fn drift_stiffness(cents: f64, seed: u32, time: f64) -> f64 {
+    let swing = (0.6 + 0.8 * unit(seed, u64::MAX)) / DRIFT_SWINGS;
+    let at = time / swing + unit(seed, u64::MAX - 1);
+    let number = at as u64;
+    let t = at - number as f64;
+    let place = |number: u64| {
+        let side = if number.is_multiple_of(2) { 1.0 } else { -1.0 };
+        side * (0.4 + 0.6 * unit(seed, number))
+    };
+    let (from, to) = (place(number), place(number + 1));
+    // Eased in and out, so the pitch glides and never jumps: smoothstep,
+    // its slope zero at either place.
+    let place = from + (to - from) * t * t * (3.0 - 2.0 * t);
+    // The frequency's ratio squared, 2^(2c/1200), to first order: the
+    // reach is a few cents.
+    1.0 + 2.0 * core::f64::consts::LN_2 / 1200.0 * cents * place
 }
 
-impl Drift {
-    /// The tongue's stiffness this step, as a factor: `cents` the drift's
-    /// reach, `seed` the reed's own, `h` the step.
-    fn stiffness(&mut self, cents: f64, seed: u32, h: f64) -> f64 {
-        if self.seed == 0 {
-            self.seed = seed.max(1);
-            self.to = 2.0 * self.draw() - 1.0;
-            self.swing(h);
-        }
-        self.progress += self.pace;
-        if self.progress >= 1.0 {
-            self.swing(h);
-        }
-        // Eased in and out, so the pitch glides and never jumps:
-        // smoothstep, its slope zero at either place.
-        let t = self.progress;
-        let place = self.from + (self.to - self.from) * t * t * (3.0 - 2.0 * t);
-        // The frequency's ratio squared, 2^(2c/1200), to first order: the
-        // reach is a few cents.
-        1.0 + 2.0 * core::f64::consts::LN_2 / 1200.0 * cents * place
-    }
-
-    fn swing(&mut self, h: f64) {
-        self.from = self.to;
-        let side = if self.from > 0.0 { -1.0 } else { 1.0 };
-        self.to = side * (0.4 + 0.6 * self.draw());
-        self.pace = DRIFT_SWINGS * h / (0.6 + 0.8 * self.draw());
-        self.progress = 0.0;
-    }
-
-    /// A number in 0..1 from a xorshift: integers, so every build draws the
-    /// same, and the native builds stay the component's bit for bit.
-    fn draw(&mut self) -> f64 {
-        let mut x = self.seed;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        self.seed = x;
-        f64::from(x) / f64::from(u32::MAX)
-    }
+/// A number in 0..1 drawn from `seed` and `index`: SplitMix64's finalizer,
+/// integers, so every build draws the same and the native builds stay the
+/// component's bit for bit.
+fn unit(seed: u32, index: u64) -> f64 {
+    let mut x = (u64::from(seed) << 32 ^ index).wrapping_add(0x9E37_79B9_7F4A_7C15);
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^= x >> 31;
+    (x >> 11) as f64 / (1u64 << 53) as f64
 }
 
 impl Rank {
@@ -381,6 +360,9 @@ pub struct Engine {
     turn: f64,
     /// Auto Reverse has turned the bellows from the player's direction.
     flipped: bool,
+    /// The engine's own time, s, stepped with the reeds: what each rank's
+    /// drift is a function of.
+    time: f64,
     /// The air drawn in this direction since the bellows last turned, m³.
     spent: f64,
     decimator: Decimator,
@@ -419,7 +401,6 @@ impl Engine {
             model: None,
             states: [ReedState::default(); 2],
             tubes: [Tube::default(); 2],
-            drift: Drift::default(),
         };
         let keys = core::array::from_fn(|_| Key {
             pallet: Pallet::default(),
@@ -452,6 +433,7 @@ impl Engine {
             supply: 0.0,
             turn: parameters.direction(),
             flipped: false,
+            time: 0.0,
             spent: 0.0,
             decimator: Decimator::new(parameters.oversampling()),
             dirty: false,
@@ -961,6 +943,9 @@ impl Engine {
         self.ask = 0.0;
         self.wind = wind::Wind::default();
         self.draw = 0.0;
+        // The drift's time starts again, as in an engine just built: nothing
+        // sounds to hear it start, and a reset engine plays as a fresh one.
+        self.time = 0.0;
         for cassotto in self.cassotto.iter_mut() {
             cassotto.reset();
         }
@@ -1156,6 +1141,7 @@ impl Engine {
         inside: &mut [f64; stage::SOURCES],
         drawn: &mut f64,
         drift_cents: f64,
+        time: f64,
     ) {
         for blown in &queue.reeds[..queue.count] {
             let (at, rank) = (usize::from(blown.at), usize::from(blown.rank));
@@ -1164,7 +1150,6 @@ impl Engine {
                 model,
                 states,
                 tubes,
-                drift,
                 ..
             } = if blown.free {
                 &mut free[at].ranks[rank]
@@ -1182,8 +1167,15 @@ impl Engine {
             let seed = (at as u32 + 1).wrapping_mul(0x9E37_79B1)
                 ^ (rank as u32 + 1).wrapping_mul(0x85EB_CA77)
                 ^ u32::from(blown.free).wrapping_mul(0xC2B2_AE3D);
-            let stiffness = if drift_cents > 0.0 {
-                drift.stiffness(drift_cents, seed, h)
+            // Only the tremolo's reeds drift: the loop is their beat, and the
+            // others' partials, which coincide across a chord, pull into
+            // step through the bellows -- a drift would part them, and a
+            // held chord came out 1.0-1.5 dB quieter (milestone 10m).
+            let tremolo = !blown.free
+                && at < BASS_START
+                && matches!(rank, parameters::RANK_FLAT | parameters::RANK_SHARP);
+            let stiffness = if tremolo && drift_cents > 0.0 {
+                drift_stiffness(drift_cents, seed, time)
             } else {
                 1.0
             };
@@ -1631,7 +1623,9 @@ impl Engine {
                     &mut inside_flow,
                     &mut drawn,
                     drift_cents,
+                    self.time,
                 );
+                self.time += h;
                 self.draw = drawn;
                 if travel.is_some() {
                     self.spent += drawn.abs() * h;

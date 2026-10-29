@@ -7,12 +7,12 @@
 
 use rf_musette_analysis::scenes::{compare, fingerprint, level_difference, nudged, render, scenes};
 
-/// All taken again 2026-10-29 for Reed Drift (10m), each rank's pitch
-/// drifting 1.5 cents either side by default: every scene moved, as every
-/// scene holds reeds. Measured against the reference before it: each
-/// scene's level within 0.65 dB, a held Musette A4's within 0.001; its
-/// peaks within 2.4 dB, the reeds lining up at other moments; with Reed
-/// Drift at 0, the samples are the reference's, bit for bit.
+/// 16 taken again 2026-10-29 for Reed Drift (10m), the tremolo's reeds'
+/// pitch drifting 1.5 cents either side by default: the scenes whose
+/// registers open M− or M+; the twelve that open neither unmoved, as
+/// predicted. Measured against the reference before it: each moved scene's
+/// level within 0.24 dB, its peaks within 1.1 dB; with Reed Drift at 0,
+/// the samples are the reference's, bit for bit.
 /// 20 taken again 2026-10-03 for Key Touch in the left hand (9j): the
 /// scenes that strike bass or chord buttons under velocity 127 with Key
 /// Touch on; those with it off -- Digital Accordion, the master chords, the
@@ -51,34 +51,34 @@ use rf_musette_analysis::scenes::{compare, fingerprint, level_difference, nudged
 /// the pad's seating), 9f, the wheel as the bellows withdrawn and velocity no
 /// longer moving it; 2026-10-01, after 10c and 8k; first taken at dd7e761.
 const FINGERPRINTS: &[(&str, u64)] = &[
-    ("program research", 0x55ddbb4513b73ed5),
-    ("program musette-paris", 0x4c365f054bee189a),
-    ("program scottish", 0x4dd3c50c7e9c9461),
-    ("program italian", 0xd2f4a85624794333),
-    ("program alpine", 0x3fbc728acf7a0de7),
-    ("program oberkrainer", 0x6a5b8ea05a940321),
-    ("program cleveland", 0xeca4c2f7e18f8fad),
-    ("program american", 0xc24ff18cd525a509),
-    ("program irish", 0x6efe697a94d71022),
-    ("program jazz", 0x7c84df7bd7396cb8),
-    ("program tango", 0x85160e0fb1814555),
-    ("program concert", 0x9f31e74a193687d8),
-    ("program keyboard-61", 0xa41ab3a3d1da4cd9),
-    ("program auto-bellows", 0x06744ef8af55099e),
-    ("program digital-accordion", 0x4c6e34085ed03942),
-    ("program student-48", 0x27edaf2bbe2b776e),
-    ("program student-72", 0x7fb2dacacab58f1b),
-    ("program italian-80", 0x0820632e69d4e2d9),
-    ("program full-120", 0x3a42b7c45cced5bb),
-    ("program cassotto-pro", 0x6db717b0c3c9311c),
-    ("master chord, mono", 0x7a037ddbce9b50c5),
-    ("master chord, mono, 1x", 0xfcc446922f58f27d),
-    ("master chord, mono, 4x", 0xf1051db6fd91ba11),
-    ("phrase at 44.1 kHz, ORTF", 0x02ec17f87f161483),
-    ("phrase at 96 kHz, dry", 0x59710988297a42d5),
-    ("reversal and air button", 0xf5d7a7a9dfbe4cfa),
-    ("wheel as pressure", 0x4b87b1879dbd50cc),
-    ("silence, a note, the hall's tail", 0x5edc65f1797b8e37),
+    ("program research", 0x3d3f0cb81bacf75b),
+    ("program musette-paris", 0xbac819abd7e0fc81),
+    ("program scottish", 0x056a0f84b53a99aa),
+    ("program italian", 0x7d70a6fa9d6738ca),
+    ("program alpine", 0x38f456c611cc916e),
+    ("program oberkrainer", 0xe93a1f7cd7f04111),
+    ("program cleveland", 0x2fcc281e2e9b6ca7),
+    ("program american", 0x7feb00a1c3ae2df6),
+    ("program irish", 0x1009703785eb1fba),
+    ("program jazz", 0xabd7966f3380c71f),
+    ("program tango", 0x7978009fcfda4b56),
+    ("program concert", 0x29dfa4bdbb5ff595),
+    ("program keyboard-61", 0x3e9a9aac80f58954),
+    ("program auto-bellows", 0xbc05f76be52b7ba0),
+    ("program digital-accordion", 0x7e6d135a6da2357c),
+    ("program student-48", 0x00ac2bcadaa8b9ca),
+    ("program student-72", 0xe409c70b600c11f7),
+    ("program italian-80", 0x80650ec8a3c6944e),
+    ("program full-120", 0xf85c21447524c799),
+    ("program cassotto-pro", 0xd9a373592bad7637),
+    ("master chord, mono", 0x4bf5cd0de09e8b15),
+    ("master chord, mono, 1x", 0xb27f525fbfa96171),
+    ("master chord, mono, 4x", 0xcd41b2b1ca339f11),
+    ("phrase at 44.1 kHz, ORTF", 0x9e71a3a38a3b57d2),
+    ("phrase at 96 kHz, dry", 0xe8622cf60c1ed551),
+    ("reversal and air button", 0x193866d5dfb654b1),
+    ("wheel as pressure", 0xc572490145d464e8),
+    ("silence, a note, the hall's tail", 0xfca163375c3fc1b9),
 ];
 
 #[test]

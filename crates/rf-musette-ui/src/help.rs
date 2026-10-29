@@ -56,7 +56,7 @@ pub const HELP: &[(&str, &str)] = &[
     ),
     (
         "reed_drift",
-        "How far each reed's pitch wanders, slowly, either side of its tuning, so the tremolo's beat breathes instead of repeating like a loop. 0 holds every reed perfectly still.",
+        "How far the tremolo reeds' pitch wanders, slowly, either side of their tuning, so the tremolo's beat breathes instead of repeating like a loop. 0 holds them perfectly still.",
     ),
     (
         "cassotto",

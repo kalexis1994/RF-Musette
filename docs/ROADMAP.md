@@ -4350,33 +4350,58 @@ keyboard, where the loop is shorter. Not in Clarinet, M alone.
   register (L M− M H) the beat is 3.9 dB deep at A4 and 5.6 at A5, L and H
   filling it; M− and M+ 4 dB down left 3.7 and 4.6. Not the cause either.
 
-**Change (not exact; voiced, not physics):** each rank's pitch drifts
-either side of its tuning, a swing about every two seconds, each a random
-0.4-1 of Reed Drift's reach out and 0.6-1.4 of the average time long,
-eased (smoothstep), from a xorshift seeded by the key, the rank and the
-side; the plate's two reeds share it, as the model makes them twins.
-Reed Drift, on PLAY's Voice group, 0-5 cents. Heard (2026-10-29) at 0.6
-and 1.5 cents: 1.5 a little better, the tremolo itself still there -- it
-is the register's, 3.7 Hz at A4 in Accordion at the default Tremolo.
+**Change (not exact; voiced, not physics):** the tremolo's reeds' pitch
+drifts either side of its tuning. Heard first (2026-10-29) with every reed
+drifting, at 0.6 and 1.5 cents: 1.5 a little better, the tremolo itself
+still there -- it is the register's, 3.7 Hz at A4 in Accordion at the
+default Tremolo. Reed Drift, on PLAY's Voice group, 0-5 cents, 1.5.
 
-**Predictions** (written before the final seeds were measured):
+**Predictions** (written before the first build):
 1. Reed Drift at 0 is the reeds as clocks: Musette Paris's A5 envelope
    more than 0.99 alike three patterns later.
 2. At 1.5 cents, under 0.3 at A4 and at A5.
 3. A held Musette A4's level within 0.1 dB of the clocks'.
-4. A held Clarinet A4's mean pitch within 0.3 cents of the clocks'.
-5. Every other test passes; the fingerprints all move, each scene's level
+4. A held note's tuning unmoved, within 0.3 cents.
+5. Every other test passes; the fingerprints that move, each scene's level
    within 1 dB of the reference.
 
-**Results** (`tests/milestone_10m.rs`):
+**The first build** (0.13.23 as first pushed, 4737735) drifted every
+reed, each rank keeping its swing: from where it was to the other side, a
+random time long. CI's Linux run overflowed its 8 MiB test stack in
+milestone 3, which holds two engines and needed 7.5-7.8 MiB already (10l):
+40 bytes a rank, 297 ranks, 11.6 KiB an engine, copied some six times in a
+debug build. The drift became a function of the engine's time and the
+rank's seed, nothing kept per rank: each rank its own pace, 0.6-1.4 of two
+seconds a swing, and its own moment; each swing to the other side, 0.4-1
+of the reach out, drawn from the seed and the swing's number (SplitMix64),
+eased (smoothstep). The engine back to 1345 KiB, 8 bytes over 0.13.22.
+A reset starts the drift's time again, so a reset engine plays as a fresh
+one, as 10l's test of a program changed while a key sounded asks.
+
+Measured then, every reed drifting: each scene's level -1.2 to +0.3 dB
+against the reference, and a held C major chord with the bass's C and its
+chord 1.0-1.5 dB quieter over its first 13 s in Clarinet, Tango and
+Italian Folk -- prediction 5 not met. As clocks, partials that coincide
+across a chord's keys pull into step through the bellows: the clocks'
+held chord is the same level, within 0.07 dB, whenever its C5 goes down
+(470-547 ms), and C4 with C5 alone likewise (0.04 dB). The drift parted
+them. The loop is the tremolo's beat alone, and the tremolo's reeds sit
+hertz from every other partial and never pull, so only M− and M+ drift;
+the bass side has no tremolo.
+
+**Prediction 6** (written then): Clarinet, M alone, renders the same bits
+with the drift as without; a held chord in Master keeps its level within
+0.1 dB.
+
+**Results** (`tests/milestone_10m.rs`, the tremolo's reeds drifting):
 1. MET: 0.996.
-2. MET: -0.13 at A4, -0.34 at A5.
-3. MET: -0.001 dB.
-4. MET: +0.13 cents.
-5. MET, with one test changed: every scene's level within 0.65 dB, its
-   peaks within 2.4 dB. 9c's preamp test (Key Touch on, -6 dBFS within
-   0.5) peaked at -9.2 dBFS over its four seconds: the bass's octaves no
-   longer keep their phases, and the moment every reed lines up comes
-   later or not at all (-7.7 over 30 s), while a held note's RMS is the
-   same. The preamp was set on clocks and stays; the test measures them,
-   Reed Drift at 0. The engine fits its stack (1356 KiB of 1365).
+2. MET: -0.24 at A4, -0.07 at A5.
+3. MET: -0.010 dB.
+4. MET: a held Celeste A4's M+ line, its centroid, +0.011 cents. (Its
+   mean pitch counted by zero crossings read +2.1 cents: the beat's nulls
+   slip the phase, so a beating pair's crossings measure nothing.)
+5. MET: every other test passes, 9c's preamp as it was (Key Touch on,
+   -6.1 dBFS; off, -5.1). Sixteen fingerprints moved, those of scenes
+   whose registers open M− or M+, each level within 0.24 dB, its peaks
+   within 1.1 dB; the other twelve unmoved.
+6. MET: Clarinet the same bits; the Master chord +0.001 dB.

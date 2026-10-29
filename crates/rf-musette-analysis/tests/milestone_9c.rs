@@ -52,12 +52,6 @@ fn the_loudest_meets_the_ceiling() {
 /// The player's playing -- Musette Paris, Pallet Opening 35 ms, a held A4
 /// over F2 and its chord -- its peak, dBFS: the wheel at 79 % (CC 1 = 100)
 /// with Key Touch off, the bellows resting with it on.
-///
-/// With the reeds as clocks, Reed Drift at 0, as the preamp was set. A
-/// drifting reed changes no level (a held Musette A4's RMS the same to
-/// 0.01 dB, milestone 10m), but the bass's octaves no longer keep their
-/// phases, so the peak of four seconds is a matter of when the reeds next
-/// line up: 1.8-3.2 dB under the clocks' with Key Touch on, 0.4-0.6 off.
 fn players_playing(key_touch: bool) -> f64 {
     use rf_musette_dsp::{CHORD_CHANNEL, programs};
     let mut engine = Engine::new(RATE).unwrap();
@@ -67,7 +61,6 @@ fn players_playing(key_touch: bool) -> f64 {
     }
     assert!(engine.set_parameter(parameters::KEY_TOUCH, f64::from(u8::from(key_touch))));
     assert!(engine.set_parameter(parameters::PALLET_OPENING, 35.0));
-    assert!(engine.set_parameter(parameters::REED_DRIFT, 0.0));
     engine.wheel_msb(100);
     engine.note_on(69, 1.0);
     engine.channel_note_on(BASS_CHANNEL, 41, 1.0);

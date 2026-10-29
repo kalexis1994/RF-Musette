@@ -138,19 +138,23 @@ there depends on the pallet's geometry, unmeasured (ROADMAP 5).
 Each rank is set by its mode, not by where it sounds: L comes out 9.6
 cents flat of M's octave (ROADMAP 4).
 
-Not physics, stated as such: each rank's pitch drifts either side of its
-tuning, by Reed Drift (1.5 cents by default), about one swing every two
-seconds, each swing a random way out and a random time long, its two
-reeds alike (milestone 10m). With steady air a reed is a clock: Musette
-Paris's three reeds beat in a pattern that came back the same every
-2.7-4.3 s, the waveform 0.975-0.999 alike a pattern later, heard as a loop
-(the player, 2026-10-29). What moves a real reed's pitch as played was
-not found measured, and the model's own causes are too small to hear: its
-pitch under pressure, -0.25 cents for 10 % more at A4, which reeds of
-different set or clearance share to ±0.05; and its jet's turbulence,
-which as a noise on the pressure comes out as hiss long before it moves a
-reed's phase. The drift leaves the level (0.001 dB) and the mean tuning
-(0.13 cents) as they were; 0 keeps the reeds as clocks, bit for bit.
+Not physics, stated as such: the tremolo's reeds, M− and M+, drift in
+pitch either side of their tuning, by Reed Drift (1.5 cents by default),
+each rank at its own pace about one swing every two seconds, each swing a
+random way out, its two reeds alike (milestone 10m). With steady air a
+reed is a clock: Musette Paris's three reeds beat in a pattern that came
+back the same every 2.7-4.3 s, the waveform 0.975-0.999 alike a pattern
+later, heard as a loop (the player, 2026-10-29). What moves a real reed's
+pitch as played was not found measured, and the model's own causes are
+too small to hear: its pitch under pressure, -0.25 cents for 10 % more at
+A4, which reeds of different set or clearance share to ±0.05; and its
+jet's turbulence, which as a noise on the pressure comes out as hiss long
+before it moves a reed's phase. The other reeds stay clocks: partials that
+coincide across a chord's keys pull into step through the bellows (a held
+chord's level is the same whenever its keys go down), and drifting them
+too parted them, the chord 1.0-1.5 dB quieter. The drift leaves a held
+note's level (0.01 dB) and the tremolo's tuning (M+'s line 0.01 cents) as
+they were; 0 keeps every reed a clock, bit for bit.
 
 ### One bellows for every reed (assumed constants, voiced by ear)
 
@@ -473,7 +477,7 @@ real time. Not yet measured as wasm fuel, nor on the Raspberry Pi.
 | Pallet closing | 10 ms | Assumed | Not published |
 | Tone hole shape | 4 : 1 rectangle | Assumed | Not published; sets the pallet's rim |
 | Tremolo | 4.1 Hz at A4 (M+), lines' shape | Measured (one instrument), a style to voice by taste | A Borsini Super Star LMMMH (Hergert 2024, Fig. 6) |
-| Reed drift | ±1.5 cents, a swing every ~2 s | Voiced by ear, not physics | The player, 2026-10-29 (ROADMAP 10m) |
+| Reed drift | M− and M+, ±1.5 cents, a swing every ~2 s | Voiced by ear, not physics | The player, 2026-10-29 (ROADMAP 10m) |
 | Registers | Roland FR-3x's 14 | Measured as a maker draws them | FR-3x Owner's Manual p. 27 |
 | L, H geometry | F4 × slot ratios 1.27 / 0.74 (length), 1.25 / 0.79 (width) | Assumed | A bayan maker's slots, RU2233009 Table 3 |
 | Compass | F3-A6, 41 keys | Decided | A full-size piano accordion |

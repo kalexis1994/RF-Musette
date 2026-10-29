@@ -3,17 +3,21 @@
 A physically modelled accordion for [RackForge](https://github.com/kalexis1994/rackforge):
 free reeds driven by a bellows, computed rather than recorded.
 
-> **Status: both hands, and a face to play them (0.10.0).** The treble's 41 keys, F3-A6, each with
-> five ranks -- L, M−, M, M+, H -- and the Stradella bass's twelve pitch
-> classes on five ranks, 16′ to 2′, all tuned to A440 where they sound; a reed
-> for each way the bellows moves, one bellows the arm pushes, and a cassotto.
-> Every reed is scaled from the accordion F4 the IfM Zwota measured, the low
-> ones loaded at the tip so they speak across the bellows' range. RackForge
-> shows its own PLAY surface: the registers as an accordion's switches, the
-> bellows, the voice and the model's pages; a controller's attack, release
-> and LFO-rate knobs reach it by meaning. Branding and factory programs are
-> still to come. What it does and does not yet do against measurements:
-> [docs/MODEL.md](docs/MODEL.md).
+> **Status: a whole instrument, native on every platform.** The treble's 41
+> keys, F3-A6, each with five ranks -- L, M−, M, M+, H -- and a left hand
+> that is Stradella, the bass's twelve pitch classes on five ranks, 16′ to
+> 2′, or free bass, every key its own note; all tuned to A440 where they
+> sound, a reed for each way the bellows moves, one bellows the arm pushes or
+> the wheel stands in for, and a cassotto. Every reed is scaled from the
+> accordion F4 the IfM Zwota measured, the low ones loaded at the tip so they
+> speak across the bellows' range, and Key Touch lets a key in either hand go
+> part-way down. It is heard through microphones in a room, as it is
+> recorded. Twenty factory programs come with it, and a player keeps up to
+> sixty-four of their own and carries them off the machine through CONFIG.
+> One package holds the component and a native build for every platform,
+> each held to the component's output bit for bit. What it does and does not
+> yet do against measurements: [docs/MODEL.md](docs/MODEL.md); the version
+> is the release's, not this paragraph's.
 
 ## What it is meant to be
 

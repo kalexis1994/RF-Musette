@@ -131,8 +131,9 @@ pub const SINGLE_PATTERN: usize = 72;
 pub const PAD_SEATING: usize = 73;
 pub const KEY_TOUCH: usize = 74;
 pub const BASS_SYSTEM: usize = 75;
+pub const REED_DRIFT: usize = 76;
 
-pub const COUNT: usize = 76;
+pub const COUNT: usize = 77;
 
 /// [`BASS_SYSTEM`]'s values.
 pub const STRADELLA: f64 = 0.0;
@@ -968,6 +969,15 @@ pub const SPECS: [ParameterSpec; COUNT] = [
         &[(0, "Stradella"), (1, "Free Bass")],
         0,
         "Decided by the player (2026-10-02, milestone 8p): Stradella, the standard bass -- bass buttons and chords; or Free Bass, as a converter accordion's left hand, single notes at their own pitch from E1 to C#6 (the bayan's 58), two voices an octave apart (8' and 4', assumed from makers' \"octave tuned\" free bass).",
+    ),
+    spec(
+        "reed_drift",
+        "Reed Drift",
+        PAGE_PLAY,
+        "cents",
+        (0.0, 5.0, 1.5, 0.01),
+        Taper::Linear,
+        "Voiced by ear, not physics (the player, 2026-10-29, milestone 10m): how far each reed's pitch drifts either side of its tuning, slowly and never the same way twice, about one swing every two seconds. With steady air a reed is a clock, and a tremolo of clocks beats in the same pattern every few seconds, heard as a loop; the model's own causes -- its pitch under pressure, -0.25 cents for 10 % more at A4, and its jet's turbulence -- move a beat too little to hear (measured). 0 keeps the reeds as clocks.",
     ),
 ];
 

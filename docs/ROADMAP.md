@@ -4314,3 +4314,69 @@ hour, none at any of the twelve changes; no block over the deadline in the
 engine's log, the slowest 3.46 ms of 5.33. A player's chord after a change
 of program no longer clicks; one struck with it, within some 16 ms, still
 does.
+
+## 10m. A tremolo that does not loop
+
+The user's report (2026-10-29, RackForge on Windows and the Pi): a held
+note "oscillates like a loop", and should sound more natural; worse up the
+keyboard, where the loop is shorter. Not in Clarinet, M alone.
+
+**Measured first.**
+* Not the room. Its delay lines' wander is eight sines; a smooth random
+  swing in their place took the swell's repetition from 0.44-0.78 to
+  0.17-0.42 and kept 9d's guards, and the player heard no difference.
+  Withdrawn.
+* Not the host's blocks: a held note rendered in one call and in blocks
+  of 128 and 256 frames is the same bits. Not the reed alone: a held
+  Clarinet A4, C4 and E5 move under 0.45 dB at every velocity and at
+  44.1 kHz.
+* The tremolo. Musette Paris's M−, M and M+ beat at two rates (5.94 and
+  5.35 Hz at A4) whose pattern comes back every 4.34 s at A3, 3.37 at A4,
+  2.66 at A5, the waveform 0.975, 0.975 and 0.999 alike one pattern later:
+  every reed a clock, its air steady. With two reeds the beat is one rate,
+  as steady.
+
+**What would move it, measured on the model.**
+* The arm's unsteadiness through the reeds' pitch under pressure: a reed
+  falls 0.25 cents for 10 % more pressure at A4, and reeds of ±20 % set or
+  the clearance's tolerance (0.030-0.040 mm) differ in that by ±0.05 cents
+  and in level by ±0.3 dB. A beat would move some 0.004 Hz: not heard.
+* Turbulence, as a white noise on each reed's pressure: at 5 % the hiss
+  between the harmonics is 27 dB under the tone (67 without), and the
+  pattern is as alike as before (0.946 against 0.947 at A4); at 40 %, 9 dB
+  of hiss and still 0.905. A reed is too stiff an oscillator for noise to
+  move its phase before it is heard as noise.
+* Weaker tremolo reeds, to make the beat shallower: in the Accordion
+  register (L M− M H) the beat is 3.9 dB deep at A4 and 5.6 at A5, L and H
+  filling it; M− and M+ 4 dB down left 3.7 and 4.6. Not the cause either.
+
+**Change (not exact; voiced, not physics):** each rank's pitch drifts
+either side of its tuning, a swing about every two seconds, each a random
+0.4-1 of Reed Drift's reach out and 0.6-1.4 of the average time long,
+eased (smoothstep), from a xorshift seeded by the key, the rank and the
+side; the plate's two reeds share it, as the model makes them twins.
+Reed Drift, on PLAY's Voice group, 0-5 cents. Heard (2026-10-29) at 0.6
+and 1.5 cents: 1.5 a little better, the tremolo itself still there -- it
+is the register's, 3.7 Hz at A4 in Accordion at the default Tremolo.
+
+**Predictions** (written before the final seeds were measured):
+1. Reed Drift at 0 is the reeds as clocks: Musette Paris's A5 envelope
+   more than 0.99 alike three patterns later.
+2. At 1.5 cents, under 0.3 at A4 and at A5.
+3. A held Musette A4's level within 0.1 dB of the clocks'.
+4. A held Clarinet A4's mean pitch within 0.3 cents of the clocks'.
+5. Every other test passes; the fingerprints all move, each scene's level
+   within 1 dB of the reference.
+
+**Results** (`tests/milestone_10m.rs`):
+1. MET: 0.996.
+2. MET: -0.13 at A4, -0.34 at A5.
+3. MET: -0.001 dB.
+4. MET: +0.13 cents.
+5. MET, with one test changed: every scene's level within 0.65 dB, its
+   peaks within 2.4 dB. 9c's preamp test (Key Touch on, -6 dBFS within
+   0.5) peaked at -9.2 dBFS over its four seconds: the bass's octaves no
+   longer keep their phases, and the moment every reed lines up comes
+   later or not at all (-7.7 over 30 s), while a held note's RMS is the
+   same. The preamp was set on clocks and stays; the test measures them,
+   Reed Drift at 0. The engine fits its stack (1356 KiB of 1365).

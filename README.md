@@ -42,7 +42,9 @@ which reed of each plate sounds, is the Bellows Direction parameter or CC 80
 as a switch (below 64 pull, 64 and above push), since no MIDI accordion
 sends it. The Register parameter opens the ranks as Roland's FR-3x draws its
 14 treble registers, from Clarinet (M alone) to Master; Tremolo sets the
-musette's beat; Cassotto puts the 16′ and the true 8′ in a tone chamber.
+musette's beat, and Reed Drift lets each reed's pitch wander a little so
+the beat never repeats itself; Cassotto puts the 16′ and the true 8′ in a
+tone chamber.
 
 The bass side listens as a Roland V-Accordion sends it: the bass buttons on
 MIDI channel 2 (any octave of a note is its button), the chords on channel 3

@@ -906,16 +906,41 @@ pub fn step(
     pallet: f64,
     h: f64,
 ) -> f64 {
+    step_detuned(model, state, tube, supply, pallet, h, 1.0)
+}
+
+/// [`step`] with the tongue's stiffness scaled by `stiffness`, the square
+/// of the frequency ratio it detunes the reed by.
+#[inline]
+pub fn step_detuned(
+    model: &ReedModel,
+    state: &mut ReedState,
+    tube: &mut Tube,
+    supply: f64,
+    pallet: f64,
+    h: f64,
+    stiffness: f64,
+) -> f64 {
     if model.prepared.h == h {
-        step_with(model, &model.prepared, state, tube, supply, pallet, h)
+        step_with(
+            model,
+            &model.prepared,
+            state,
+            tube,
+            supply,
+            pallet,
+            h,
+            stiffness,
+        )
     } else {
         let constants = StepConstants::new(model, h);
-        step_with(model, &constants, state, tube, supply, pallet, h)
+        step_with(model, &constants, state, tube, supply, pallet, h, stiffness)
     }
 }
 
 /// [`step`] with what it asks of the model alone already computed.
 #[inline(always)]
+#[allow(clippy::too_many_arguments)]
 fn step_with(
     model: &ReedModel,
     constants: &StepConstants,
@@ -924,9 +949,10 @@ fn step_with(
     supply: f64,
     pallet: f64,
     h: f64,
+    stiffness: f64,
 ) -> f64 {
     let d = &model.design;
-    let omega2 = model.omega2;
+    let omega2 = model.omega2 * stiffness;
     let lift = (state.zeta + 0.5 * h * state.velocity) * model.inverse_width;
     let speed = math::sqrt(2.0 * state.cell_pressure.max(0.0) / AIR_DENSITY);
     let limit = model.swing_density * speed * d.width * d.length * lift * lift;

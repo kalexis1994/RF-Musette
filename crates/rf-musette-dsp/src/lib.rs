@@ -163,6 +163,76 @@ struct Rank {
     states: [ReedState; 2],
     /// Each reed's cell, a tube (milestone 8l).
     tubes: [Tube; 2],
+    /// The rank's slow drift either side of its tuning ([`Drift`]), its
+    /// two reeds' alike: the model makes them twins, and one sounds at a
+    /// time.
+    drift: Drift,
+}
+
+/// How many swings a second a reed's drift makes, on average: voiced with
+/// [`parameters::REED_DRIFT`] (the player, 2026-10-29, milestone 10m).
+const DRIFT_SWINGS: f64 = 0.5;
+
+/// A reed's pitch drifting either side of its tuning, slowly and never the
+/// same way twice: from one place to the next on the other side, 0.4 to 1
+/// of the way out, eased as `progress` goes 0 to 1 by `pace` a step, over
+/// 0.6 to 1.4 of the average time; the places and paces drawn from `seed`,
+/// 0 until the reed is first blown.
+///
+/// Not physics, stated as such (docs/MODEL.md): a reed with steady air is a
+/// clock, and a tremolo of clocks beats in the same pattern every few
+/// seconds, heard as a loop. What moves a real reed's pitch as played was
+/// not found measured; the model's own -- its pitch under pressure, its
+/// jet's turbulence -- move a beat too little to hear (milestone 10m).
+#[derive(Debug, Clone, Copy, Default)]
+struct Drift {
+    from: f64,
+    to: f64,
+    progress: f64,
+    pace: f64,
+    seed: u32,
+}
+
+impl Drift {
+    /// The tongue's stiffness this step, as a factor: `cents` the drift's
+    /// reach, `seed` the reed's own, `h` the step.
+    fn stiffness(&mut self, cents: f64, seed: u32, h: f64) -> f64 {
+        if self.seed == 0 {
+            self.seed = seed.max(1);
+            self.to = 2.0 * self.draw() - 1.0;
+            self.swing(h);
+        }
+        self.progress += self.pace;
+        if self.progress >= 1.0 {
+            self.swing(h);
+        }
+        // Eased in and out, so the pitch glides and never jumps:
+        // smoothstep, its slope zero at either place.
+        let t = self.progress;
+        let place = self.from + (self.to - self.from) * t * t * (3.0 - 2.0 * t);
+        // The frequency's ratio squared, 2^(2c/1200), to first order: the
+        // reach is a few cents.
+        1.0 + 2.0 * core::f64::consts::LN_2 / 1200.0 * cents * place
+    }
+
+    fn swing(&mut self, h: f64) {
+        self.from = self.to;
+        let side = if self.from > 0.0 { -1.0 } else { 1.0 };
+        self.to = side * (0.4 + 0.6 * self.draw());
+        self.pace = DRIFT_SWINGS * h / (0.6 + 0.8 * self.draw());
+        self.progress = 0.0;
+    }
+
+    /// A number in 0..1 from a xorshift: integers, so every build draws the
+    /// same, and the native builds stay the component's bit for bit.
+    fn draw(&mut self) -> f64 {
+        let mut x = self.seed;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        self.seed = x;
+        f64::from(x) / f64::from(u32::MAX)
+    }
 }
 
 impl Rank {
@@ -349,6 +419,7 @@ impl Engine {
             model: None,
             states: [ReedState::default(); 2],
             tubes: [Tube::default(); 2],
+            drift: Drift::default(),
         };
         let keys = core::array::from_fn(|_| Key {
             pallet: Pallet::default(),
@@ -442,6 +513,11 @@ impl Engine {
         if index == parameters::BELLOWS_DIRECTION {
             self.flipped = false;
             self.spent = 0.0;
+        }
+        // Reed Drift is read as the reeds are stepped: nothing to rebuild,
+        // and no microphone moved.
+        if index == parameters::REED_DRIFT {
+            return true;
         }
         // A change of bass system lets go of the left hand: what it held was
         // held on the other system's buttons (milestone 8p).
@@ -1079,6 +1155,7 @@ impl Engine {
         boxed: &mut [f64; stage::TREBLE_SOURCES],
         inside: &mut [f64; stage::SOURCES],
         drawn: &mut f64,
+        drift_cents: f64,
     ) {
         for blown in &queue.reeds[..queue.count] {
             let (at, rank) = (usize::from(blown.at), usize::from(blown.rank));
@@ -1087,6 +1164,7 @@ impl Engine {
                 model,
                 states,
                 tubes,
+                drift,
                 ..
             } = if blown.free {
                 &mut free[at].ranks[rank]
@@ -1099,7 +1177,17 @@ impl Engine {
             let which = usize::from(blown.which);
             let (state, tube) = (&mut states[which], &mut tubes[which]);
             let swing = state.velocity;
-            let rate = reed::step(model, state, tube, blown.blow, blown.area, h);
+            // Every rank its own drift: the key, the rank and the side
+            // mixed into its seed.
+            let seed = (at as u32 + 1).wrapping_mul(0x9E37_79B1)
+                ^ (rank as u32 + 1).wrapping_mul(0x85EB_CA77)
+                ^ u32::from(blown.free).wrapping_mul(0xC2B2_AE3D);
+            let stiffness = if drift_cents > 0.0 {
+                drift.stiffness(drift_cents, seed, h)
+            } else {
+                1.0
+            };
+            let rate = reed::step_detuned(model, state, tube, blown.blow, blown.area, h, stiffness);
             resting[which] = *state == ReedState::default();
             let source = usize::from(blown.source);
             let into = if blown.boxed {
@@ -1308,6 +1396,7 @@ impl Engine {
         });
         let gain = self.parameters.get(parameters::GAIN).unwrap_or(1.0) as f32;
         let kick = self.parameters.get(parameters::ATTACK_KICK).unwrap_or(0.0);
+        let drift_cents = self.parameters.get(parameters::REED_DRIFT).unwrap_or(0.0);
         // The ranks the registers let the bellows reach, on either side.
         let open = self.parameters.open_ranks();
         let open_bass = self.parameters.open_bass_ranks();
@@ -1541,6 +1630,7 @@ impl Engine {
                     &mut boxed,
                     &mut inside_flow,
                     &mut drawn,
+                    drift_cents,
                 );
                 self.draw = drawn;
                 if travel.is_some() {

@@ -71,7 +71,7 @@ pub const PAGES: &[Page] = &[
             Group {
                 id: "voice",
                 title: "Voice",
-                parameters: &["gain", "tremolo", "cassotto", "pitch_a4"],
+                parameters: &["gain", "tremolo", "reed_drift", "cassotto", "pitch_a4"],
                 shown_when: None,
             },
         ],

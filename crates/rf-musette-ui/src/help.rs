@@ -55,6 +55,10 @@ pub const HELP: &[(&str, &str)] = &[
         "How fast the tremolo reeds beat against the middle reed: low is a dry, pure sound, high is the wet shimmer of musette.",
     ),
     (
+        "reed_drift",
+        "How far each reed's pitch wanders, slowly, either side of its tuning, so the tremolo's beat breathes instead of repeating like a loop. 0 holds every reed perfectly still.",
+    ),
+    (
         "cassotto",
         "The tone chamber: puts the bassoon and middle reeds inside a chamber, for a rounder, darker sound.",
     ),

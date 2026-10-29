@@ -144,4 +144,4 @@ used: [docs/SOURCES.md](docs/SOURCES.md).
 
 ## License
 
-GPL-3.0-only. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
+GPL-2.0-or-later. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).

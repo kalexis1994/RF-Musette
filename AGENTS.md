@@ -1,7 +1,7 @@
 # RF-Musette working conventions
 
 - Keep project code, documentation and CLI messages in English. Speak to the user in their preferred language.
-- The project is GPL-3.0-only. No sample library, recording or third-party synthesizer source code enters this repository; the instrument is computed, and the notices say so.
+- The project is GPL-2.0-or-later, like RF-Organ; keep every dependency and every derived figure compatible with that. No sample library, recording or third-party synthesizer source code enters this repository; the instrument is computed, and the notices say so.
 - There is no reference recording: the model is judged by its physics and by the player's ear (decided 2026-09-30, `docs/RESEARCH.md`). Every constant in `docs/MODEL.md` is marked *measured* (with its source), *derived* (by stated physics from measured ones) or *voiced by ear* (with the date and what was heard). Never cite a voiced value as measured.
 - Published numbers are tests on emergent behaviour, not targets to fit. When a voicing by ear pushes the model outside what real reeds do, say so and let the player decide; sound changes are always the player's call.
 - Before a DSP change, measure which stage causes the symptom and state the prediction the change must meet. A metric improving is not enough on its own.

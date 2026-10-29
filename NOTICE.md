@@ -1,7 +1,9 @@
 # Notices
 
 RF-Musette is an independent RackForge plugin implemented in Rust and
-distributed under GPL-3.0-only.
+distributed under GPL-2.0-or-later, the licence of the other RackForge
+instruments it is played beside. Releases up to and including 0.13.22 were
+distributed under GPL-3.0-only; they remain available under those terms.
 
 RF-Musette and RackForge are separate software components. The plugin package
 contains only RF-Musette-owned runtime code, metadata and the license/notice

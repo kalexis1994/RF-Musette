@@ -115,7 +115,7 @@ jobs:
             library: rf_musette_plugin.dll
             compare: true
           - platform: macos-aarch64
-            os: macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             library: librf_musette_plugin.dylib
             compare: true
